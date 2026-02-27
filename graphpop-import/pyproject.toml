@@ -1,0 +1,26 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "graphpop-import"
+version = "0.1.0"
+description = "VCF to Neo4j import pipeline for GraphPop"
+requires-python = ">=3.11"
+dependencies = [
+    "cyvcf2",
+    "pandas",
+    "numpy",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest",
+    "ruff",
+]
+
+[project.scripts]
+graphpop-import = "graphpop_import.bulk_import:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]

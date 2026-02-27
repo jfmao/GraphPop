@@ -1,0 +1,1095 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GraphPop: Revised Implementation Roadmap</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+            min-height: 100vh;
+            padding: 20px;
+            color: #334155;
+        }
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            overflow: hidden;
+        }
+        header {
+            background: linear-gradient(135deg, #1e3a5f 0%, #0f172a 100%);
+            color: white;
+            padding: 40px;
+            text-align: center;
+        }
+        header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+            letter-spacing: 1px;
+        }
+        header .subtitle {
+            font-size: 1.2em;
+            opacity: 0.9;
+            margin-bottom: 8px;
+        }
+        header .version {
+            font-size: 0.9em;
+            opacity: 0.7;
+            font-style: italic;
+        }
+        nav {
+            background: #f8fafc;
+            padding: 16px 20px;
+            display: flex;
+            justify-content: center;
+            flex-wrap: wrap;
+            gap: 8px;
+            border-bottom: 3px solid #3b82f6;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+        .nav-btn {
+            padding: 10px 20px;
+            background: white;
+            border: 2px solid #3b82f6;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-weight: 600;
+            font-size: 0.9em;
+            color: #3b82f6;
+        }
+        .nav-btn:hover, .nav-btn.active {
+            background: #3b82f6;
+            color: white;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4);
+        }
+        .content { padding: 40px; }
+        .section { display: none; animation: fadeIn 0.4s; }
+        .section.active { display: block; }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(15px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        h2 {
+            color: #1e293b;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 3px solid #3b82f6;
+            font-size: 1.6em;
+        }
+        h3 {
+            color: #334155;
+            margin-top: 25px;
+            margin-bottom: 15px;
+        }
+        .card {
+            background: #f8fafc;
+            border-left: 4px solid #3b82f6;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 0 8px 8px 0;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+        }
+        .card h4 { color: #3b82f6; margin-bottom: 10px; }
+        .card-accent {
+            background: #eff6ff;
+            border-left: 4px solid #2563eb;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 0 8px 8px 0;
+        }
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 20px;
+            margin: 20px 0;
+        }
+        .grid-item {
+            background: linear-gradient(135deg, #1e3a5f 0%, #3b82f6 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            transition: transform 0.3s;
+        }
+        .grid-item:hover { transform: translateY(-4px); }
+        .grid-item h4 { margin-bottom: 10px; font-size: 1.05em; }
+        .grid-item ul { padding-left: 18px; }
+        .grid-item li { margin: 5px 0; font-size: 0.92em; line-height: 1.5; }
+
+        /* Timeline */
+        .timeline {
+            position: relative;
+            padding-left: 40px;
+            margin: 30px 0;
+        }
+        .timeline::before {
+            content: '';
+            position: absolute;
+            left: 15px;
+            top: 0;
+            bottom: 0;
+            width: 3px;
+            background: linear-gradient(to bottom, #3b82f6, #8b5cf6, #ec4899);
+        }
+        .timeline-item {
+            position: relative;
+            margin-bottom: 30px;
+            padding: 24px;
+            background: #f8fafc;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.08);
+            border: 1px solid #e2e8f0;
+        }
+        .timeline-item::before {
+            content: '';
+            position: absolute;
+            left: -32px;
+            top: 28px;
+            width: 15px;
+            height: 15px;
+            border-radius: 50%;
+            background: #3b82f6;
+            border: 3px solid white;
+            box-shadow: 0 0 0 2px #3b82f6;
+        }
+        .phase-badge {
+            display: inline-block;
+            padding: 6px 16px;
+            border-radius: 20px;
+            font-size: 0.85em;
+            font-weight: 700;
+            margin-bottom: 12px;
+            color: white;
+        }
+        .phase-1 { background: #2563eb; }
+        .phase-2 { background: #7c3aed; }
+        .phase-3a { background: #c026d3; }
+        .phase-3b { background: #db2777; }
+        .phase-4 { background: #dc2626; }
+        .phase-5 { background: #ea580c; }
+        .phase-6 { background: #16a34a; }
+
+        ul { margin: 12px 0; padding-left: 20px; }
+        li { margin: 6px 0; line-height: 1.6; }
+        .highlight { background: #fef3c7; padding: 2px 6px; border-radius: 3px; }
+
+        /* Publication card */
+        .pub-card {
+            margin-top: 20px;
+            padding: 18px;
+            background: #dcfce7;
+            border-left: 4px solid #16a34a;
+            border-radius: 0 8px 8px 0;
+        }
+        .pub-card strong { color: #166534; }
+        .pub-card p { margin-top: 6px; }
+        .pub-card ul { margin-top: 8px; }
+
+        .sync-badge {
+            display: inline-block;
+            padding: 3px 10px;
+            background: #16a34a;
+            color: white;
+            border-radius: 12px;
+            font-size: 0.75em;
+            margin-left: 8px;
+            font-weight: 600;
+        }
+
+        .warning-box {
+            background: #fef3c7;
+            border-left: 4px solid #eab308;
+            padding: 15px;
+            margin: 15px 0;
+            border-radius: 0 8px 8px 0;
+        }
+
+        .allofus-box {
+            background: #fef2f2;
+            border-left: 4px solid #ef4444;
+            padding: 15px;
+            margin: 15px 0;
+            border-radius: 0 8px 8px 0;
+        }
+        .allofus-box strong { color: #991b1b; }
+
+        .scale-badge {
+            display: inline-block;
+            padding: 3px 10px;
+            background: #ef4444;
+            color: white;
+            border-radius: 12px;
+            font-size: 0.75em;
+            margin-left: 8px;
+            font-weight: 600;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+            background: white;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+        }
+        th {
+            background: #1e3a5f;
+            color: white;
+            padding: 14px 15px;
+            text-align: left;
+            font-weight: 600;
+        }
+        td {
+            padding: 12px 15px;
+            border-bottom: 1px solid #e2e8f0;
+        }
+        tr:hover { background: #f8fafc; }
+
+        .metric-box {
+            background: white;
+            border-radius: 10px;
+            padding: 20px;
+            text-align: center;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.08);
+            border: 1px solid #e2e8f0;
+        }
+        .metric-value {
+            font-size: 2.5em;
+            font-weight: 700;
+            color: #3b82f6;
+            margin: 8px 0;
+        }
+        .metric-label { color: #64748b; font-size: 0.88em; }
+
+        .funding-badge {
+            display: inline-block;
+            padding: 8px 14px;
+            background: #059669;
+            color: white;
+            border-radius: 8px;
+            margin: 4px;
+            font-size: 0.88em;
+            font-weight: 500;
+        }
+        .collab-section {
+            background: linear-gradient(135deg, #eff6ff 0%, #e0f2fe 100%);
+            border-radius: 12px;
+            padding: 25px;
+            margin: 25px 0;
+        }
+
+        code {
+            background: #f1f5f9;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-family: 'Consolas', 'Monaco', monospace;
+            font-size: 0.9em;
+            color: #1e293b;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>&#x1F9EC; GraphPop Platform</h1>
+            <p class="subtitle">Integrative Evolutionary Inference from Population Variation Graphs</p>
+            <p class="version">Revised Implementation Roadmap v3.0 — Unified from Design v1, v2, and original roadmap. Targets All of Us scale.</p>
+        </header>
+
+        <nav>
+            <button class="nav-btn active" onclick="showSection('overview')">Overview</button>
+            <button class="nav-btn" onclick="showSection('architecture')">Architecture</button>
+            <button class="nav-btn" onclick="showSection('scale')">&#x1F4CA; Scale &amp; Deployment</button>
+            <button class="nav-btn" onclick="showSection('roadmap')">&#x1F5D3; Roadmap (48 Mo)</button>
+            <button class="nav-btn" onclick="showSection('publications')">&#x1F4DD; Publications</button>
+            <button class="nav-btn" onclick="showSection('applications')">Novel Applications</button>
+            <button class="nav-btn" onclick="showSection('team')">Team &amp; Resources</button>
+            <button class="nav-btn" onclick="showSection('metrics')">Success Metrics</button>
+        </nav>
+
+        <div class="content">
+
+            <!-- ===== OVERVIEW ===== -->
+            <div id="overview" class="section active">
+                <h2>Project Overview</h2>
+
+                <div class="card">
+                    <h4>Core Vision</h4>
+                    <p>GraphPop transforms population genomics by treating variant datasets as <strong>living, queryable graphs</strong> where structure, recombination, selection, and evolutionary dynamics become different projections of the same relational object. It targets datasets from rice 3K to the <strong>NIH All of Us</strong> program (1 billion+ variants, 1 million+ samples).</p>
+                </div>
+
+                <div class="grid">
+                    <div class="grid-item">
+                        <h4>&#x1F3AF; Primary Goal</h4>
+                        <p>Replace isolated VCF-centric pipelines with a unified graph database enabling seamless integration of all population genetic analyses — at any scale from laptop to cloud cluster.</p>
+                    </div>
+                    <div class="grid-item">
+                        <h4>&#x1F4A1; Innovation</h4>
+                        <p>Graph embeddings + GraphRAG + AI agents create feedback loops impossible in classical workflows. Dual-path compute engine (fast allele-count path + sparse CARRIES path) enables million-sample analyses.</p>
+                    </div>
+                    <div class="grid-item">
+                        <h4>&#x1F33E; Target Systems</h4>
+                        <p>Crops (rice, maize, wheat) and their wild relatives <strong>AND</strong> human populations via All of Us (500K+ genomes). Both evolutionary inference and biomedical applications.</p>
+                    </div>
+                </div>
+
+                <h3>Two Foundational Requirements</h3>
+                <div class="allofus-box">
+                    <strong>&#x1F534; Requirement 1: All of Us Scale</strong>
+                    <p>1+ billion variants, 1+ million samples, 100+ TB raw genotype data. From NIH All of Us: 414,830 srWGS (Feb 2025), 535K planned spring 2026, 1M+ target.</p>
+                </div>
+                <div class="card-accent">
+                    <strong>&#x1F535; Requirement 2: Fully Graph-Native</strong>
+                    <p>No external columnar store. The graph database IS the computational substrate. All genotype data, statistics, and inferences live in Neo4j.</p>
+                </div>
+
+                <h3>Why Graph-Native Matters</h3>
+                <div class="card">
+                    <ul>
+                        <li><strong>Memory Efficiency:</strong> Window queries load only relevant data (5–100&times; less RAM)</li>
+                        <li><strong>Speed:</strong> Fast-path statistics O(V&times;K) independent of sample count N; ~20,000&times; less I/O than dosage vectors at 1M samples</li>
+                        <li><strong>Composability:</strong> Combine F<sub>ST</sub>, Tajima's D, recombination rate, and functional enrichment in single queries</li>
+                        <li><strong>Evolvability:</strong> Incremental updates — new sample adds ~4.5M CARRIES edges without touching any Variant nodes</li>
+                        <li><strong>Relational Queries:</strong> "Find all individuals sharing an IBD segment overlapping a high-F<sub>ST</sub> missense variant in a drought-response pathway" — one query, no ad-hoc pipeline</li>
+                    </ul>
+                </div>
+            </div>
+
+            <!-- ===== ARCHITECTURE ===== -->
+            <div id="architecture" class="section">
+                <h2>System Architecture</h2>
+
+                <h3>Seven-Layer Architecture</h3>
+                <div class="card" style="font-family: monospace; font-size: 0.85em; white-space: pre; overflow-x: auto; line-height: 1.6;">Layer 7: AI-Augmented Inference (GraphRAG, LangGraph agents, NL interface)
+Layer 6: Simulation Integration (msprime/SLiM, ABC framework)
+Layer 5: Inference Engines (demographic, selection, recombination)
+Layer 4: Graph Algorithms &amp; Embeddings (community detection, GNN, manifolds)
+Layer 3: Pairwise &amp; Relational Statistics (kinship, IBS/IBD, ROH)
+Layer 2: Summary Statistics Engine (SFS, &pi;, F<sub>ST</sub>, iHS — FAST + FULL paths)
+Layer 1: Data Foundation (schema, import/export, VectorOps SIMD, CARRIES)</div>
+
+                <h3>The Stratified Aggregation Model (Schema v3)</h3>
+                <div class="card">
+                    <h4>Node Types</h4>
+                    <ul>
+                        <li><strong>Variant:</strong> Population allele count arrays (ac, an, af, het_count per pop), ancestral state, functional annotation summary, quality</li>
+                        <li><strong>Sample:</strong> Individual metadata, ancestry, PCA coords, phenotypes, embeddings</li>
+                        <li><strong>Population:</strong> Grouping + pre-computed constants (a<sub>n</sub>, a<sub>n2</sub>, b<sub>n</sub> for Tajima's D)</li>
+                        <li><strong>Chromosome:</strong> Length, variant count, centromere coordinates</li>
+                        <li><strong>GenomicWindow:</strong> Materialized windowed statistics (all diversity/divergence metrics)</li>
+                        <li><strong>DenseWindow:</strong> On-demand cached genotype matrix for common variants (LD, PCA)</li>
+                        <li><strong>Gene / RegulatoryElement / Pathway / GOTerm:</strong> Functional annotation layer</li>
+                        <li><strong>InferenceResult:</strong> Versioned outputs from inference methods</li>
+                    </ul>
+                </div>
+
+                <div class="card">
+                    <h4>Relationship Types</h4>
+                    <ul>
+                        <li><strong>NEXT:</strong> Positional chain per chromosome (distance_bp, distance_cM)</li>
+                        <li><strong>CARRIES:</strong> <span class="highlight">THE core relationship</span> — sparse Sample&rarr;Variant (gt: 1=HET, 2=HOM_ALT; phase). HOM_REF implicit.</li>
+                        <li><strong>LD:</strong> Linkage disequilibrium (r&sup2;, D', population). Sparse, above threshold.</li>
+                        <li><strong>ON_CHROMOSOME:</strong> Variant&rarr;Chromosome</li>
+                        <li><strong>HAS_CONSEQUENCE:</strong> Variant&rarr;Gene with VEP consequence type + impact</li>
+                        <li><strong>IN_PATHWAY / HAS_GO_TERM / IS_A:</strong> Functional annotation hierarchy</li>
+                        <li><strong>IN_POPULATION:</strong> Sample&rarr;Population membership</li>
+                        <li><strong>KINSHIP:</strong> Sparse Sample&rarr;Sample (above threshold)</li>
+                        <li><strong>IBD_SEGMENT:</strong> Sample&rarr;Sample shared haplotype segments</li>
+                        <li><strong>COMPUTED_FROM / CONDITIONED_ON:</strong> Inference provenance</li>
+                    </ul>
+                </div>
+
+                <h3>Dual-Path Computation Engine</h3>
+                <div class="grid" style="grid-template-columns: 1fr 1fr;">
+                    <div class="grid-item" style="background: linear-gradient(135deg, #059669, #10b981);">
+                        <h4>&#x26A1; Fast Path (O(V&times;K))</h4>
+                        <p style="margin-bottom: 10px;">Uses ONLY allele count arrays on Variant nodes. No CARRIES traversal.</p>
+                        <ul>
+                            <li>&pi; (nucleotide diversity)</li>
+                            <li>&theta;<sub>W</sub> (Watterson's theta)</li>
+                            <li>Tajima's D, Fay &amp; Wu's H</li>
+                            <li>H<sub>e</sub>, H<sub>o</sub>, F<sub>IS</sub></li>
+                            <li>F<sub>ST</sub> (Hudson), D<sub>xy</sub></li>
+                            <li>SFS, Joint SFS</li>
+                            <li>genome_scan() (windowed)</li>
+                        </ul>
+                    </div>
+                    <div class="grid-item" style="background: linear-gradient(135deg, #dc2626, #f97316);">
+                        <h4>&#x1F50D; Full Path (CARRIES traversal)</h4>
+                        <p style="margin-bottom: 10px;">Traverses sparse CARRIES edges. Efficient for rare variants (&gt;90% at AoU scale).</p>
+                        <ul>
+                            <li>r&sup2; / D' (LD)</li>
+                            <li>iHS, XP-EHH</li>
+                            <li>Kinship (KING-robust)</li>
+                            <li>PCA / GRM construction</li>
+                            <li>IBD segment detection</li>
+                            <li>ROH detection</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <h3>Technology Stack</h3>
+                <div class="card">
+                    <table>
+                        <tr><th>Component</th><th>Technology</th><th>Purpose</th></tr>
+                        <tr><td>Graph Database</td><td>Neo4j 5.x Community / Enterprise + Infinigraph</td><td>Core storage, querying, CARRIES relationships</td></tr>
+                        <tr><td>Compute Engine</td><td>Java plugin (JDK 21+, Vector API SIMD)</td><td>graphpop-procedures.jar — all stored procedures</td></tr>
+                        <tr><td>Graph Analytics</td><td>Neo4j GDS (Graph Data Science)</td><td>Embeddings, community detection, pathfinding</td></tr>
+                        <tr><td>VCF Processing</td><td>cyvcf2, bcftools, PLINK2</td><td>Parsing, pre-filtering, import pipeline</td></tr>
+                        <tr><td>Simulation</td><td>msprime, SLiM, stdpopsim</td><td>Forward/coalescent simulation conditioning</td></tr>
+                        <tr><td>AI/GraphRAG</td><td>LangGraph, LlamaIndex, Claude API</td><td>Hypothesis generation, NL interface</td></tr>
+                        <tr><td>GNN</td><td>PyTorch Geometric, DGL</td><td>GraphSAGE/GAT on RTX 4090</td></tr>
+                        <tr><td>Visualization</td><td>Plotly, Cytoscape.js, D3.js</td><td>Interactive graph/embedding views</td></tr>
+                    </table>
+                </div>
+            </div>
+
+            <!-- ===== SCALE & DEPLOYMENT ===== -->
+            <div id="scale" class="section">
+                <h2>&#x1F4CA; Scale: From Laptop to All of Us</h2>
+
+                <h3>The All of Us Data Challenge</h3>
+                <div class="allofus-box">
+                    <strong>All of Us (NIH): Current &amp; Projected</strong>
+                    <ul>
+                        <li>245,388 WGS (Nature 2024) &rarr; 414,830 srWGS (Feb 2025) &rarr; 535K (spring 2026) &rarr; <strong>1,000,000+ target</strong></li>
+                        <li>&gt;1 billion variants from 245K genomes; projected 1.5–2B at 1M genomes</li>
+                        <li>Dosage-vector model: 1B variants &times; 1M samples &times; 1 byte = <strong>1 petabyte</strong> — impossible</li>
+                        <li>Stratified Aggregation Model: <strong>~140 TB total</strong> — feasible with Infinigraph cluster</li>
+                    </ul>
+                </div>
+
+                <h3>Three-Tier Deployment</h3>
+                <div class="grid">
+                    <div class="grid-item" style="background: linear-gradient(135deg, #1d4ed8, #3b82f6);">
+                        <h4>Tier 1: Development</h4>
+                        <ul>
+                            <li>i9-13900K, 64 GB, RTX 4090, 4 TB NVMe</li>
+                            <li>Single chromosome, 5K–50K samples</li>
+                            <li>Neo4j Community 5.x on WSL2</li>
+                            <li>~50M variants, 200M–1B CARRIES</li>
+                            <li>5–140 GB total</li>
+                        </ul>
+                    </div>
+                    <div class="grid-item" style="background: linear-gradient(135deg, #7c3aed, #a855f7);">
+                        <h4>Tier 2: Production Research</h4>
+                        <ul>
+                            <li>3–5 machine cluster (cloud or on-prem)</li>
+                            <li>Whole genome, 50K–200K samples</li>
+                            <li>Neo4j Enterprise + Infinigraph</li>
+                            <li>~1B variants, 200B–500B CARRIES</li>
+                            <li>10–50 TB — <em>publishable paper scale</em></li>
+                        </ul>
+                    </div>
+                    <div class="grid-item" style="background: linear-gradient(135deg, #dc2626, #ef4444);">
+                        <h4>Tier 3: Full All of Us</h4>
+                        <ul>
+                            <li>10–20+ machine cluster</li>
+                            <li>Whole genome, 500K–1M+ samples</li>
+                            <li>Neo4j Enterprise Infinigraph</li>
+                            <li>~1.5B variants, 4.5 trillion CARRIES</li>
+                            <li>100–300 TB — <em>long-term target</em></li>
+                        </ul>
+                    </div>
+                </div>
+
+                <div class="card-accent">
+                    <h4>Key Principle</h4>
+                    <p>Schema, stored procedures, and query patterns are <strong>IDENTICAL across all three tiers</strong>. Only data volume and deployment topology change. Code written on your laptop works unchanged on the full cluster.</p>
+                </div>
+
+                <h3>Arithmetic Summary (Tier 3: 1M samples, 1.5B variants)</h3>
+                <div class="card">
+                    <table>
+                        <tr><th>Component</th><th>Scale</th><th>Storage</th><th>Feasible?</th></tr>
+                        <tr><td>Variant nodes (allele count arrays)</td><td>1.5B &times; ~2.5 KB</td><td>~3.7 TB</td><td>Yes (Infinigraph)</td></tr>
+                        <tr><td>NEXT relationships</td><td>1.5B &times; 24 bytes</td><td>~36 GB</td><td>Easily</td></tr>
+                        <tr><td>CARRIES relationships (sparse)</td><td>~4.5T &times; 30 bytes</td><td>~135 TB</td><td>Yes (cluster)</td></tr>
+                        <tr><td>Sample nodes</td><td>1M &times; ~2 KB</td><td>~2 GB</td><td>Easily</td></tr>
+                        <tr><td>LD edges (sparse)</td><td>~50B &times; 20 bytes</td><td>~1 TB</td><td>Yes</td></tr>
+                        <tr><td>Kinship edges (sparse)</td><td>~10B &times; 16 bytes</td><td>~160 GB</td><td>Yes</td></tr>
+                        <tr><td>Gene/Pathway/GO</td><td>~1M nodes + 5M edges</td><td>~1 GB</td><td>Trivially</td></tr>
+                        <tr><td>GenomicWindow nodes</td><td>~3M &times; 200 bytes</td><td>~600 MB</td><td>Trivially</td></tr>
+                        <tr><td><strong>TOTAL</strong></td><td></td><td><strong>~140 TB</strong></td><td><strong>Yes, Infinigraph</strong></td></tr>
+                    </table>
+                </div>
+
+                <h3>Competitive Landscape at All of Us Scale</h3>
+                <div class="card">
+                    <table>
+                        <tr><th>Platform</th><th>Nature</th><th>Strength</th><th>GraphPop Advantage</th></tr>
+                        <tr><td>Hail (Broad)</td><td>Distributed matrix (Spark)</td><td>GWAS at scale</td><td>No relational topology, no embeddings, no simulation loop</td></tr>
+                        <tr><td>GVS (All of Us)</td><td>Cloud variant store</td><td>Joint calling</td><td>Not a graph DB, no relational queries</td></tr>
+                        <tr><td>glow (Databricks)</td><td>Distributed genomics (Spark)</td><td>Matrix ops</td><td>Not graph-native</td></tr>
+                        <tr><td>vcftools/PLINK</td><td>Flat-file statistics</td><td>Simple, familiar</td><td>No persistent state, no conditioning</td></tr>
+                        <tr><td>tskit</td><td>Tree sequence toolkit</td><td>Coalescent sims</td><td>Not for empirical data, no annotation</td></tr>
+                    </table>
+                </div>
+            </div>
+
+            <!-- ===== ROADMAP ===== -->
+            <div id="roadmap" class="section">
+                <h2>&#x1F5D3; Integrated Roadmap: Implementation &rarr; Publications (48 Months)</h2>
+
+                <div class="card">
+                    <h4>Roadmap Philosophy</h4>
+                    <p><strong>Build &rarr; Validate &rarr; Discover &rarr; Publish.</strong> Each publication is tightly synchronized with completed implementation. Sequential phases with minimal overlap ensure quality. This roadmap integrates the original design milestones, the All of Us scale revisions, and the publication timeline.</p>
+                </div>
+
+                <div class="timeline">
+
+                    <!-- PHASE 1 -->
+                    <div class="timeline-item">
+                        <span class="phase-badge phase-1">Phase 1: Data Foundation + Summary Statistics (Months 1–8)</span>
+                        <h3>Graph Infrastructure, Import Pipeline, Core Statistics</h3>
+
+                        <h4>Milestone 1.1 — Import Pipeline (Month 1–2):</h4>
+                        <ul>
+                            <li>Python VCF parser (cyvcf2) emitting CARRIES relationships (sparse) + Variant allele count arrays</li>
+                            <li>CSV export for neo4j-admin bulk import</li>
+                            <li>Functional annotation lift (VEP CSQ &rarr; Gene/Consequence nodes)</li>
+                            <li>NEXT edge computation (sorted positional chain)</li>
+                            <li>Chunking strategy: per-chromosome, 100K variant blocks</li>
+                            <li><strong>Test:</strong> Import Rice 3K chr1 subset (100K variants) in &lt;10 min</li>
+                        </ul>
+
+                        <h4>Milestone 1.2 — VectorOps + Core Statistics (Month 2–4):</h4>
+                        <ul>
+                            <li>Java plugin with SIMD VectorOps (dense + sparse variants)</li>
+                            <li><code>graphpop.diversity()</code>, <code>graphpop.sfs()</code>, <code>graphpop.joint_sfs()</code>, <code>graphpop.divergence()</code></li>
+                            <li>All FAST PATH — read allele count arrays, no CARRIES traversal</li>
+                            <li><strong>Test:</strong> Reproduce vcftools/scikit-allel results to &lt;0.01% relative error</li>
+                        </ul>
+
+                        <h4>Milestone 1.3 — LD + Haplotype Statistics (Month 4–6):</h4>
+                        <ul>
+                            <li><code>graphpop.ld()</code> with sparse CARRIES traversal + edge writing</li>
+                            <li><code>graphpop.ihs()</code>, <code>graphpop.xpehh()</code> (FULL PATH)</li>
+                            <li><strong>Test:</strong> Reproduce selscan results on 1000 Genomes chr22</li>
+                        </ul>
+
+                        <h4>Milestone 1.4 — Genome Scan + Benchmark (Month 6–7):</h4>
+                        <ul>
+                            <li><code>graphpop.genome_scan()</code> with GenomicWindow materialization</li>
+                            <li>Full benchmark suite: 10 scenarios &times; 3 datasets &times; GraphPop vs classical tools</li>
+                            <li>Scenario E (conditioned Tajima's D for missense variants) as flagship demo</li>
+                        </ul>
+
+                        <div class="allofus-box">
+                            <strong>&#x1F534; Milestone 1.5 — Scaling Validation (Month 7–8):</strong> <span class="scale-badge">All of Us</span>
+                            <ul>
+                                <li>Import 1000 Genomes chr22 (2,504 samples, ~1.1M variants) &rarr; validate all statistics</li>
+                                <li>Import All of Us chr22 subset (if accessible; or msprime equivalent) with 50,000 samples</li>
+                                <li>Measure import time, query performance at scale</li>
+                                <li><strong>Demonstrate fast-path statistics are constant-time in N (sample size)</strong></li>
+                            </ul>
+                        </div>
+
+                        <h4>Deliverables:</h4>
+                        <ul>
+                            <li>&#x2705; Working Neo4j graph with 500K+ variants</li>
+                            <li>&#x2705; Validated fast-path + full-path statistics</li>
+                            <li>&#x2705; Benchmarking results vs classical tools</li>
+                            <li>&#x2705; Scaling validation at 50K-sample tier</li>
+                            <li>&#x2705; GitHub repo with import scripts + tutorials</li>
+                        </ul>
+
+                        <div class="warning-box">
+                            <strong>&#x26A0; No publications yet</strong> — Foundation must be solid before claiming superiority.
+                        </div>
+                    </div>
+
+                    <!-- PHASE 2 -->
+                    <div class="timeline-item">
+                        <span class="phase-badge phase-2">Phase 2: Pairwise Statistics + Structure (Months 8–18)</span>
+                        <h3>Sample-Level Analysis, Population Structure, Embeddings</h3>
+
+                        <h4>Milestone 2.1 — Sample Nodes + Kinship (Month 8–11):</h4>
+                        <ul>
+                            <li>Add Sample node layer with metadata, phenotypes</li>
+                            <li><code>graphpop.kinship()</code> via CARRIES traversal (KING-robust, GRM)</li>
+                            <li>LSH/MinHash for sparse pair finding at scale <span class="scale-badge">All of Us</span></li>
+                            <li><code>graphpop.ibs_matrix()</code>, <code>graphpop.roh()</code></li>
+                            <li>IBD segment import from hap-IBD/RaPID</li>
+                        </ul>
+
+                        <h4>Milestone 2.2 — Structure Inference (Month 11–14):</h4>
+                        <ul>
+                            <li>PCA via GRM eigendecomposition (windowed accumulation from CARRIES)</li>
+                            <li>Community detection (GDS Leiden/Louvain on IBS graph)</li>
+                            <li>Label propagation for semi-supervised population assignment</li>
+                        </ul>
+
+                        <h4>Milestone 2.3 — Graph Embeddings (Month 14–17):</h4>
+                        <ul>
+                            <li>node2vec, FastRP, GraphSAGE wrappers for GDS</li>
+                            <li>Embedding pipeline: project &rarr; embed &rarr; store &rarr; visualize (UMAP)</li>
+                            <li>Compare embeddings vs PCA on structure recovery</li>
+                            <li>Bipartite (Sample–Variant) community detection <span class="scale-badge">v3 New</span></li>
+                        </ul>
+
+                        <h4>Validation & Benchmarking (Month 17–18):</h4>
+                        <ul>
+                            <li>Scale to full Rice chr1 (2M variants &times; 3K samples) + 1000 Genomes chr22</li>
+                            <li>Cross-validate: structure vs ADMIXTURE/fastSTRUCTURE</li>
+                            <li>Cross-validate: selection signals vs known rice domestication loci (sh4, prog1, rc)</li>
+                            <li>Cross-validate: recombination rates vs published genetic maps</li>
+                        </ul>
+
+                        <div class="pub-card">
+                            <strong>&#x1F4DD; PUBLICATION 1</strong> <span class="sync-badge">Month 18–19</span>
+                            <p><strong>Paper:</strong> "GraphPop: A Graph-Native Platform for Population Genomic Inference"</p>
+                            <p><strong>Target:</strong> Nature Methods / Genome Research / Bioinformatics</p>
+                            <ul>
+                                <li>Complete graph schema (v3 Stratified Aggregation Model) + import pipeline</li>
+                                <li>Dual-path computation engine (fast + full path)</li>
+                                <li>All statistics modules with validation</li>
+                                <li>Benchmarking: speed (5–50&times;), memory (10–100&times;), accuracy</li>
+                                <li>Case study: Rice chr1 + 1000 Genomes chr22</li>
+                                <li>Scaling demonstration at 50K samples <span class="scale-badge">All of Us</span></li>
+                                <li>Software release: v0.9 beta + Docker + tutorials</li>
+                            </ul>
+                            <p><strong>Timeline:</strong> Draft Mo 16–17, Submit Mo 18, Revisions Mo 19–21, Publish Mo 23</p>
+                        </div>
+                    </div>
+
+                    <!-- PHASE 3A -->
+                    <div class="timeline-item">
+                        <span class="phase-badge phase-3a">Phase 3A: Advanced Embeddings + Selection (Months 18–26)</span>
+                        <h3>GNN, Selection Manifolds, Multi-Signal Inference</h3>
+
+                        <h4>Implementation (Month 18–22):</h4>
+                        <ul>
+                            <li>GraphSAGE/GAT embeddings with GDS library (RTX 4090)</li>
+                            <li>Embedding-based outlier detection for selection scans</li>
+                            <li>Manifold compression metrics (local dimensionality, curvature, density ridges)</li>
+                            <li>Multi-signal selection scan: <code>graphpop.selection.multi_signal_scan()</code></li>
+                            <li>ML classifier on GenomicWindow features (random forest on known sweeps)</li>
+                            <li>Functional enrichment: <code>graphpop.selection.functional_enrichment()</code></li>
+                        </ul>
+
+                        <h4>Validation (Month 22–25):</h4>
+                        <ul>
+                            <li>Simulate soft/polygenic sweeps (msprime) &rarr; test embedding detection power</li>
+                            <li><strong>Critical:</strong> Neutral null model (coalescent with matched demography, no selection)</li>
+                            <li>Apply to full rice genome (10M variants &times; 3K samples)</li>
+                            <li>Test on human 1000 Genomes chr22</li>
+                            <li>Benchmark embedding methods vs iHS/XP-EHH for known sweeps</li>
+                        </ul>
+
+                        <h4>Recombination Landscape (Month 25–26):</h4>
+                        <ul>
+                            <li>Local &rho; estimation from LD decay</li>
+                            <li>Recombination topology graph (community detection on LD graph)</li>
+                            <li>Recombination rate stored on NEXT edges</li>
+                        </ul>
+
+                        <div class="pub-card">
+                            <strong>&#x1F4DD; PUBLICATION 2</strong> <span class="sync-badge">Month 26–27</span>
+                            <p><strong>Paper:</strong> "Graph Topology and Manifold Geometry as New Summary Statistics for Natural Selection"</p>
+                            <p><strong>Target:</strong> Nature Genetics / PLOS Genetics / MBE</p>
+                            <ul>
+                                <li>GraphSAGE/GAT methodology for variant embeddings</li>
+                                <li>Manifold compression hypothesis + rigorous validation</li>
+                                <li>Simulation results: 20–60% better power for polygenic/soft sweeps</li>
+                                <li>Rice yield QTL networks missed by site-based scans</li>
+                                <li>Software: GraphPop v1.0 with embedding module</li>
+                            </ul>
+                            <p><strong>This is the core scientific contribution of the project.</strong></p>
+                        </div>
+                    </div>
+
+                    <!-- PHASE 3B -->
+                    <div class="timeline-item">
+                        <span class="phase-badge phase-3b">Phase 3B: Demographic Inference + Simulation (Months 24–32)</span>
+                        <h3>Model Fitting, Simulation Conditioning, ABC</h3>
+
+                        <h4>Milestone 3B.1 — Demographic Model Fitting (Month 24–27):</h4>
+                        <ul>
+                            <li>Bridge to &part;a&part;i/moments via SFS export: <code>graphpop.demography.bridge()</code></li>
+                            <li>Native 1-pop/2-pop model fitting in Java</li>
+                            <li>InferenceResult node system with versioning</li>
+                            <li>N<sub>e</sub> trajectory estimation from LD decay</li>
+                        </ul>
+
+                        <h4>Milestone 3B.2 — Simulation Integration (Month 27–30):</h4>
+                        <ul>
+                            <li><code>graphpop.simulate.condition()</code> — extract parameters from graph &rarr; simulator input</li>
+                            <li><code>graphpop.simulate.run()</code> — msprime/SLiM via ProcessBuilder</li>
+                            <li>Simulated data re-import pipeline</li>
+                            <li><code>graphpop.simulate.compare()</code> — observed vs simulated comparison</li>
+                        </ul>
+
+                        <h4>Milestone 3B.3 — ABC + Closed-Loop Validation (Month 30–32):</h4>
+                        <ul>
+                            <li><code>graphpop.abc.run()</code> — full ABC framework</li>
+                            <li>Full cycle: infer demography &rarr; simulate &rarr; compute stats &rarr; compare &rarr; refine</li>
+                            <li>Validate on simulated data with known truth</li>
+                            <li>Apply to rice domestication history (bottleneck &rarr; expansion)</li>
+                        </ul>
+
+                        <div class="pub-card">
+                            <strong>&#x1F4DD; PUBLICATION 3</strong> <span class="sync-badge">Month 32–33</span>
+                            <p><strong>Paper:</strong> "Simulation-Conditioned Evolutionary Inference in a Graph-Native Framework"</p>
+                            <p><strong>Target:</strong> Genetics / Molecular Biology and Evolution</p>
+                            <ul>
+                                <li>Graph &rarr; simulator conditioning pipeline</li>
+                                <li>ABC with graph-native inner loop</li>
+                                <li>Rice domestication case study</li>
+                            </ul>
+                        </div>
+                    </div>
+
+                    <!-- PHASE 4 -->
+                    <div class="timeline-item">
+                        <span class="phase-badge phase-4">Phase 4: GraphRAG + AI-Augmented Inference (Months 30–38)</span>
+                        <h3>AI Agents, Hypothesis Generation, Natural Language</h3>
+
+                        <h4>Implementation (Month 30–34):</h4>
+                        <ul>
+                            <li>Vector index on embedding properties (Variant + Sample embeddings)</li>
+                            <li>Cypher-based structured retrieval for relational queries</li>
+                            <li>Natural language &rarr; Cypher translation</li>
+                            <li>LangGraph agent with all Layer 2–6 procedures as tools</li>
+                            <li>Hypothesis &rarr; simulation &rarr; evaluation &rarr; refinement cycle</li>
+                        </ul>
+
+                        <h4>Validation (Month 34–37):</h4>
+                        <ul>
+                            <li>Test on known problems: balancing selection (MHC, S-locus analogs in rice)</li>
+                            <li>Can agent recover known selective sweeps from first principles?</li>
+                            <li>Automated discovery: GraphRAG finds novel candidates &rarr; literature validation</li>
+                            <li>Compare LLM-generated vs expert-curated hypotheses (blind test)</li>
+                        </ul>
+
+                        <div class="pub-card">
+                            <strong>&#x1F4DD; PUBLICATION 4</strong> <span class="sync-badge">Month 37–38</span>
+                            <p><strong>Paper:</strong> "GraphRAG-Augmented Evolutionary Hypothesis Generation in Population Genomics"</p>
+                            <p><strong>Target:</strong> Cell Systems / Nature Machine Intelligence</p>
+                            <ul>
+                                <li>Full agentic loop architecture</li>
+                                <li>Case studies: automated selection discovery, admixture timing</li>
+                                <li>LLM hypotheses match expert quality in 70%+ cases</li>
+                                <li>Framework for reproducible AI-augmented evolutionary science</li>
+                            </ul>
+                        </div>
+                    </div>
+
+                    <!-- PHASE 5 -->
+                    <div class="timeline-item">
+                        <span class="phase-badge phase-5">Phase 5: Biological Applications (Months 36–45)</span>
+                        <h3>Flagship Evolutionary Studies</h3>
+
+                        <h4>Project A — Accessory Genome Evolution (Rice):</h4>
+                        <ul>
+                            <li>O. sativa 3K + O. rufipogon wild relatives (pan-genome graph)</li>
+                            <li>Test: accessory variants have higher recombination rates</li>
+                            <li>Graph embeddings: adaptive alleles cluster in high-recomb accessory regions?</li>
+                            <li>Simulations: evolutionary rescue with/without accessory reservoir</li>
+                            <li>Experimental validation with IRRI collaborators</li>
+                        </ul>
+
+                        <h4>Project B — Recombination Topology Constraints (Maize + comparative):</h4>
+                        <ul>
+                            <li>Maize landraces + teosinte diversity panel</li>
+                            <li>Recombination topology graphs (high/low recomb subgraphs)</li>
+                            <li>Test: low-recomb regions show weaker selection signatures</li>
+                            <li>Compare rice vs maize vs wheat</li>
+                        </ul>
+
+                        <div class="allofus-box">
+                            <strong>Project C — All of Us Population Genomics:</strong> <span class="scale-badge">All of Us</span>
+                            <ul>
+                                <li>Deploy on Tier 2/3: All of Us single-ancestry subset (e.g., AFR 50K+ samples)</li>
+                                <li>Graph-native analysis of rare variant architecture</li>
+                                <li>CARRIES bipartite community detection → novel population structure</li>
+                                <li>Relational queries: IBD + functional annotation + selection signal integration</li>
+                                <li>Demonstrate graph advantage at biobank scale</li>
+                            </ul>
+                        </div>
+
+                        <div class="pub-card">
+                            <strong>&#x1F4DD; PUBLICATION 5</strong> <span class="sync-badge">Month 42</span>
+                            <p><strong>Paper:</strong> "Accessory Genome Recombination Reservoirs Drive Adaptive Potential in Rice"</p>
+                            <p><strong>Target:</strong> Nature / Nature Plants / Nature Genetics</p>
+                        </div>
+
+                        <div class="pub-card">
+                            <strong>&#x1F4DD; PUBLICATION 6</strong> <span class="sync-badge">Month 44</span>
+                            <p><strong>Paper:</strong> "Recombination Topology Shapes Selection Efficacy Across Crop Genomes"</p>
+                            <p><strong>Target:</strong> MBE / Evolution / Genome Biology</p>
+                        </div>
+                    </div>
+
+                    <!-- PHASE 6 -->
+                    <div class="timeline-item">
+                        <span class="phase-badge phase-6">Phase 6: Synthesis &amp; Community (Months 44–48)</span>
+                        <h3>Perspective, Community Building, Final Release</h3>
+
+                        <ul>
+                            <li>Software finalization: GraphPop v2.0 stable release</li>
+                            <li>Documentation: comprehensive tutorials, video series, Jupyter notebooks</li>
+                            <li>Workshops: PAG workshop (50+ attendees), SMBE tutorial</li>
+                            <li>Community: blog posts, webinars, GitHub Discussions, monthly office hours</li>
+                        </ul>
+
+                        <div class="pub-card">
+                            <strong>&#x1F4DD; PUBLICATION 7 (Optional)</strong> <span class="sync-badge">Month 46</span>
+                            <p><strong>Paper:</strong> "Graph-Guided Genomic Selection for Climate Resilience"</p>
+                            <p><strong>Target:</strong> Theoretical and Applied Genetics / The Plant Cell</p>
+                        </div>
+
+                        <div class="pub-card">
+                            <strong>&#x1F4DD; PUBLICATION 8</strong> <span class="sync-badge">Month 48</span>
+                            <p><strong>Paper:</strong> "From VCF to Variation Graphs: A Paradigm Shift in Population Genomics"</p>
+                            <p><strong>Target:</strong> Nature Reviews Genetics / Trends in Genetics</p>
+                            <ul>
+                                <li>Comprehensive review: classical vs graph-native approaches</li>
+                                <li>Synthesize full GraphPop project + emerging graph genomics literature</li>
+                                <li>Lessons learned, when graphs excel vs when classical suffices</li>
+                                <li>Future: spatial transcriptomics, single-cell, long-read integration</li>
+                            </ul>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+
+            <!-- ===== PUBLICATIONS ===== -->
+            <div id="publications" class="section">
+                <h2>&#x1F4DD; Publication Summary &amp; Timeline</h2>
+
+                <div class="card">
+                    <table>
+                        <tr><th>#</th><th>Paper</th><th>Type</th><th>Submit</th><th>Est. Publish</th><th>Enabled By</th></tr>
+                        <tr><td>1</td><td>GraphPop Platform</td><td>Methods</td><td>Mo 18</td><td>Mo 23</td><td>Phase 1 + 2</td></tr>
+                        <tr><td>2</td><td>Graph Topology &amp; Selection Manifolds</td><td>Methods + Biology</td><td>Mo 26</td><td>Mo 31</td><td>Phase 3A</td></tr>
+                        <tr><td>3</td><td>Simulation-Conditioned Inference</td><td>Methods</td><td>Mo 32</td><td>Mo 37</td><td>Phase 3B</td></tr>
+                        <tr><td>4</td><td>GraphRAG Hypothesis Generation</td><td>AI/Methods</td><td>Mo 37</td><td>Mo 42</td><td>Phase 4</td></tr>
+                        <tr><td>5</td><td>Accessory Genome Evolution (Rice)</td><td>Biology</td><td>Mo 42</td><td>Mo 46–48</td><td>Phase 5 Project A</td></tr>
+                        <tr><td>6</td><td>Recombination Topology (Crops)</td><td>Biology</td><td>Mo 44</td><td>Mo 48+</td><td>Phase 5 Project B</td></tr>
+                        <tr><td>7</td><td>Graph-Guided Genomic Selection (Optional)</td><td>Application</td><td>Mo 46</td><td>Year 5</td><td>Phase 5 + trials</td></tr>
+                        <tr><td>8</td><td>Paradigm Shift Review</td><td>Perspective</td><td>Mo 48</td><td>Year 5</td><td>All phases</td></tr>
+                    </table>
+                </div>
+
+                <h3>Key Synchronization Principles</h3>
+                <div class="card">
+                    <ul>
+                        <li><strong>No premature publishing:</strong> Each paper waits until its enabling phase is COMPLETE and VALIDATED</li>
+                        <li><strong>Sequential phases:</strong> Phase N+1 starts only when Phase N core deliverables are solid</li>
+                        <li><strong>Validation before claims:</strong> All benchmarking happens BEFORE methodology papers</li>
+                        <li><strong>Biology comes late:</strong> Discovery papers (5–6) only after methods are mature</li>
+                        <li><strong>Reviews come last:</strong> Perspective paper written with full hindsight</li>
+                        <li><strong>All of Us integration throughout:</strong> Scaling validation in Phase 1; deployment in Phase 5</li>
+                    </ul>
+                </div>
+            </div>
+
+            <!-- ===== NOVEL APPLICATIONS ===== -->
+            <div id="applications" class="section">
+                <h2>Novel Applications &amp; Theory</h2>
+
+                <div class="card">
+                    <h4>1. Graph-Derived Summary Statistics</h4>
+                    <p>Community structure coefficients, embedding dimensionality, manifold curvature, centrality distributions — new statistics beyond SFS/LD. Rigorously testable with simulation-based power analysis.</p>
+                </div>
+
+                <div class="card">
+                    <h4>2. Conditioned Statistics as Default</h4>
+                    <p>Any statistic conditioned on functional annotation, recombination rate, or population structure in a single query. Making conditioned computation routine changes interpretation of diversity patterns.</p>
+                </div>
+
+                <div class="card">
+                    <h4>3. Recombination Topology Bottleneck Hypothesis</h4>
+                    <p>In recombination coldspots, the variant graph has long path lengths and high betweenness centrality &rarr; predicts stronger selective interference.</p>
+                    <p><strong>Test:</strong> Compare sweep signatures in high vs low recombination subgraphs.</p>
+                </div>
+
+                <div class="card">
+                    <h4>4. Accessory Recombination Reservoirs (Crop Evolution)</h4>
+                    <p>Accessory variants in pan-genome graphs have higher recombination rates &rarr; a reservoir of standing variation for rapid adaptive combinations under climate stress.</p>
+                </div>
+
+                <div class="card">
+                    <h4>5. Selection Compression Manifolds</h4>
+                    <p>Hard sweeps compress local embedding manifolds; balancing selection creates ridges; purifying selection creates corridors. A new statistic predicting selection strength and age.</p>
+                </div>
+
+                <div class="card">
+                    <h4>6. Functional Variant Connectivity Hotspots</h4>
+                    <p>Accessory genome variants with many short functional paths to core genes (high betweenness) are under recent positive selection — modulating conserved pathways without disrupting core function.</p>
+                </div>
+
+                <div class="card">
+                    <h4>7. CARRIES Bipartite Graph as Population-Genetic Object <span class="scale-badge">v3 Novel</span></h4>
+                    <p>SFS = degree distribution of Variant nodes. Heterozygosity = degree of Sample nodes. IBS = shared neighborhoods. Population structure = bipartite community structure. Making explicit what was always implicit in the genotype matrix.</p>
+                </div>
+
+                <div class="card">
+                    <h4>8. GraphRAG-Powered Evolutionary Laboratories</h4>
+                    <p>Iterative: GraphRAG retrieves "Which variants are in high-recombination regions and show elevated F<sub>ST</sub>?" &rarr; Agent proposes selection coefficients &rarr; Runs SLiM simulation &rarr; Re-queries &rarr; Iterates until convergence.</p>
+                </div>
+            </div>
+
+            <!-- ===== TEAM & RESOURCES ===== -->
+            <div id="team" class="section">
+                <h2>Team Structure &amp; Resource Requirements</h2>
+
+                <h3>Personnel</h3>
+                <div class="grid">
+                    <div class="grid-item">
+                        <h4>Principal Investigator</h4>
+                        <ul>
+                            <li>Population geneticist + computational biology</li>
+                            <li>20% effort (strategy, papers)</li>
+                        </ul>
+                    </div>
+                    <div class="grid-item">
+                        <h4>2 Postdocs</h4>
+                        <ul>
+                            <li>1 Graph DB / ML specialist</li>
+                            <li>1 Pop genetics / evolutionary theory</li>
+                            <li>100% effort, 3-year contracts</li>
+                        </ul>
+                    </div>
+                    <div class="grid-item">
+                        <h4>2 PhD Students</h4>
+                        <ul>
+                            <li>1 GraphRAG / AI agent development</li>
+                            <li>1 Crop genomics applications</li>
+                            <li>4-year programs</li>
+                        </ul>
+                    </div>
+                    <div class="grid-item">
+                        <h4>Collaborators</h4>
+                        <ul>
+                            <li>Neo4j engineers (consultation)</li>
+                            <li>Crop breeding (IRRI, Cornell)</li>
+                            <li>Human genetics (1000G, All of Us)</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <h3>Computational Infrastructure</h3>
+                <div class="card">
+                    <table>
+                        <tr><th>Resource</th><th>Specification</th><th>Purpose</th><th>Est. Cost/Year</th></tr>
+                        <tr><td>Dev Server (Tier 1)</td><td>i9, 64 GB RAM, RTX 4090, 4 TB NVMe</td><td>Development + medium datasets</td><td>$10,000</td></tr>
+                        <tr><td>Cloud (Tier 2)</td><td>Neo4j Aura Enterprise + r6i.8xlarge cluster</td><td>Large-scale benchmarking, All of Us subsets</td><td>$25,000</td></tr>
+                        <tr><td>Cloud (Tier 3)</td><td>Neo4j Infinigraph 10–20 node cluster</td><td>Full All of Us deployment</td><td>$50,000+</td></tr>
+                        <tr><td>HPC Cluster</td><td>Institutional (simulation)</td><td>msprime/SLiM forward sims</td><td>In-kind</td></tr>
+                        <tr><td>Storage</td><td>50–200 TB object storage</td><td>VCFs, graph snapshots, results</td><td>$10,000</td></tr>
+                    </table>
+                </div>
+
+                <h3>Funding Strategy</h3>
+                <div class="collab-section">
+                    <h4>Target Funding Sources</h4>
+                    <div class="grid" style="grid-template-columns: 1fr 1fr;">
+                        <div>
+                            <h4>US Agencies</h4>
+                            <span class="funding-badge">NSF PGRP</span>
+                            <span class="funding-badge">USDA NIFA</span>
+                            <span class="funding-badge">NIH R01</span>
+                            <span class="funding-badge">DOE JGI CSP</span>
+                            <span class="funding-badge">NIH All of Us</span>
+                        </div>
+                        <div>
+                            <h4>Foundations &amp; Industry</h4>
+                            <span class="funding-badge">Gates Foundation</span>
+                            <span class="funding-badge">Moore Foundation</span>
+                            <span class="funding-badge">Neo4j Research Grant</span>
+                            <span class="funding-badge">AWS Research Credits</span>
+                        </div>
+                    </div>
+                    <p style="margin-top: 20px;"><strong>Budget Target:</strong> $3.5M over 4 years (salaries, equipment, cloud compute, travel, publications). Increased from original $2.5M to include All of Us cloud infrastructure.</p>
+                </div>
+            </div>
+
+            <!-- ===== METRICS ===== -->
+            <div id="metrics" class="section">
+                <h2>Success Metrics &amp; Impact Assessment</h2>
+
+                <h3>Year 4 Targets</h3>
+                <div class="grid">
+                    <div class="metric-box">
+                        <div class="metric-label">Publications</div>
+                        <div class="metric-value">6–8</div>
+                        <div class="metric-label">Including 3–4 high-impact</div>
+                    </div>
+                    <div class="metric-box">
+                        <div class="metric-label">Citations</div>
+                        <div class="metric-value">300+</div>
+                        <div class="metric-label">By end of Year 4</div>
+                    </div>
+                    <div class="metric-box">
+                        <div class="metric-label">GitHub Stars</div>
+                        <div class="metric-value">500+</div>
+                        <div class="metric-label">Software adoption</div>
+                    </div>
+                    <div class="metric-box">
+                        <div class="metric-label">User Groups</div>
+                        <div class="metric-value">10+</div>
+                        <div class="metric-label">Independent labs</div>
+                    </div>
+                </div>
+
+                <h3>Technical Benchmarks</h3>
+                <div class="card">
+                    <table>
+                        <tr><th>Task</th><th>Classical Method</th><th>GraphPop Target</th><th>Improvement</th></tr>
+                        <tr><td>F<sub>ST</sub> per 1 Mb window (10K samples)</td><td>5–30 sec</td><td>0.2–2 sec</td><td>5–50&times;</td></tr>
+                        <tr><td>Same at 500K samples (All of Us)</td><td>1–10 min</td><td>0.2–2 sec (fast path)</td><td>30–300&times;</td></tr>
+                        <tr><td>Recombination graph (&rho; &lt; 0.1) on chr1</td><td>10–60 min</td><td>1–10 min</td><td>3–20&times;</td></tr>
+                        <tr><td>Memory: windowed N<sub>e</sub> (100 windows)</td><td>50–200 GB</td><td>5–20 GB</td><td>10–50&times;</td></tr>
+                        <tr><td>Embedding-based selection scan</td><td>N/A</td><td>20–60% better power</td><td>Novel capability</td></tr>
+                        <tr><td>Conditioned Tajima's D (missense only)</td><td>Multi-step pipeline</td><td>Single Cypher call</td><td>Novel capability</td></tr>
+                    </table>
+                </div>
+
+                <h3>Biological Impact</h3>
+                <div class="card">
+                    <ul>
+                        <li><strong>Novel Discoveries:</strong> 3–5 new evolutionary insights (accessory genome dynamics, recombination&ndash;selection interactions)</li>
+                        <li><strong>All of Us Demonstration:</strong> Graph-native analysis at biobank scale proving relational advantage</li>
+                        <li><strong>Breeding Applications:</strong> Graph-guided genomic selection in 2+ crops</li>
+                        <li><strong>Conservation:</strong> Wild relative diversity assessments inform gene bank priorities</li>
+                    </ul>
+                </div>
+
+                <h3>Community Building</h3>
+                <div class="card">
+                    <ul>
+                        <li><strong>Training:</strong> Annual 3-day workshops at PAG/SMBE (50+ participants)</li>
+                        <li><strong>Documentation:</strong> Interactive tutorials, video walkthroughs, Jupyter notebooks</li>
+                        <li><strong>User Support:</strong> GitHub Discussions + monthly office hours</li>
+                        <li><strong>Ecosystem:</strong> Third-party extensions (crop-specific loaders, clinical annotation modules)</li>
+                    </ul>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <script>
+        function showSection(sectionId) {
+            document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+            document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+            document.getElementById(sectionId).classList.add('active');
+            event.target.classList.add('active');
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+    </script>
+</body>
+</html>
