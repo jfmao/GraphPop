@@ -32,9 +32,9 @@
 - [ ] Include distance_cM from genetic map if available
 
 ### Bulk Import
-- [ ] Write neo4j-admin import script with all CSVs
-- [ ] Chunking: per-chromosome, 100K variant blocks
-- [ ] Test: Import Rice 3K chr1 subset (100K variants) in <10 min
+- [x] Write neo4j-admin import script with all CSVs
+- [x] Chunking: per-chromosome, 100K variant blocks
+- [ ] Test: Import 1000G chr22 into Neo4j and validate
 - [ ] Post-import validation: orphaned nodes, NEXT chain completeness, AF consistency
 
 ---
