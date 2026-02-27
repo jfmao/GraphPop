@@ -9,27 +9,27 @@
 
 ### Setup
 - [x] Initialize project structure (pyproject.toml, pom.xml, packages)
-- [ ] Install and configure Neo4j 5.x in WSL2
-- [ ] Verify Java 21+ with Vector API support
-- [ ] Download benchmark datasets (1000 Genomes chr22, Rice 3K chr1 subset)
+- [~] Install and configure Neo4j 5.x in WSL2 (neo4j 2026.01.4 installed; run `sudo bash scripts/configure-neo4j.sh` to apply config)
+- [x] Verify Java 21+ with Vector API support
+- [x] Download benchmark datasets (1000 Genomes NYGC 30x chr22 — 496 MB; Rice 3K deferred, SNP-Seek offline)
 
 ### VCF Parser (graphpop-import)
-- [ ] Implement VCF reader using cyvcf2
-- [ ] Compute per-population allele counts (ac, an, af, het_count, hom_alt_count)
-- [ ] Handle missing genotypes correctly
-- [ ] Emit Variant node CSV (with allele count arrays)
-- [ ] Emit CARRIES relationship CSV (sparse: only non-ref genotypes)
-- [ ] Emit Sample node CSV from VCF header + metadata file
-- [ ] Emit Population node CSV
-- [ ] Emit Chromosome node CSV
+- [x] Implement VCF reader using cyvcf2
+- [x] Compute per-population allele counts (ac, an, af, het_count, hom_alt_count)
+- [x] Handle missing genotypes correctly
+- [x] Emit Variant node CSV (with allele count arrays)
+- [x] Emit CARRIES relationship CSV (sparse: only non-ref genotypes)
+- [x] Emit Sample node CSV from VCF header + metadata file
+- [x] Emit Population node CSV
+- [x] Emit Chromosome node CSV
 
 ### Annotation Lift
 - [ ] Parse VEP CSQ field → Gene nodes + HAS_CONSEQUENCE edges
 - [ ] Pathway/GOTerm import from external files
 
 ### NEXT Edge Builder
-- [ ] Sort variants by (chr, pos) → emit NEXT relationship CSV
-- [ ] Include distance_bp; distance_cM from genetic map if available
+- [x] Sort variants by (chr, pos) → emit NEXT relationship CSV
+- [ ] Include distance_cM from genetic map if available
 
 ### Bulk Import
 - [ ] Write neo4j-admin import script with all CSVs
