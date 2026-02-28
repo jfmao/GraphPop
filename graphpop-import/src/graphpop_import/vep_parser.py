@@ -176,7 +176,21 @@ class VEPParser:
 
         try:
             # 3. Stream VCF records
-            for v in vcf:
+            vcf_iter = iter(vcf)
+            while True:
+                try:
+                    v = next(vcf_iter)
+                except StopIteration:
+                    break
+                except Exception as exc:
+                    if "bcf_read" in str(exc) or "htslib" in str(exc):
+                        logger.warning(
+                            "VCF read error after %d records (truncated file?): %s",
+                            self._n_variants_seen, exc,
+                        )
+                        break
+                    raise
+
                 self._n_variants_seen += 1
 
                 chrom = v.CHROM
