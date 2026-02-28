@@ -42,6 +42,11 @@ venv/
 # Neo4j data
 data/neo4j/
 
+# Generated CSVs and cache
+data/raw/*/csv_out/
+data/raw/*/*.panel
+data/raw/*/*.txt
+
 # IDE
 .idea/
 *.iml

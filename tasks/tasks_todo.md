@@ -1,6 +1,6 @@
 # GraphPop — Phase 1: Data Foundation + Summary Statistics
 
-## Status: Not Started
+## Status: In Progress
 ## Target: Months 1–8
 
 ---
@@ -25,11 +25,11 @@
 
 ### Annotation Lift
 - [x] Parse VEP CSQ field → Gene nodes + HAS_CONSEQUENCE edges
-- [ ] Pathway/GOTerm import from external files
+- [x] Pathway/GOTerm import from external files
 
 ### NEXT Edge Builder
 - [x] Sort variants by (chr, pos) → emit NEXT relationship CSV
-- [ ] Include distance_cM from genetic map if available
+- [~] Include distance_cM from genetic map if available (deferred — requires genetic map file)
 
 ### Bulk Import
 - [x] Write neo4j-admin import script with all CSVs
@@ -37,10 +37,38 @@
 - [x] Test: Import 1000G chr22 into Neo4j and validate
 - [x] Post-import validation: orphaned nodes, NEXT chain completeness, AF consistency
 
+### Milestone 1.1 — Complete ✓
+
 ---
 
 ## Milestone 1.2 — VectorOps + Core Statistics (Month 2–4)
-- [ ] ... (to be expanded when 1.1 is complete)
+
+### Neo4j Stored Procedures (graphpop-procedures)
+- [ ] Set up Maven build with Neo4j 2026.x procedure API
+- [ ] `graphpop.vectorAF(variantId)` — return allele-frequency vector across populations
+- [ ] `graphpop.vectorHet(variantId)` — return heterozygosity vector
+- [ ] `graphpop.cosineSimilarity(v1, v2)` — cosine similarity between two AF vectors
+- [ ] `graphpop.euclideanDistance(v1, v2)` — Euclidean distance between AF vectors
+- [ ] Use Java Vector API (jdk.incubator.vector) for SIMD-accelerated array ops
+- [ ] Unit tests for all procedures (JUnit 5 + Neo4j harness)
+
+### Summary Statistics (per-variant)
+- [ ] Expected heterozygosity: He = 1 − Σ(pi²) per population
+- [ ] Observed heterozygosity: Ho = het_count / n per population
+- [ ] Nucleotide diversity (π) via NEXT-edge window traversal
+- [ ] Store computed stats as Variant node properties or separate :Statistic nodes
+
+### Population Differentiation
+- [ ] Fst (Weir & Cockerham 1984) — pairwise between all population pairs
+- [ ] Store Fst as DIFFERENTIATES relationship or Population node property
+- [ ] Fst confidence intervals via jackknife over NEXT-linked variant blocks
+
+### Windowed Statistics
+- [ ] Sliding-window π using NEXT chain traversal (Cypher procedure)
+- [ ] Sliding-window Fst across NEXT chain
+- [ ] Window size configurable (default: 50 kb, step: 10 kb)
+
+---
 
 ## Milestone 1.3 — LD + Haplotype Statistics (Month 4–6)
 - [ ] ... (to be expanded)
