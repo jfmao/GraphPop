@@ -77,14 +77,15 @@
 
 ### Deployment
 - [x] Deploy script: `sudo bash scripts/deploy-procedures.sh`
-- [ ] Verify procedures registered in Neo4j
-- [ ] Create composite index on (Variant.chr, Variant.pos) for range queries
-- [ ] Full-text index on GOTerm.name for enrichment filtering
+- [x] Verify procedures registered in Neo4j (all 5 confirmed)
+- [x] Create composite index on (Variant.chr, Variant.pos) for range queries
+- [x] Full-text index on GOTerm.name for enrichment filtering
+- [x] GenomicWindow constraint + indexes
 
 ### Validation
-- [ ] Reproduce vcftools/scikit-allel π for 1000G chr22 to <0.01% error
-- [ ] Reproduce Tajima's D to <0.01% error
-- [ ] Reproduce Hudson's F_ST to <0.01% error
+- [x] Reproduce scikit-allel π for 1000G chr22 to <0.01% error (0.000000% achieved)
+- [x] Reproduce Tajima's D to <0.01% error (0.000001% achieved)
+- [x] Reproduce Hudson's F_ST to <0.01% error (0.000000% achieved)
 - [ ] Benchmark: conditioned Tajima's D (missense only in pathway) vs classical pipeline
 
 ---

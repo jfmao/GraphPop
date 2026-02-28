@@ -30,8 +30,11 @@ cp "$JAR" "$PLUGINS_DIR/graphpop-procedures.jar"
 chown neo4j:neo4j "$PLUGINS_DIR/graphpop-procedures.jar"
 echo "    Done: $(ls -lh "$PLUGINS_DIR/graphpop-procedures.jar" | awk '{print $5, $NF}')"
 
-# 2. Add Vector API module if not already present
-if ! grep -q 'jdk.incubator.vector' "$NEO4J_CONF" 2>/dev/null; then
+# 2. Add Vector API module — uncomment if present, or add new line
+if grep -q '^# *server.jvm.additional=--add-modules=jdk.incubator.vector' "$NEO4J_CONF" 2>/dev/null; then
+    echo "    Uncommenting jdk.incubator.vector in neo4j.conf..."
+    sed -i 's/^# *server.jvm.additional=--add-modules=jdk.incubator.vector/server.jvm.additional=--add-modules=jdk.incubator.vector/' "$NEO4J_CONF"
+elif ! grep -q '^server.jvm.additional=--add-modules=jdk.incubator.vector' "$NEO4J_CONF" 2>/dev/null; then
     echo "    Adding jdk.incubator.vector to JVM args..."
     echo "" >> "$NEO4J_CONF"
     echo "# GraphPop: enable Java Vector API for SIMD procedures" >> "$NEO4J_CONF"
