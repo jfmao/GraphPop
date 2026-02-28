@@ -34,8 +34,8 @@
 ### Bulk Import
 - [x] Write neo4j-admin import script with all CSVs
 - [x] Chunking: per-chromosome, 100K variant blocks
-- [ ] Test: Import 1000G chr22 into Neo4j and validate
-- [ ] Post-import validation: orphaned nodes, NEXT chain completeness, AF consistency
+- [x] Test: Import 1000G chr22 into Neo4j and validate
+- [x] Post-import validation: orphaned nodes, NEXT chain completeness, AF consistency
 
 ---
 
