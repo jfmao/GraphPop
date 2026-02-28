@@ -234,6 +234,114 @@ public final class VectorOps {
     }
 
     /**
+     * Compute Pearson's correlation coefficient squared (r²) between two
+     * genotype dosage vectors.
+     *
+     * <p>r² = [cov(X,Y)]² / [var(X) · var(Y)]
+     * where dosage is 0 (ref/ref), 1 (het), 2 (hom_alt).</p>
+     *
+     * @param geno1 dosage vector for variant 1 (length = n_samples)
+     * @param geno2 dosage vector for variant 2 (same length)
+     * @return r² in [0, 1], or 0 if either variant is monomorphic
+     */
+    public static double pearsonR2(double[] geno1, double[] geno2) {
+        int n = geno1.length;
+        if (n == 0) return 0.0;
+
+        // Compute sums using SIMD
+        double sum1 = sum(geno1);
+        double sum2 = sum(geno2);
+        double mean1 = sum1 / n;
+        double mean2 = sum2 / n;
+
+        // Compute centered dot product and variances in one SIMD pass
+        int i = 0;
+        int upperBound = SPECIES.loopBound(n);
+        DoubleVector covAcc = DoubleVector.zero(SPECIES);
+        DoubleVector var1Acc = DoubleVector.zero(SPECIES);
+        DoubleVector var2Acc = DoubleVector.zero(SPECIES);
+        DoubleVector vMean1 = DoubleVector.broadcast(SPECIES, mean1);
+        DoubleVector vMean2 = DoubleVector.broadcast(SPECIES, mean2);
+
+        for (; i < upperBound; i += SPECIES.length()) {
+            DoubleVector v1 = DoubleVector.fromArray(SPECIES, geno1, i).sub(vMean1);
+            DoubleVector v2 = DoubleVector.fromArray(SPECIES, geno2, i).sub(vMean2);
+            covAcc = v1.fma(v2, covAcc);
+            var1Acc = v1.fma(v1, var1Acc);
+            var2Acc = v2.fma(v2, var2Acc);
+        }
+
+        double cov = covAcc.reduceLanes(jdk.incubator.vector.VectorOperators.ADD);
+        double var1 = var1Acc.reduceLanes(jdk.incubator.vector.VectorOperators.ADD);
+        double var2 = var2Acc.reduceLanes(jdk.incubator.vector.VectorOperators.ADD);
+
+        // Scalar tail
+        for (; i < n; i++) {
+            double d1 = geno1[i] - mean1;
+            double d2 = geno2[i] - mean2;
+            cov += d1 * d2;
+            var1 += d1 * d1;
+            var2 += d2 * d2;
+        }
+
+        double denom = var1 * var2;
+        if (denom == 0.0) return 0.0;
+
+        double r = cov / Math.sqrt(denom);
+        return r * r;
+    }
+
+    /**
+     * Compute D' (normalized linkage disequilibrium coefficient) from
+     * haplotype vectors.
+     *
+     * <p>Each haplotype vector contains 0 (ref) or 1 (alt) for each haplotype.
+     * D' = D / D_max, where D = p_AB - p_A * p_B.</p>
+     *
+     * @param hap1 haplotype vector for variant 1 (length = n_haplotypes)
+     * @param hap2 haplotype vector for variant 2 (same length)
+     * @param n    number of haplotypes
+     * @return |D'| in [0, 1], or 0 if either variant is monomorphic
+     */
+    public static double dPrime(int[] hap1, int[] hap2, int n) {
+        if (n == 0) return 0.0;
+
+        // Build 2x2 haplotype frequency table
+        int n11 = 0; // both alt
+        int n10 = 0; // alt at 1, ref at 2
+        int n01 = 0; // ref at 1, alt at 2
+        for (int i = 0; i < n; i++) {
+            if (hap1[i] == 1) {
+                if (hap2[i] == 1) n11++;
+                else n10++;
+            } else {
+                if (hap2[i] == 1) n01++;
+            }
+        }
+        int n00 = n - n11 - n10 - n01;
+
+        double pA = (double) (n11 + n10) / n; // freq of alt at variant 1
+        double pB = (double) (n11 + n01) / n; // freq of alt at variant 2
+        double pAB = (double) n11 / n;
+
+        // Check monomorphic
+        if (pA == 0.0 || pA == 1.0 || pB == 0.0 || pB == 1.0) return 0.0;
+
+        double D = pAB - pA * pB;
+
+        // D_max depends on sign of D
+        double Dmax;
+        if (D >= 0) {
+            Dmax = Math.min(pA * (1.0 - pB), (1.0 - pA) * pB);
+        } else {
+            Dmax = Math.min(pA * pB, (1.0 - pA) * (1.0 - pB));
+        }
+
+        if (Dmax == 0.0) return 0.0;
+        return Math.abs(D) / Dmax;
+    }
+
+    /**
      * Compute Dxy (net divergence) for a single biallelic site.
      *
      * @param p1  allele frequency in population 1

@@ -278,4 +278,136 @@ class VectorOpsTest {
                 EPS
         );
     }
+
+    // -----------------------------------------------------------------------
+    // pearsonR2
+    // -----------------------------------------------------------------------
+
+    @Test
+    void pearsonR2PerfectCorrelation() {
+        // Identical dosage vectors → r² = 1.0
+        double[] g = {0, 1, 2, 0, 1, 2, 1, 0};
+        assertEquals(1.0, VectorOps.pearsonR2(g, g), EPS);
+    }
+
+    @Test
+    void pearsonR2InverseCorrelation() {
+        // g1 and g2 are perfectly inversely correlated: r = -1, r² = 1
+        double[] g1 = {0, 0, 1, 1, 2, 2};
+        double[] g2 = {2, 2, 1, 1, 0, 0};
+        assertEquals(1.0, VectorOps.pearsonR2(g1, g2), EPS);
+    }
+
+    @Test
+    void pearsonR2Uncorrelated() {
+        // Construct orthogonal vectors after centering
+        double[] g1 = {0, 2, 0, 2};
+        double[] g2 = {0, 0, 2, 2};
+        // mean1 = 1, mean2 = 1
+        // centered: (-1,1,-1,1) and (-1,-1,1,1) → dot = 1-1-1+1 = 0 → r² = 0
+        assertEquals(0.0, VectorOps.pearsonR2(g1, g2), EPS);
+    }
+
+    @Test
+    void pearsonR2Monomorphic() {
+        // One vector is constant → variance = 0 → r² = 0
+        double[] g1 = {1, 1, 1, 1};
+        double[] g2 = {0, 1, 2, 1};
+        assertEquals(0.0, VectorOps.pearsonR2(g1, g2), EPS);
+    }
+
+    @Test
+    void pearsonR2Empty() {
+        assertEquals(0.0, VectorOps.pearsonR2(new double[]{}, new double[]{}), EPS);
+    }
+
+    @Test
+    void pearsonR2SingleCarrier() {
+        // Only one non-ref sample
+        double[] g1 = {0, 0, 0, 1, 0};
+        double[] g2 = {0, 0, 0, 1, 0};
+        assertEquals(1.0, VectorOps.pearsonR2(g1, g2), EPS);
+    }
+
+    @Test
+    void pearsonR2KnownValue() {
+        // Manually computed: g1={0,1,2}, g2={0,0,2}
+        // mean1=1, mean2=2/3
+        // cov = (-1)(-2/3) + (0)(-2/3) + (1)(4/3) = 2/3 + 0 + 4/3 = 2
+        // var1 = 1+0+1 = 2, var2 = 4/9+4/9+16/9 = 24/9 = 8/3
+        // r = 2/sqrt(2*8/3) = 2/sqrt(16/3) = 2/(4/sqrt(3)) = sqrt(3)/2
+        // r² = 3/4 = 0.75
+        double[] g1 = {0, 1, 2};
+        double[] g2 = {0, 0, 2};
+        assertEquals(0.75, VectorOps.pearsonR2(g1, g2), 1e-10);
+    }
+
+    @Test
+    void pearsonR2LargeArray() {
+        // Ensure SIMD + scalar tail both work
+        int n = 1023;
+        double[] g1 = new double[n];
+        double[] g2 = new double[n];
+        for (int i = 0; i < n; i++) {
+            g1[i] = i % 3; // 0,1,2,0,1,2,...
+            g2[i] = i % 3;
+        }
+        assertEquals(1.0, VectorOps.pearsonR2(g1, g2), 1e-10);
+    }
+
+    // -----------------------------------------------------------------------
+    // dPrime
+    // -----------------------------------------------------------------------
+
+    @Test
+    void dPrimeCompleteLD() {
+        // All haplotypes are either (0,0) or (1,1) → D' = 1.0
+        int[] h1 = {0, 0, 1, 1, 0, 1};
+        int[] h2 = {0, 0, 1, 1, 0, 1};
+        assertEquals(1.0, VectorOps.dPrime(h1, h2, h1.length), EPS);
+    }
+
+    @Test
+    void dPrimeNoLD() {
+        // All four haplotype combinations in equal proportions → D = 0
+        int[] h1 = {0, 0, 1, 1};
+        int[] h2 = {0, 1, 0, 1};
+        // pA=0.5, pB=0.5, pAB=0.25, D = 0.25-0.25 = 0
+        assertEquals(0.0, VectorOps.dPrime(h1, h2, h1.length), EPS);
+    }
+
+    @Test
+    void dPrimeMonomorphic() {
+        int[] h1 = {0, 0, 0, 0};
+        int[] h2 = {0, 1, 0, 1};
+        assertEquals(0.0, VectorOps.dPrime(h1, h2, h1.length), EPS);
+    }
+
+    @Test
+    void dPrimeEmpty() {
+        assertEquals(0.0, VectorOps.dPrime(new int[]{}, new int[]{}, 0), EPS);
+    }
+
+    @Test
+    void dPrimeIntermediate() {
+        // 6 haplotypes: (0,0),(0,0),(0,1),(1,0),(1,1),(1,1)
+        // pA = 3/6 = 0.5, pB = 3/6 = 0.5, pAB = 2/6 = 1/3
+        // D = 1/3 - 0.25 = 1/12 > 0
+        // Dmax = min(0.5*0.5, 0.5*0.5) = 0.25
+        // D' = (1/12)/0.25 = 1/3
+        int[] h1 = {0, 0, 0, 1, 1, 1};
+        int[] h2 = {0, 0, 1, 0, 1, 1};
+        assertEquals(1.0 / 3.0, VectorOps.dPrime(h1, h2, h1.length), 1e-10);
+    }
+
+    @Test
+    void dPrimeNegativeD() {
+        // Repulsion: alt at 1 tends to co-occur with ref at 2
+        // (0,1),(0,1),(1,0),(1,0) → pA=0.5, pB=0.5, pAB=0 → D=-0.25
+        // Dmax(D<0) = min(pA*pB, (1-pA)*(1-pB)) = min(0.25,0.25) = 0.25
+        // |D'| = 0.25/0.25 = 1.0
+        int[] h1 = {0, 0, 1, 1};
+        int[] h2 = {1, 1, 0, 0};
+        assertEquals(1.0, VectorOps.dPrime(h1, h2, h1.length), EPS);
+    }
 }

@@ -32,6 +32,11 @@ cypher-shell -u "$NEO4J_USER" -p "$NEO4J_PASS" <<'CYPHER'
 CREATE INDEX gw_range IF NOT EXISTS FOR (gw:GenomicWindow) ON (gw.chr, gw.start, gw.end);
 CYPHER
 
+# LD relationship index (Milestone 1.3)
+cypher-shell -u "$NEO4J_USER" -p "$NEO4J_PASS" <<'CYPHER'
+CREATE INDEX ld_pop IF NOT EXISTS FOR ()-[r:LD]-() ON (r.population);
+CYPHER
+
 # Full-text index on GOTerm.name
 cypher-shell -u "$NEO4J_USER" -p "$NEO4J_PASS" <<'CYPHER'
 CREATE FULLTEXT INDEX goterm_name IF NOT EXISTS FOR (t:GOTerm) ON EACH [t.name];
@@ -83,6 +88,14 @@ CALL graphpop.genome_scan('chr22', 'AFR', 1000000, 500000, {})
 YIELD window_id, start, end, pi, tajima_d, n_variants
 RETURN window_id, start, end, pi, tajima_d, n_variants
 LIMIT 5;
+CYPHER
+echo ""
+
+echo "==> Smoke test: graphpop.ld on chr22 16M-16.1M for EUR"
+cypher-shell -u "$NEO4J_USER" -p "$NEO4J_PASS" <<'CYPHER'
+CALL graphpop.ld('chr22', 16000000, 16100000, 'EUR', 500000, 0.2)
+YIELD variant1, variant2, r2, dprime, distance
+RETURN count(*) AS ld_edges, avg(r2) AS avg_r2, avg(dprime) AS avg_dprime;
 CYPHER
 echo ""
 

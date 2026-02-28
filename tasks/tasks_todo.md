@@ -93,7 +93,54 @@
 ---
 
 ## Milestone 1.3 — LD + Haplotype Statistics (Month 4–6)
-- [ ] ... (to be expanded)
+
+### VectorOps LD Primitives
+- [x] `VectorOps.pearsonR2` — SIMD-accelerated r² from dosage vectors
+- [x] `VectorOps.dPrime` — D' from haplotype vectors (2×2 table)
+- [x] Unit tests: perfect/inverse/zero correlation, monomorphic, known values, large arrays (14 new tests)
+
+### GenotypeLoader Helper
+- [x] `buildSampleIndex` — population-filtered sample→index mapping
+- [x] `loadDosage` — single variant CARRIES→dosage array
+- [x] `loadDosageBatch` — batch multi-variant dosage load (single Cypher query)
+- [x] `loadHaplotypes` — phased haplotype loading (hap0/hap1 per sample)
+
+### Stored Procedure: `graphpop.ld(chr, start, end, pop, max_dist, r2_threshold)`
+- [x] Pairwise r² and D' computation within genomic window
+- [x] Sub-window processing (200 variants) to bound memory
+- [x] Batch dosage loading for efficiency
+- [x] Allele frequency pre-filter (skip monomorphic sites)
+- [x] Write LD edges: `(:Variant)-[:LD {r2, dprime, population}]->(:Variant)`
+
+### EHHComputer Shared Helper
+- [x] Bidirectional NEXT chain walk with haplotype group splitting
+- [x] EHH computation: nCr(k_i,2) / nCr(n,2) per group
+- [x] Trapezoidal integration (iHH) over physical distance
+- [x] Configurable EHH cutoff (default 0.05)
+
+### Stored Procedure: `graphpop.ihs(chr, pop, [options])`
+- [x] Ancestral/derived haplotype partitioning from phased CARRIES data
+- [x] iHH_ancestral and iHH_derived via EHHComputer
+- [x] Unstandardized iHS = ln(iHH_A / iHH_D)
+- [x] Frequency-bin standardization (20 bins, z-score)
+- [x] Write ihs_{pop} and ihs_unstd_{pop} properties on Variant nodes
+- [x] Configurable min_af filter (default 0.05)
+
+### Stored Procedure: `graphpop.xpehh(chr, pop1, pop2, [options])`
+- [x] Cross-population EHH comparison
+- [x] Whole-population iHH computation per population
+- [x] XP-EHH = ln(iHH_pop1 / iHH_pop2), genome-wide standardization
+- [x] Write xpehh_{pop1}_{pop2} properties on Variant nodes
+
+### Deployment
+- [x] LD relationship index: `CREATE INDEX ld_pop FOR ()-[r:LD]-() ON (r.population)`
+- [x] Smoke test for graphpop.ld in post-deploy-setup.sh
+- [x] Build: `mvnw package` — 45 tests pass, JAR produced
+
+### Validation
+- [x] validate-ld.py: compare r² against scikit-allel rogers_huff_r
+- [ ] Deploy and run smoke tests on live Neo4j instance
+- [ ] Run validate-ld.py against live database
 
 ## Milestone 1.4 — Genome Scan + Benchmark (Month 6–7)
 - [ ] ... (to be expanded)

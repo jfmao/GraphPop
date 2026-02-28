@@ -14,16 +14,23 @@ import java.time.Instant;
 import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
+import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
 /**
  * Sliding-window genome scan that materializes GenomicWindow nodes.
  *
- * <p>Scans all variants on a chromosome, accumulates diversity statistics
- * in configurable windows, and writes the results as GenomicWindow nodes
- * linked to the Chromosome via ON_CHROMOSOME.</p>
+ * <p>Architecture: load → parallel compute → sequential write.
+ * <ol>
+ *   <li>Load all variants into memory (single-threaded, one pass)</li>
+ *   <li>Pre-compute window boundaries, then compute per-window statistics
+ *       in parallel (ForkJoinPool, binary search for variant ranges)</li>
+ *   <li>Write GenomicWindow nodes and ON_CHROMOSOME edges (single-threaded)</li>
+ * </ol>
+ * </p>
  *
  * <p>Each run is tagged with a run_id for versioning. Comparative mode
  * (providing pop2) adds Fst, Dxy, Da to each window.</p>
@@ -143,20 +150,32 @@ public class GenomeScanProcedure {
         long minPos = variants.get(0).pos;
         long maxPos = variants.get(variants.size() - 1).pos;
 
-        // Find or create Chromosome node for linking
-        Node chrNode = tx.findNode(CHROMOSOME_LABEL, "chromosomeId", chr);
+        // Build sorted position array for binary search
+        long[] positions = new long[variants.size()];
+        for (int i = 0; i < variants.size(); i++) {
+            positions[i] = variants.get(i).pos;
+        }
 
-        // Slide windows
-        List<WindowResult> results = new ArrayList<>();
-        int varIdx = 0; // left pointer into sorted variant list
-
+        // Phase 1: Pre-compute window boundaries
+        List<long[]> windowBounds = new ArrayList<>();
         for (long wStart = minPos; wStart <= maxPos; wStart += stepSize) {
-            long wEnd = wStart + windowSize - 1;
+            windowBounds.add(new long[]{wStart, wStart + windowSize - 1});
+        }
+        int nWindows = windowBounds.size();
+        if (nWindows == 0) return Stream.empty();
 
-            // Advance left pointer past variants before this window
-            while (varIdx < variants.size() && variants.get(varIdx).pos < wStart) {
-                varIdx++;
-            }
+        // Phase 2: Parallel computation of per-window statistics (no DB access)
+        final PopulationContext ctxF = ctx;
+        final PopulationContext ctx2F = ctx2;
+        WindowResult[] windowResults = new WindowResult[nWindows];
+
+        IntStream.range(0, nWindows).parallel().forEach(w -> {
+            long wStart = windowBounds.get(w)[0];
+            long wEnd = windowBounds.get(w)[1];
+
+            // Binary search for first variant >= wStart
+            int lo = Arrays.binarySearch(positions, wStart);
+            if (lo < 0) lo = -(lo + 1); // insertion point
 
             // Accumulate stats for variants in [wStart, wEnd]
             double piSum = 0.0;
@@ -169,14 +188,14 @@ public class GenomeScanProcedure {
             double fstNum = 0.0, fstDen = 0.0, dxySum = 0.0;
             double piW1Sum = 0.0, piW2Sum = 0.0;
 
-            for (int j = varIdx; j < variants.size(); j++) {
+            for (int j = lo; j < variants.size(); j++) {
                 VariantData v = variants.get(j);
                 if (v.pos > wEnd) break;
 
-                int ac = v.ac[ctx.index];
-                int an = v.an[ctx.index];
-                double af = v.af[ctx.index];
-                int het = v.het[ctx.index];
+                int ac = v.ac[ctxF.index];
+                int an = v.an[ctxF.index];
+                double af = v.af[ctxF.index];
+                int het = v.het[ctxF.index];
 
                 if (an < 2) continue;
 
@@ -190,9 +209,9 @@ public class GenomeScanProcedure {
                 }
 
                 // Comparative stats
-                if (ctx2 != null) {
-                    int an2 = v.an[ctx2.index];
-                    double af2 = v.af[ctx2.index];
+                if (ctx2F != null) {
+                    int an2 = v.an[ctx2F.index];
+                    double af2 = v.af[ctx2F.index];
                     if (an2 >= 2) {
                         double[] fstC = VectorOps.hudsonFstComponents(af, an, af2, an2);
                         fstNum += fstC[0];
@@ -204,7 +223,7 @@ public class GenomeScanProcedure {
                 }
             }
 
-            if (nVariants == 0) continue;
+            if (nVariants == 0) return;
 
             double L = nVariants;
 
@@ -217,32 +236,39 @@ public class GenomeScanProcedure {
             wr.n_variants = nVariants;
             wr.n_segregating = nSegregating;
             wr.pi = piSum / L;
-            wr.theta_w = ctx.a_n > 0 ? (nSegregating / ctx.a_n) / L : 0.0;
-            wr.tajima_d = TajimaD.compute(piSum, nSegregating, ctx);
+            wr.theta_w = ctxF.a_n > 0 ? (nSegregating / ctxF.a_n) / L : 0.0;
+            wr.tajima_d = TajimaD.compute(piSum, nSegregating, ctxF);
             wr.het_exp = heSum / L;
             wr.het_obs = hoSum / L;
             wr.fis = wr.het_exp > 0 ? 1.0 - wr.het_obs / wr.het_exp : 0.0;
 
-            if (ctx2 != null && fstDen > 0) {
+            if (ctx2F != null && fstDen > 0) {
                 wr.fst = fstNum / fstDen;
                 wr.dxy = dxySum / L;
                 wr.da = wr.dxy - (piW1Sum / L + piW2Sum / L) / 2.0;
             }
 
-            // Build window ID
-            String windowId = chr + ":" + wStart + "-" + wEnd + ":" + pop + ":" + runId;
-            wr.window_id = windowId;
+            wr.window_id = chr + ":" + wStart + "-" + wEnd + ":" + pop + ":" + runId;
+            windowResults[w] = wr;
+        });
 
-            // Materialize GenomicWindow node
+        // Phase 3: Sequential write of GenomicWindow nodes (DB access)
+        Node chrNode = tx.findNode(CHROMOSOME_LABEL, "chromosomeId", chr);
+        List<WindowResult> results = new ArrayList<>();
+
+        for (int w = 0; w < nWindows; w++) {
+            WindowResult wr = windowResults[w];
+            if (wr == null) continue; // empty window
+
             Node gwNode = tx.createNode(GENOMIC_WINDOW_LABEL);
-            gwNode.setProperty("windowId", windowId);
+            gwNode.setProperty("windowId", wr.window_id);
             gwNode.setProperty("chr", chr);
-            gwNode.setProperty("start", wStart);
-            gwNode.setProperty("end", wEnd);
+            gwNode.setProperty("start", wr.start);
+            gwNode.setProperty("end", wr.end);
             gwNode.setProperty("population", pop);
             gwNode.setProperty("run_id", runId);
-            gwNode.setProperty("n_variants", nVariants);
-            gwNode.setProperty("n_segregating", nSegregating);
+            gwNode.setProperty("n_variants", wr.n_variants);
+            gwNode.setProperty("n_segregating", wr.n_segregating);
             gwNode.setProperty("pi", wr.pi);
             gwNode.setProperty("theta_w", wr.theta_w);
             gwNode.setProperty("tajima_d", wr.tajima_d);
@@ -250,7 +276,7 @@ public class GenomeScanProcedure {
             gwNode.setProperty("het_obs", wr.het_obs);
             gwNode.setProperty("fis", wr.fis);
 
-            if (ctx2 != null) {
+            if (pop2 != null) {
                 gwNode.setProperty("pop2", pop2);
                 gwNode.setProperty("fst", wr.fst);
                 gwNode.setProperty("dxy", wr.dxy);
