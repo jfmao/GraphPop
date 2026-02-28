@@ -731,7 +731,10 @@ def fst_plink2_pgen(start, end, pop1, pop2, tmpdir):
 
 
 def ld_plink2_pgen(start, end, pop, tmpdir):
-    """Compute LD using PLINK2 from native .pgen files."""
+    """Compute LD using PLINK2 from native .pgen files.
+
+    Uses --r2-unphased (dosage correlation) to match GraphPop's Pearson r².
+    """
     keep_file = _write_plink2_keep(tmpdir, pop)
     cmd = [
         "plink2",
@@ -739,7 +742,7 @@ def ld_plink2_pgen(start, end, pop, tmpdir):
         "--chr", CHR,
         "--from-bp", str(start), "--to-bp", str(end),
         "--keep", keep_file,
-        "--r2",
+        "--r2-unphased",
         "--ld-window-r2", "0.2",
         "--allow-extra-chr",
         "--out", os.path.join(tmpdir, "plink2_pgen_ld"),
@@ -843,17 +846,12 @@ def ld_scikit_allel(start, end, pop):
 
 
 def ld_plink2(start, end, pop, tmpdir):
-    """Compute LD using PLINK2."""
-    keep_file = write_pop_keep_file(tmpdir, pop)
+    """Compute LD using PLINK2 from VCF.
 
-    # PLINK2 --keep format: #IID (match on IID since FID=0 from VCF)
-    keep_plink = os.path.join(tmpdir, f"{pop}_keep_plink.txt")
-    with open(keep_file) as fin, open(keep_plink, "w") as fout:
-        fout.write("#IID\n")
-        for line in fin:
-            s = line.strip()
-            if s:
-                fout.write(f"{s}\n")
+    Uses --r2-unphased (dosage correlation) to match GraphPop's Pearson r².
+    PLINK2 v2.x requires explicit --r2-phased or --r2-unphased.
+    """
+    keep_plink = _write_plink2_keep(tmpdir, pop)
 
     cmd = [
         "plink2",
@@ -861,7 +859,7 @@ def ld_plink2(start, end, pop, tmpdir):
         "--chr", CHR,
         "--from-bp", str(start), "--to-bp", str(end),
         "--keep", keep_plink,
-        "--r2",
+        "--r2-unphased",
         "--ld-window-r2", "0.2",
         "--allow-extra-chr",
         "--out", os.path.join(tmpdir, "plink2_ld"),
