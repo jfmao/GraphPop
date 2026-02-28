@@ -24,7 +24,7 @@
 - [x] Emit Chromosome node CSV
 
 ### Annotation Lift
-- [ ] Parse VEP CSQ field → Gene nodes + HAS_CONSEQUENCE edges
+- [x] Parse VEP CSQ field → Gene nodes + HAS_CONSEQUENCE edges
 - [ ] Pathway/GOTerm import from external files
 
 ### NEXT Edge Builder
