@@ -44,47 +44,41 @@
 ## Milestone 1.2 — VectorOps + Core Statistics (Month 2–4)
 
 ### VectorOps SIMD Core (graphpop-procedures)
-- [ ] Implement `VectorOps.dotProduct` — SIMD dot product via jdk.incubator.vector
-- [ ] `VectorOps.cosineSimilarity` — cosine similarity between AF vectors
-- [ ] `VectorOps.euclideanDistance` — Euclidean distance between AF vectors
-- [ ] `VectorOps.alleleCounts` — sum allele counts across vector lanes
-- [ ] Unit tests for all VectorOps methods (JUnit 5)
-- [ ] Maven build verified: `mvn package` produces graphpop-procedures.jar
+- [x] Implement `VectorOps.dotProduct` — SIMD dot product via jdk.incubator.vector
+- [x] `VectorOps.cosineSimilarity` — cosine similarity between AF vectors
+- [x] `VectorOps.euclideanDistance` — Euclidean distance between AF vectors
+- [x] `VectorOps.sum`, `sumOfSquares`, `subtract`, `expectedHeterozygosity`
+- [x] `VectorOps.piPerSite`, `hudsonFstComponents`, `dxyPerSite`
+- [x] Unit tests for all VectorOps methods (31 tests, JUnit 5)
+- [x] Maven build verified: `mvnw package` produces graphpop-procedures.jar (22 KB)
 
 ### Stored Procedure: `graphpop.diversity(chr, start, end, pop, [options])`
-- [ ] Register as @Procedure, query Variant nodes in [start, end] range by chr
-- [ ] Compute π (nucleotide diversity): Σ 2·p·(1-p) / L
-- [ ] Compute θ_W (Watterson's theta): S / a_n
-- [ ] Compute Tajima's D: (π - θ_W) / sqrt(Var)
-- [ ] Compute H_e (expected heterozygosity): 2·p·(1-p) per pop
-- [ ] Compute H_o (observed heterozygosity): het_count / (an/2) per pop
-- [ ] Compute F_IS (inbreeding coefficient): 1 - H_o/H_e
-- [ ] Support conditioned queries: filter by consequence, pathway, annotation
-- [ ] Return results as Stream<Record> with all statistics
+- [x] Register as @Procedure, query Variant nodes in [start, end] range by chr
+- [x] Compute π, θ_W, Tajima's D, H_e, H_o, F_IS
+- [x] Support conditioned queries: filter by consequence, pathway
+- [x] Return results as Stream<DiversityResult>
 
 ### Stored Procedure: `graphpop.sfs(chr, start, end, pop, [folded])`
-- [ ] Compute site frequency spectrum: histogram of derived allele counts
-- [ ] Support folded SFS (fold symmetrically)
+- [x] Compute site frequency spectrum: histogram of derived allele counts
+- [x] Support folded SFS (fold symmetrically)
 
 ### Stored Procedure: `graphpop.divergence(chr, start, end, pop1, pop2)`
-- [ ] Compute Hudson's F_ST from allele count arrays
-- [ ] Compute D_xy (net divergence): Σ (p1·(1-p2) + p2·(1-p1)) / L
-- [ ] Compute D_a (absolute divergence)
-- [ ] Return fst_hudson, dxy, da as Map
+- [x] Compute Hudson's F_ST, D_xy, D_a from allele count arrays
 
 ### Stored Procedure: `graphpop.joint_sfs(chr, start, end, pop1, pop2, [folded])`
-- [ ] Compute 2D joint site frequency spectrum
-- [ ] Dimensions: ac[pop1] × ac[pop2]
+- [x] Compute 2D joint site frequency spectrum
 
 ### Stored Procedure: `graphpop.genome_scan(chr, pop, window, step, [options])`
-- [ ] Sliding window along NEXT chain (default: 100 kb window, 50 kb step)
-- [ ] Materialize GenomicWindow nodes with computed stats (π, θ_W, D, H_e, H_o, F_IS)
-- [ ] Link GenomicWindow → Chromosome via ON_CHROMOSOME
-- [ ] Analysis versioning: each run tagged with run_id
-- [ ] Comparative mode: include F_ST, D_xy if second population specified
+- [x] Sliding window (default: 100 kb window, 50 kb step)
+- [x] Materialize GenomicWindow nodes with computed stats (π, θ_W, D, H_e, H_o, F_IS)
+- [x] Link GenomicWindow → Chromosome via ON_CHROMOSOME
+- [x] Analysis versioning: each run tagged with run_id
+- [x] Comparative mode: include F_ST, D_xy, D_a if pop2 provided
 
-### Index Strategy
-- [ ] Composite index on (Variant.chr, Variant.pos) for range queries
+### Deployment
+- [x] Deploy script: `sudo bash scripts/deploy-procedures.sh`
+- [ ] Verify procedures registered in Neo4j
+- [ ] Create composite index on (Variant.chr, Variant.pos) for range queries
 - [ ] Full-text index on GOTerm.name for enrichment filtering
 
 ### Validation
