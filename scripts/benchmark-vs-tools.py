@@ -45,6 +45,7 @@ import numpy as np
 
 ROOT = Path(__file__).resolve().parent.parent
 VCF = str(ROOT / "data/raw/1000g/CCDG_14151_B01_GRM_WGS_2020-08-05_chr22.filtered.shapeit2-duohmm-phased.vcf.gz")
+PGEN_PREFIX = str(ROOT / "data/raw/1000g/chr22_zst")  # .pgen/.pvar.zst/.psam
 PANEL = str(ROOT / "data/raw/1000g/integrated_call_samples_v3.20130502.ALL.panel")
 RESULTS_DIR = ROOT / "benchmarks" / "results"
 RESULTS_DIR.mkdir(parents=True, exist_ok=True)
@@ -86,6 +87,9 @@ for t in ["vcftools", "pixy", "plink2", "selscan"]:
     TOOLS[t] = tool_available(t)
 TOOLS["scikit-allel"] = tool_available("scikit-allel")
 TOOLS["graphpop"] = True  # always available if Neo4j is up
+TOOLS["plink2-pgen"] = (TOOLS["plink2"]
+                         and os.path.exists(PGEN_PREFIX + ".pgen")
+                         and os.path.exists(PGEN_PREFIX + ".pvar.zst"))
 
 
 def check_neo4j():
@@ -660,6 +664,108 @@ def fst_plink2(start, end, pop1, pop2, tmpdir):
     }
 
 
+def _write_plink2_pheno(tmpdir, pop1, pop2):
+    """Write #IID/POP pheno file for PLINK2 (cached per tmpdir)."""
+    path = os.path.join(tmpdir, "plink2_pop_pheno.txt")
+    if os.path.exists(path):
+        return path
+    sample_pop = load_panel()
+    with open(path, "w") as f:
+        f.write("#IID\tPOP\n")
+        for s, p in sample_pop.items():
+            if p in (pop1, pop2):
+                f.write(f"{s}\t{p}\n")
+    return path
+
+
+def _write_plink2_keep(tmpdir, pop):
+    """Write #IID keep file for PLINK2 (cached per tmpdir)."""
+    path = os.path.join(tmpdir, f"plink2_keep_{pop}.txt")
+    if os.path.exists(path):
+        return path
+    sample_pop = load_panel()
+    with open(path, "w") as f:
+        f.write("#IID\n")
+        for s, p in sample_pop.items():
+            if p == pop:
+                f.write(f"{s}\n")
+    return path
+
+
+def fst_plink2_pgen(start, end, pop1, pop2, tmpdir):
+    """Compute Hudson's Fst using PLINK2 from native .pgen files."""
+    pheno_file = _write_plink2_pheno(tmpdir, pop1, pop2)
+    cmd = [
+        "plink2",
+        "--pfile", PGEN_PREFIX, "vzs",
+        "--chr", CHR,
+        "--from-bp", str(start), "--to-bp", str(end),
+        "--pheno", pheno_file,
+        "--fst", "POP", "method=hudson",
+        "--allow-extra-chr",
+        "--out", os.path.join(tmpdir, "plink2_pgen_fst"),
+    ]
+    try:
+        _, elapsed, peak_mb = measure_subprocess(cmd, timeout=120)
+    except RuntimeError as e:
+        return {"error": str(e), "time_s": 0, "peak_mem_mb": 0}
+
+    fst_val = None
+    summary = os.path.join(tmpdir, "plink2_pgen_fst.fst.summary")
+    if os.path.exists(summary):
+        with open(summary) as f:
+            header = f.readline()
+            data_line = f.readline()
+            if data_line:
+                parts = data_line.strip().split("\t")
+                try:
+                    fst_val = float(parts[-1])
+                except (ValueError, IndexError):
+                    pass
+
+    return {
+        "fst_hudson": fst_val,
+        "time_s": elapsed,
+        "peak_mem_mb": peak_mb,
+    }
+
+
+def ld_plink2_pgen(start, end, pop, tmpdir):
+    """Compute LD using PLINK2 from native .pgen files."""
+    keep_file = _write_plink2_keep(tmpdir, pop)
+    cmd = [
+        "plink2",
+        "--pfile", PGEN_PREFIX, "vzs",
+        "--chr", CHR,
+        "--from-bp", str(start), "--to-bp", str(end),
+        "--keep", keep_file,
+        "--r2",
+        "--ld-window-r2", "0.2",
+        "--allow-extra-chr",
+        "--out", os.path.join(tmpdir, "plink2_pgen_ld"),
+    ]
+    try:
+        _, elapsed, peak_mb = measure_subprocess(cmd, timeout=300)
+    except RuntimeError as e:
+        return {"error": str(e), "time_s": 0, "peak_mem_mb": 0}
+
+    n_pairs = 0
+    for ext in [".vcor", ".ld"]:
+        ld_file = os.path.join(tmpdir, f"plink2_pgen_ld{ext}")
+        if os.path.exists(ld_file):
+            with open(ld_file) as f:
+                for _ in f:
+                    n_pairs += 1
+            n_pairs -= 1  # subtract header
+            break
+
+    return {
+        "n_pairs_r2_02": n_pairs,
+        "time_s": elapsed,
+        "peak_mem_mb": peak_mb,
+    }
+
+
 def fst_graphpop(start, end, pop1, pop2):
     """Query graphpop.divergence for Fst and Dxy."""
     query = (
@@ -1166,9 +1272,14 @@ def main():
                 print(f" {fmt_time(fst_results['pixy']['time_s'])}")
 
             if TOOLS["plink2"]:
-                print("  PLINK2...", end="", flush=True)
-                fst_results["PLINK2"] = fst_plink2(start, end, POP1, POP2, tmpdir)
-                print(f" {fmt_time(fst_results['PLINK2']['time_s'])}")
+                print("  PLINK2 (VCF)...", end="", flush=True)
+                fst_results["PLINK2-VCF"] = fst_plink2(start, end, POP1, POP2, tmpdir)
+                print(f" {fmt_time(fst_results['PLINK2-VCF']['time_s'])}")
+
+            if TOOLS["plink2-pgen"]:
+                print("  PLINK2 (.pgen)...", end="", flush=True)
+                fst_results["PLINK2-pgen"] = fst_plink2_pgen(start, end, POP1, POP2, tmpdir)
+                print(f" {fmt_time(fst_results['PLINK2-pgen']['time_s'])}")
 
             print("  GraphPop...", end="", flush=True)
             fst_results["GraphPop"] = fst_graphpop(start, end, POP1, POP2)
@@ -1225,9 +1336,14 @@ def main():
                     print(f" {fmt_time(ld_results['scikit-allel']['time_s'])}")
 
                 if TOOLS["plink2"]:
-                    print("  PLINK2...", end="", flush=True)
-                    ld_results["PLINK2"] = ld_plink2(start, end, POP2, tmpdir)
-                    print(f" {fmt_time(ld_results['PLINK2']['time_s'])}")
+                    print("  PLINK2 (VCF)...", end="", flush=True)
+                    ld_results["PLINK2-VCF"] = ld_plink2(start, end, POP2, tmpdir)
+                    print(f" {fmt_time(ld_results['PLINK2-VCF']['time_s'])}")
+
+                if TOOLS["plink2-pgen"]:
+                    print("  PLINK2 (.pgen)...", end="", flush=True)
+                    ld_results["PLINK2-pgen"] = ld_plink2_pgen(start, end, POP2, tmpdir)
+                    print(f" {fmt_time(ld_results['PLINK2-pgen']['time_s'])}")
 
                 print("  GraphPop...", end="", flush=True)
                 ld_results["GraphPop"] = ld_graphpop(start, end, POP2)
