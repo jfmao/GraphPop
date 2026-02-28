@@ -103,7 +103,7 @@ echo ""
 echo "==> Loading HAS_CONSEQUENCE edges..."
 
 cypher-shell -u "$NEO4J_USER" -p "$NEO4J_PASS" -d "$NEO4J_DB" <<'CYPHER'
-:auto LOAD CSV WITH HEADERS FROM 'file:///has_consequence_edges.csv' AS row
+LOAD CSV WITH HEADERS FROM 'file:///has_consequence_edges.csv' AS row
 CALL {
   WITH row
   MATCH (v:Variant {variantId: row.`:START_ID(Variant)`})
