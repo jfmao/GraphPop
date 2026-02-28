@@ -124,7 +124,12 @@ public class DiversityProcedure {
     private String buildVariantQuery(String consequence, String pathway) {
         StringBuilder sb = new StringBuilder();
 
-        if (pathway != null) {
+        if (pathway != null && consequence != null) {
+            sb.append("MATCH (v:Variant)-[c:HAS_CONSEQUENCE]->(g:Gene)-[:IN_PATHWAY]->(p:Pathway) ");
+            sb.append("WHERE v.chr = $chr AND v.pos >= $start AND v.pos <= $end ");
+            sb.append("AND c.consequence = '").append(consequence.replace("'", "''")).append("' ");
+            sb.append("AND p.name = '").append(pathway.replace("'", "''")).append("' ");
+        } else if (pathway != null) {
             sb.append("MATCH (v:Variant)-[:HAS_CONSEQUENCE]->(g:Gene)-[:IN_PATHWAY]->(p:Pathway) ");
             sb.append("WHERE v.chr = $chr AND v.pos >= $start AND v.pos <= $end ");
             sb.append("AND p.name = '").append(pathway.replace("'", "''")).append("' ");
