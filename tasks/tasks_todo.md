@@ -43,30 +43,55 @@
 
 ## Milestone 1.2 — VectorOps + Core Statistics (Month 2–4)
 
-### Neo4j Stored Procedures (graphpop-procedures)
-- [ ] Set up Maven build with Neo4j 2026.x procedure API
-- [ ] `graphpop.vectorAF(variantId)` — return allele-frequency vector across populations
-- [ ] `graphpop.vectorHet(variantId)` — return heterozygosity vector
-- [ ] `graphpop.cosineSimilarity(v1, v2)` — cosine similarity between two AF vectors
-- [ ] `graphpop.euclideanDistance(v1, v2)` — Euclidean distance between AF vectors
-- [ ] Use Java Vector API (jdk.incubator.vector) for SIMD-accelerated array ops
-- [ ] Unit tests for all procedures (JUnit 5 + Neo4j harness)
+### VectorOps SIMD Core (graphpop-procedures)
+- [ ] Implement `VectorOps.dotProduct` — SIMD dot product via jdk.incubator.vector
+- [ ] `VectorOps.cosineSimilarity` — cosine similarity between AF vectors
+- [ ] `VectorOps.euclideanDistance` — Euclidean distance between AF vectors
+- [ ] `VectorOps.alleleCounts` — sum allele counts across vector lanes
+- [ ] Unit tests for all VectorOps methods (JUnit 5)
+- [ ] Maven build verified: `mvn package` produces graphpop-procedures.jar
 
-### Summary Statistics (per-variant)
-- [ ] Expected heterozygosity: He = 1 − Σ(pi²) per population
-- [ ] Observed heterozygosity: Ho = het_count / n per population
-- [ ] Nucleotide diversity (π) via NEXT-edge window traversal
-- [ ] Store computed stats as Variant node properties or separate :Statistic nodes
+### Stored Procedure: `graphpop.diversity(chr, start, end, pop, [options])`
+- [ ] Register as @Procedure, query Variant nodes in [start, end] range by chr
+- [ ] Compute π (nucleotide diversity): Σ 2·p·(1-p) / L
+- [ ] Compute θ_W (Watterson's theta): S / a_n
+- [ ] Compute Tajima's D: (π - θ_W) / sqrt(Var)
+- [ ] Compute H_e (expected heterozygosity): 2·p·(1-p) per pop
+- [ ] Compute H_o (observed heterozygosity): het_count / (an/2) per pop
+- [ ] Compute F_IS (inbreeding coefficient): 1 - H_o/H_e
+- [ ] Support conditioned queries: filter by consequence, pathway, annotation
+- [ ] Return results as Stream<Record> with all statistics
 
-### Population Differentiation
-- [ ] Fst (Weir & Cockerham 1984) — pairwise between all population pairs
-- [ ] Store Fst as DIFFERENTIATES relationship or Population node property
-- [ ] Fst confidence intervals via jackknife over NEXT-linked variant blocks
+### Stored Procedure: `graphpop.sfs(chr, start, end, pop, [folded])`
+- [ ] Compute site frequency spectrum: histogram of derived allele counts
+- [ ] Support folded SFS (fold symmetrically)
 
-### Windowed Statistics
-- [ ] Sliding-window π using NEXT chain traversal (Cypher procedure)
-- [ ] Sliding-window Fst across NEXT chain
-- [ ] Window size configurable (default: 50 kb, step: 10 kb)
+### Stored Procedure: `graphpop.divergence(chr, start, end, pop1, pop2)`
+- [ ] Compute Hudson's F_ST from allele count arrays
+- [ ] Compute D_xy (net divergence): Σ (p1·(1-p2) + p2·(1-p1)) / L
+- [ ] Compute D_a (absolute divergence)
+- [ ] Return fst_hudson, dxy, da as Map
+
+### Stored Procedure: `graphpop.joint_sfs(chr, start, end, pop1, pop2, [folded])`
+- [ ] Compute 2D joint site frequency spectrum
+- [ ] Dimensions: ac[pop1] × ac[pop2]
+
+### Stored Procedure: `graphpop.genome_scan(chr, pop, window, step, [options])`
+- [ ] Sliding window along NEXT chain (default: 100 kb window, 50 kb step)
+- [ ] Materialize GenomicWindow nodes with computed stats (π, θ_W, D, H_e, H_o, F_IS)
+- [ ] Link GenomicWindow → Chromosome via ON_CHROMOSOME
+- [ ] Analysis versioning: each run tagged with run_id
+- [ ] Comparative mode: include F_ST, D_xy if second population specified
+
+### Index Strategy
+- [ ] Composite index on (Variant.chr, Variant.pos) for range queries
+- [ ] Full-text index on GOTerm.name for enrichment filtering
+
+### Validation
+- [ ] Reproduce vcftools/scikit-allel π for 1000G chr22 to <0.01% error
+- [ ] Reproduce Tajima's D to <0.01% error
+- [ ] Reproduce Hudson's F_ST to <0.01% error
+- [ ] Benchmark: conditioned Tajima's D (missense only in pathway) vs classical pipeline
 
 ---
 
