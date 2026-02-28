@@ -50,6 +50,9 @@ final class HaplotypeMatrix {
     /** Sample index used during loading (sampleId → array position). */
     final Map<String, Integer> sampleIndex;
 
+    /** Lazy dosage cache: populated on first dosage(variantIdx) call. */
+    private volatile double[][] dosageCache;
+
     private HaplotypeMatrix(String[] variantIds, long[] positions, Node[] nodes,
                             double[] afs, int[] acs, int[] ans,
                             byte[][] haplotypes, int nSamples,
@@ -68,10 +71,41 @@ final class HaplotypeMatrix {
     }
 
     /**
+     * Build a HaplotypeMatrix from raw arrays for unit testing (no DB required).
+     */
+    static HaplotypeMatrix forTest(String[] variantIds, long[] positions,
+                                   double[] afs, int[] acs, int[] ans,
+                                   byte[][] haplotypes, int nSamples) {
+        return new HaplotypeMatrix(variantIds, positions, null, afs, acs, ans,
+                haplotypes, nSamples, Map.of());
+    }
+
+    /**
      * Get the dosage vector for a variant (0/1/2 per sample).
      * dosage[s] = haplotypes[v][2*s] + haplotypes[v][2*s+1].
+     *
+     * <p>Uses a lazy cache: first call computes and stores the result,
+     * subsequent calls return the cached array.</p>
      */
     double[] dosage(int variantIdx) {
+        double[][] cache = dosageCache;
+        if (cache != null && cache[variantIdx] != null) {
+            return cache[variantIdx];
+        }
+        double[] dos = computeDosage(variantIdx);
+        if (cache == null) {
+            synchronized (this) {
+                if (dosageCache == null) {
+                    dosageCache = new double[nVariants][];
+                }
+                cache = dosageCache;
+            }
+        }
+        cache[variantIdx] = dos;
+        return dos;
+    }
+
+    private double[] computeDosage(int variantIdx) {
         double[] dos = new double[nSamples];
         byte[] h = haplotypes[variantIdx];
         for (int s = 0; s < nSamples; s++) {

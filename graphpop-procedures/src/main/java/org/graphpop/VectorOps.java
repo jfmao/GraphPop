@@ -342,6 +342,49 @@ public final class VectorOps {
     }
 
     /**
+     * Compute D' from byte[] haplotype vectors directly (avoids int[] copy).
+     *
+     * <p>Identical algorithm to {@link #dPrime(int[], int[], int)} but uses
+     * branchless counting on byte values (0 or 1).</p>
+     *
+     * @param hap1 haplotype vector for variant 1 (byte values 0 or 1)
+     * @param hap2 haplotype vector for variant 2 (same length)
+     * @param n    number of haplotypes
+     * @return |D'| in [0, 1], or 0 if either variant is monomorphic
+     */
+    public static double dPrime(byte[] hap1, byte[] hap2, int n) {
+        if (n == 0) return 0.0;
+
+        int n11 = 0, n10 = 0, n01 = 0;
+        for (int i = 0; i < n; i++) {
+            int a = hap1[i];
+            int b = hap2[i];
+            n11 += a & b;
+            n10 += a & (b ^ 1);
+            n01 += (a ^ 1) & b;
+        }
+        int n00 = n - n11 - n10 - n01;
+
+        double pA = (double) (n11 + n10) / n;
+        double pB = (double) (n11 + n01) / n;
+        double pAB = (double) n11 / n;
+
+        if (pA == 0.0 || pA == 1.0 || pB == 0.0 || pB == 1.0) return 0.0;
+
+        double D = pAB - pA * pB;
+
+        double Dmax;
+        if (D >= 0) {
+            Dmax = Math.min(pA * (1.0 - pB), (1.0 - pA) * pB);
+        } else {
+            Dmax = Math.min(pA * pB, (1.0 - pA) * (1.0 - pB));
+        }
+
+        if (Dmax == 0.0) return 0.0;
+        return Math.abs(D) / Dmax;
+    }
+
+    /**
      * Compute Dxy (net divergence) for a single biallelic site.
      *
      * @param p1  allele frequency in population 1

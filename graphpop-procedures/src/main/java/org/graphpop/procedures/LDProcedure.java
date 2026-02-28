@@ -9,7 +9,7 @@ import org.neo4j.procedure.Name;
 import org.neo4j.procedure.Procedure;
 
 import java.util.*;
-import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
@@ -25,11 +25,11 @@ import java.util.stream.Stream;
  * </ol>
  * </p>
  *
- * <p>Usage:
- * <pre>
- * CALL graphpop.ld('chr22', 16000000, 16100000, 'EUR', 500000, 0.2)
- * YIELD variant1, variant2, r2, dprime, distance
- * </pre>
+ * <p>Optimizations (M1.4):
+ * <ul>
+ *   <li>D' computed directly from byte[] haplotypes — zero array allocation per pair</li>
+ *   <li>Thread-local List collection via flatMap — no CAS contention</li>
+ * </ul>
  * </p>
  */
 public class LDProcedure {
@@ -72,37 +72,34 @@ public class LDProcedure {
             dosages[i] = matrix.dosage(polyIdx[i]);
         }
 
+        int nHaps = matrix.nHaplotypes;
+
         // Phase 2: Parallel pairwise r² + D' computation (no DB access)
-        ConcurrentLinkedQueue<LDHit> hits = new ConcurrentLinkedQueue<>();
-
-        IntStream.range(0, polyIdx.length).parallel().forEach(i -> {
-            int vi = polyIdx[i];
-            long posI = matrix.positions[vi];
-
-            for (int j = i + 1; j < polyIdx.length; j++) {
-                int vj = polyIdx[j];
-                long posJ = matrix.positions[vj];
-                long dist = posJ - posI;
-                if (dist > maxDist) break;
-
-                double r2 = VectorOps.pearsonR2(dosages[i], dosages[j]);
-                if (r2 >= r2Threshold) {
-                    // Compute D' from haplotypes
+        // Thread-local collection via flatMap — no CAS contention
+        List<LDHit> hits = IntStream.range(0, polyIdx.length).parallel()
+                .mapToObj(i -> {
+                    int vi = polyIdx[i];
+                    long posI = matrix.positions[vi];
                     byte[] hapI = matrix.haplotypes[vi];
-                    byte[] hapJ = matrix.haplotypes[vj];
-                    int nHaps = matrix.nHaplotypes;
-                    int[] h1 = new int[nHaps];
-                    int[] h2 = new int[nHaps];
-                    for (int k = 0; k < nHaps; k++) {
-                        h1[k] = hapI[k];
-                        h2[k] = hapJ[k];
-                    }
-                    double dprime = VectorOps.dPrime(h1, h2, nHaps);
+                    List<LDHit> local = new ArrayList<>();
 
-                    hits.add(new LDHit(i, j, vi, vj, r2, dprime, dist));
-                }
-            }
-        });
+                    for (int j = i + 1; j < polyIdx.length; j++) {
+                        int vj = polyIdx[j];
+                        long posJ = matrix.positions[vj];
+                        long dist = posJ - posI;
+                        if (dist > maxDist) break;
+
+                        double r2 = VectorOps.pearsonR2(dosages[i], dosages[j]);
+                        if (r2 >= r2Threshold) {
+                            // Compute D' directly from byte[] — no int[] allocation
+                            double dprime = VectorOps.dPrime(hapI, matrix.haplotypes[vj], nHaps);
+                            local.add(new LDHit(i, j, vi, vj, r2, dprime, dist));
+                        }
+                    }
+                    return local;
+                })
+                .flatMap(List::stream)
+                .collect(Collectors.toList());
 
         // Phase 3: Sequential write of LD edges
         List<LDResult> results = new ArrayList<>();

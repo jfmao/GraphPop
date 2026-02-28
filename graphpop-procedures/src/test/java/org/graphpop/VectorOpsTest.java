@@ -400,6 +400,50 @@ class VectorOpsTest {
         assertEquals(1.0 / 3.0, VectorOps.dPrime(h1, h2, h1.length), 1e-10);
     }
 
+    // -----------------------------------------------------------------------
+    // dPrime (byte[] overload)
+    // -----------------------------------------------------------------------
+
+    @Test
+    void dPrimeByteCompleteLD() {
+        byte[] h1 = {0, 0, 1, 1, 0, 1};
+        byte[] h2 = {0, 0, 1, 1, 0, 1};
+        assertEquals(1.0, VectorOps.dPrime(h1, h2, h1.length), EPS);
+    }
+
+    @Test
+    void dPrimeByteNoLD() {
+        byte[] h1 = {0, 0, 1, 1};
+        byte[] h2 = {0, 1, 0, 1};
+        assertEquals(0.0, VectorOps.dPrime(h1, h2, h1.length), EPS);
+    }
+
+    @Test
+    void dPrimeByteMonomorphic() {
+        byte[] h1 = {0, 0, 0, 0};
+        byte[] h2 = {0, 1, 0, 1};
+        assertEquals(0.0, VectorOps.dPrime(h1, h2, h1.length), EPS);
+    }
+
+    @Test
+    void dPrimeByteMatchesIntVersion() {
+        // Same data as dPrimeIntermediate, verify byte[] matches int[]
+        int[] h1int = {0, 0, 0, 1, 1, 1};
+        int[] h2int = {0, 0, 1, 0, 1, 1};
+        byte[] h1byte = {0, 0, 0, 1, 1, 1};
+        byte[] h2byte = {0, 0, 1, 0, 1, 1};
+        assertEquals(
+                VectorOps.dPrime(h1int, h2int, h1int.length),
+                VectorOps.dPrime(h1byte, h2byte, h1byte.length),
+                EPS
+        );
+    }
+
+    @Test
+    void dPrimeByteEmpty() {
+        assertEquals(0.0, VectorOps.dPrime(new byte[]{}, new byte[]{}, 0), EPS);
+    }
+
     @Test
     void dPrimeNegativeD() {
         // Repulsion: alt at 1 tends to co-occur with ref at 2

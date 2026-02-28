@@ -23,30 +23,17 @@ import java.util.stream.Stream;
 /**
  * Sliding-window genome scan that materializes GenomicWindow nodes.
  *
- * <p>Architecture: load → parallel compute → sequential write.
+ * <p>Architecture: load → pre-compute → parallel window → sequential write.
  * <ol>
  *   <li>Load all variants into memory (single-threaded, one pass)</li>
- *   <li>Pre-compute window boundaries, then compute per-window statistics
- *       in parallel (ForkJoinPool, binary search for variant ranges)</li>
+ *   <li>Pre-compute per-variant statistics into parallel arrays (M1.4 optimization)</li>
+ *   <li>Parallel window summation — pure array ops, cache-friendly, JIT-vectorizable</li>
  *   <li>Write GenomicWindow nodes and ON_CHROMOSOME edges (single-threaded)</li>
  * </ol>
  * </p>
  *
- * <p>Each run is tagged with a run_id for versioning. Comparative mode
- * (providing pop2) adds Fst, Dxy, Da to each window.</p>
- *
- * <p>Usage:
- * <pre>
- * CALL graphpop.genome_scan('chr22', 'AFR', 100000, 50000, {})
- * YIELD window_id, chr, start, end, pi, theta_w, tajima_d, n_variants, run_id
- * </pre>
- *
- * Comparative mode:
- * <pre>
- * CALL graphpop.genome_scan('chr22', 'AFR', 100000, 50000, {pop2: 'EUR'})
- * YIELD window_id, fst, dxy, da
- * </pre>
- * </p>
+ * <p>M1.4 optimization: each per-variant stat is computed exactly once into flat arrays,
+ * eliminating ~50% duplicate work from overlapping windows.</p>
  */
 public class GenomeScanProcedure {
 
@@ -106,14 +93,12 @@ public class GenomeScanProcedure {
         }
 
         // Fetch all variants on this chromosome, sorted by position.
-        // The ORDER BY is critical for the sliding window logic.
         var result = tx.execute(
                 "MATCH (v:Variant) WHERE v.chr = $chr RETURN v ORDER BY v.pos",
                 Map.of("chr", chr)
         );
 
-        // Load variants into memory (position + property indices).
-        // For chr22 this is ~1M variants — manageable.
+        // Load variants into memory
         List<VariantData> variants = new ArrayList<>();
         PopulationContext ctx = null;
         PopulationContext ctx2 = null;
@@ -146,17 +131,70 @@ public class GenomeScanProcedure {
             return Stream.empty();
         }
 
-        // Determine chromosome span
-        long minPos = variants.get(0).pos;
-        long maxPos = variants.get(variants.size() - 1).pos;
+        int nVar = variants.size();
 
         // Build sorted position array for binary search
-        long[] positions = new long[variants.size()];
-        for (int i = 0; i < variants.size(); i++) {
+        long[] positions = new long[nVar];
+        for (int i = 0; i < nVar; i++) {
             positions[i] = variants.get(i).pos;
         }
 
+        // ---- M1.4: Pre-compute per-variant statistics into flat arrays ----
+        // Each stat computed exactly once, windows become pure array summation.
+        double[] piArr = new double[nVar];
+        double[] heArr = new double[nVar];
+        double[] hoArr = new double[nVar];
+        boolean[] segregating = new boolean[nVar];
+        boolean[] valid = new boolean[nVar]; // an >= 2
+
+        // Comparative arrays (only allocated if pop2 provided)
+        double[] fstNumArr = null, fstDenArr = null, dxyArr = null;
+        double[] piW1Arr = null, piW2Arr = null;
+        boolean[] validComp = null;
+
+        if (pop2 != null) {
+            fstNumArr = new double[nVar];
+            fstDenArr = new double[nVar];
+            dxyArr = new double[nVar];
+            piW1Arr = new double[nVar];
+            piW2Arr = new double[nVar];
+            validComp = new boolean[nVar];
+        }
+
+        for (int i = 0; i < nVar; i++) {
+            VariantData v = variants.get(i);
+            int ac = v.ac[ctx.index];
+            int an = v.an[ctx.index];
+            double af = v.af[ctx.index];
+            int het = v.het[ctx.index];
+
+            if (an < 2) continue;
+            valid[i] = true;
+
+            piArr[i] = VectorOps.piPerSite(af, an);
+            heArr[i] = 2.0 * af * (1.0 - af);
+            hoArr[i] = (double) het / (an / 2);
+            segregating[i] = ac > 0 && ac < an;
+
+            if (ctx2 != null) {
+                int an2 = v.an[ctx2.index];
+                double af2 = v.af[ctx2.index];
+                if (an2 >= 2) {
+                    validComp[i] = true;
+                    double[] fstC = VectorOps.hudsonFstComponents(af, an, af2, an2);
+                    fstNumArr[i] = fstC[0];
+                    fstDenArr[i] = fstC[1];
+                    dxyArr[i] = VectorOps.dxyPerSite(af, af2);
+                    piW1Arr[i] = piArr[i]; // same as piPerSite(af, an)
+                    piW2Arr[i] = VectorOps.piPerSite(af2, an2);
+                }
+            }
+        }
+
         // Phase 1: Pre-compute window boundaries
+        long minPos = positions[0];
+        long maxPos = positions[nVar - 1];
+
         List<long[]> windowBounds = new ArrayList<>();
         for (long wStart = minPos; wStart <= maxPos; wStart += stepSize) {
             windowBounds.add(new long[]{wStart, wStart + windowSize - 1});
@@ -164,9 +202,13 @@ public class GenomeScanProcedure {
         int nWindows = windowBounds.size();
         if (nWindows == 0) return Stream.empty();
 
-        // Phase 2: Parallel computation of per-window statistics (no DB access)
+        // Phase 2: Parallel window summation — pure array ops
         final PopulationContext ctxF = ctx;
         final PopulationContext ctx2F = ctx2;
+        final double[] fstNumF = fstNumArr, fstDenF = fstDenArr, dxyF = dxyArr;
+        final double[] piW1F = piW1Arr, piW2F = piW2Arr;
+        final boolean[] validCompF = validComp;
+
         WindowResult[] windowResults = new WindowResult[nWindows];
 
         IntStream.range(0, nWindows).parallel().forEach(w -> {
@@ -175,51 +217,30 @@ public class GenomeScanProcedure {
 
             // Binary search for first variant >= wStart
             int lo = Arrays.binarySearch(positions, wStart);
-            if (lo < 0) lo = -(lo + 1); // insertion point
+            if (lo < 0) lo = -(lo + 1);
 
-            // Accumulate stats for variants in [wStart, wEnd]
-            double piSum = 0.0;
-            double heSum = 0.0;
-            double hoSum = 0.0;
-            long nVariants = 0;
-            long nSegregating = 0;
-
-            // Comparative accumulators
+            // Pure array summation over pre-computed stats
+            double piSum = 0.0, heSum = 0.0, hoSum = 0.0;
+            long nVariants = 0, nSeg = 0;
             double fstNum = 0.0, fstDen = 0.0, dxySum = 0.0;
             double piW1Sum = 0.0, piW2Sum = 0.0;
 
-            for (int j = lo; j < variants.size(); j++) {
-                VariantData v = variants.get(j);
-                if (v.pos > wEnd) break;
-
-                int ac = v.ac[ctxF.index];
-                int an = v.an[ctxF.index];
-                double af = v.af[ctxF.index];
-                int het = v.het[ctxF.index];
-
-                if (an < 2) continue;
+            for (int j = lo; j < nVar; j++) {
+                if (positions[j] > wEnd) break;
+                if (!valid[j]) continue;
 
                 nVariants++;
-                piSum += VectorOps.piPerSite(af, an);
-                heSum += 2.0 * af * (1.0 - af);
-                hoSum += (double) het / (an / 2);
+                piSum += piArr[j];
+                heSum += heArr[j];
+                hoSum += hoArr[j];
+                if (segregating[j]) nSeg++;
 
-                if (ac > 0 && ac < an) {
-                    nSegregating++;
-                }
-
-                // Comparative stats
-                if (ctx2F != null) {
-                    int an2 = v.an[ctx2F.index];
-                    double af2 = v.af[ctx2F.index];
-                    if (an2 >= 2) {
-                        double[] fstC = VectorOps.hudsonFstComponents(af, an, af2, an2);
-                        fstNum += fstC[0];
-                        fstDen += fstC[1];
-                        dxySum += VectorOps.dxyPerSite(af, af2);
-                        piW1Sum += VectorOps.piPerSite(af, an);
-                        piW2Sum += VectorOps.piPerSite(af2, an2);
-                    }
+                if (ctx2F != null && validCompF[j]) {
+                    fstNum += fstNumF[j];
+                    fstDen += fstDenF[j];
+                    dxySum += dxyF[j];
+                    piW1Sum += piW1F[j];
+                    piW2Sum += piW2F[j];
                 }
             }
 
@@ -234,10 +255,10 @@ public class GenomeScanProcedure {
             wr.population = pop;
             wr.run_id = runId;
             wr.n_variants = nVariants;
-            wr.n_segregating = nSegregating;
+            wr.n_segregating = nSeg;
             wr.pi = piSum / L;
-            wr.theta_w = ctxF.a_n > 0 ? (nSegregating / ctxF.a_n) / L : 0.0;
-            wr.tajima_d = TajimaD.compute(piSum, nSegregating, ctxF);
+            wr.theta_w = ctxF.a_n > 0 ? (nSeg / ctxF.a_n) / L : 0.0;
+            wr.tajima_d = TajimaD.compute(piSum, nSeg, ctxF);
             wr.het_exp = heSum / L;
             wr.het_obs = hoSum / L;
             wr.fis = wr.het_exp > 0 ? 1.0 - wr.het_obs / wr.het_exp : 0.0;
@@ -258,7 +279,7 @@ public class GenomeScanProcedure {
 
         for (int w = 0; w < nWindows; w++) {
             WindowResult wr = windowResults[w];
-            if (wr == null) continue; // empty window
+            if (wr == null) continue;
 
             Node gwNode = tx.createNode(GENOMIC_WINDOW_LABEL);
             gwNode.setProperty("windowId", wr.window_id);
@@ -295,7 +316,6 @@ public class GenomeScanProcedure {
 
     /**
      * Lightweight holder for variant data needed by the sliding window.
-     * Avoids re-reading Node properties on overlapping windows.
      */
     private static class VariantData {
         final long pos;
