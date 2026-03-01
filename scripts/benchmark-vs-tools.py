@@ -11,11 +11,15 @@ Benchmark groups:
   A. Diversity   (π, θ_W, Tajima's D)   — scikit-allel, vcftools, GraphPop
   B. Differentiation (Fst, Dxy)          — scikit-allel, vcftools, pixy, PLINK2, GraphPop
   C. SFS                                 — scikit-allel, GraphPop
-  D. LD (r²)                             — scikit-allel, PLINK2, GraphPop
+  D. LD scenarios:
+     D1. Regional Pairwise (100kb, r²≥0.1, MAF≥0.05) — scikit-allel, vcftools, PLINK2, GraphPop
+     D2. LD Decay (500kb, r²≥0, MAF≥0.05)            — scikit-allel, vcftools, PLINK2, GraphPop
+     D3. LD Pruning (1000kb/step50, r²=0.8)           — PLINK2 only
   E. Selection (iHS, XP-EHH)            — scikit-allel, selscan, GraphPop
 
 Usage:
     conda run -n graphevo python scripts/benchmark-vs-tools.py [--region small|medium|large]
+    conda run -n graphevo python scripts/benchmark-vs-tools.py --ld-scenarios
 
 Requires:
     - Neo4j running with GraphPop procedures deployed
@@ -731,44 +735,6 @@ def fst_plink2_pgen(start, end, pop1, pop2, tmpdir):
     }
 
 
-def ld_plink2_pgen(start, end, pop, tmpdir):
-    """Compute LD using PLINK2 from native .pgen files.
-
-    Uses --r2-unphased (dosage correlation) to match GraphPop's Pearson r².
-    """
-    keep_file = _write_plink2_keep(tmpdir, pop)
-    cmd = [
-        "plink2",
-        "--pfile", PGEN_PREFIX, "vzs",
-        "--chr", CHR,
-        "--from-bp", str(start), "--to-bp", str(end),
-        "--keep", keep_file,
-        "--r2-unphased",
-        "--ld-window-r2", "0.2",
-        "--allow-extra-chr",
-        "--out", os.path.join(tmpdir, "plink2_pgen_ld"),
-    ]
-    try:
-        _, elapsed, peak_mb = measure_subprocess(cmd, timeout=300)
-    except RuntimeError as e:
-        return {"error": str(e), "time_s": 0, "peak_mem_mb": 0}
-
-    n_pairs = 0
-    for ext in [".vcor", ".ld"]:
-        ld_file = os.path.join(tmpdir, f"plink2_pgen_ld{ext}")
-        if os.path.exists(ld_file):
-            with open(ld_file) as f:
-                for _ in f:
-                    n_pairs += 1
-            n_pairs -= 1  # subtract header
-            break
-
-    return {
-        "n_pairs_r2_02": n_pairs,
-        "time_s": elapsed,
-        "peak_mem_mb": peak_mb,
-    }
-
 
 def fst_graphpop(start, end, pop1, pop2):
     """Query graphpop.divergence for Fst and Dxy."""
@@ -826,91 +792,210 @@ def sfs_graphpop(start, end, pop):
 
 
 # ---------------------------------------------------------------------------
-# Group D: LD (r²)
+# Group D: LD scenarios
+#   D1 — Regional Pairwise LD (100kb window, r²≥0.1, MAF≥0.05)
+#   D2 — LD Decay            (500kb window, r²≥0,   MAF≥0.05)
+#   D3 — LD Pruning          (1000kb/step50, r²=0.8, MAF≥0.05) — PLINK2 only
 # ---------------------------------------------------------------------------
 
-def ld_scikit_allel(start, end, pop):
-    """Compute pairwise r² using scikit-allel."""
+def _count_file_lines(path, skip_header=True):
+    """Count data lines in a file (minus header if requested)."""
+    n = 0
+    with open(path) as f:
+        for _ in f:
+            n += 1
+    return max(0, n - 1) if skip_header else n
+
+
+def ld_scikit_allel_windowed(start, end, pop, max_dist_bp, r2_threshold, min_maf):
+    """Compute windowed pairwise r² using scikit-allel (Rogers-Huff estimator).
+
+    Only feasible for ≤1Mb regions (~3K variants after MAF filter).
+    """
     import allel
 
     def _compute():
         data = load_genotype_data(start, end, pop)
-        g = data["genotypes"].astype(float)
-        r = allel.rogers_huff_r(g)
+        positions = data["positions"]
+        genotypes = data["genotypes"].astype(float)
+        n_samples = data["n_samples"]
+        n_total = 2 * n_samples
+
+        # MAF filter
+        ac = genotypes.sum(axis=1)
+        af = ac / n_total
+        maf = np.minimum(af, 1.0 - af)
+        mask = maf >= min_maf
+        positions = positions[mask]
+        genotypes = genotypes[mask]
+        n_variants = len(positions)
+
+        if n_variants < 2:
+            return {"n_pairs": 0, "n_variants": n_variants}
+
+        r = allel.rogers_huff_r(genotypes)
         from scipy.spatial.distance import squareform
-        r2 = squareform(r) ** 2
-        n_pairs = int(np.sum(r2 >= 0.2) / 2)
-        return {"n_pairs_r2_02": n_pairs, "n_variants": data["n_variants"]}
+        r2_mat = squareform(r) ** 2
+
+        # Apply distance window and r² threshold
+        n_pairs = 0
+        for i in range(n_variants):
+            for j in range(i + 1, n_variants):
+                dist = positions[j] - positions[i]
+                if dist > max_dist_bp:
+                    break
+                if r2_mat[i, j] >= r2_threshold:
+                    n_pairs += 1
+
+        return {"n_pairs": n_pairs, "n_variants": n_variants}
 
     result, elapsed, peak_mb = measure_python_call(_compute)
     return {**result, "time_s": elapsed, "peak_mem_mb": peak_mb}
 
 
-def ld_plink2(start, end, pop, tmpdir):
-    """Compute LD using PLINK2 from VCF.
+def ld_vcftools(start, end, pop, tmpdir, max_dist_bp, r2_threshold, min_maf):
+    """Compute windowed LD using vcftools --geno-r2.
 
-    Uses --r2-unphased (dosage correlation) to match GraphPop's Pearson r².
-    PLINK2 v2.x requires explicit --r2-phased or --r2-unphased.
+    vcftools uses an EM algorithm for unphased genotype r².
+    Output: CHR POS1 POS2 N_INDV R^2
     """
-    keep_plink = _write_plink2_keep(tmpdir, pop)
+    keep_file = write_pop_keep_file(tmpdir, pop)
+    tag = f"vcftools_ld_{start}_{end}_{max_dist_bp}"
+    outprefix = os.path.join(tmpdir, tag)
 
     cmd = [
-        "plink2",
-        "--vcf", VCF,
-        "--chr", CHR,
-        "--from-bp", str(start), "--to-bp", str(end),
-        "--keep", keep_plink,
-        "--r2-unphased",
-        "--ld-window-r2", "0.2",
-        "--allow-extra-chr",
-        "--out", os.path.join(tmpdir, "plink2_ld"),
+        "vcftools", "--gzvcf", VCF,
+        "--chr", CHR, "--from-bp", str(start), "--to-bp", str(end),
+        "--keep", keep_file,
+        "--geno-r2",
+        "--ld-window-bp", str(max_dist_bp),
+        "--min-r2", str(r2_threshold),
+        "--maf", str(min_maf),
+        "--out", outprefix,
     ]
     try:
-        _, elapsed, peak_mb = measure_subprocess(cmd, timeout=600)
+        _, elapsed, peak_mb = measure_subprocess(cmd, timeout=3600)
     except RuntimeError as e:
         return {"error": str(e), "time_s": 0, "peak_mem_mb": 0}
 
-    # Count LD pairs from output
+    # Count pairs from .geno.ld output
+    ld_file = outprefix + ".geno.ld"
     n_pairs = 0
-    for ext in [".vcor", ".ld"]:
-        ld_file = os.path.join(tmpdir, f"plink2_ld{ext}")
-        if os.path.exists(ld_file):
-            with open(ld_file) as f:
-                for _ in f:
-                    n_pairs += 1
-            n_pairs -= 1  # subtract header
-            break
+    if os.path.exists(ld_file):
+        n_pairs = _count_file_lines(ld_file, skip_header=True)
 
     return {
-        "n_pairs_r2_02": n_pairs,
+        "n_pairs": n_pairs,
         "time_s": elapsed,
         "peak_mem_mb": peak_mb,
     }
 
 
-def ld_graphpop(start, end, pop):
-    """Run graphpop.ld and count pairs."""
-    # First clean any existing LD edges
-    try:
-        run_cypher("MATCH ()-[r:LD]->() DELETE r;", timeout=60)
-    except Exception:
-        pass
+def ld_plink2_windowed(start, end, pop, tmpdir, max_dist_kb, r2_threshold, min_maf,
+                        use_pgen=False, tag_suffix=""):
+    """Compute windowed LD using PLINK2 --r2-unphased.
 
-    query = (
-        f"CALL graphpop.ld('{CHR}', {start}, {end}, '{pop}', 500000, 0.2) "
-        "YIELD variant1 RETURN count(*) AS n_pairs;"
-    )
-    out, elapsed, peak_mb = run_cypher(query, timeout=600)
-    result = parse_cypher_row(out)
+    Parameterized for VCF vs pgen input via use_pgen flag.
+    """
+    keep_file = _write_plink2_keep(tmpdir, pop)
+    tag = f"plink2_ld{'_pgen' if use_pgen else ''}_{start}_{end}{tag_suffix}"
+    outprefix = os.path.join(tmpdir, tag)
 
-    # Clean up
+    if use_pgen:
+        input_args = ["--pfile", PGEN_PREFIX, "vzs"]
+    else:
+        input_args = ["--vcf", VCF]
+
+    cmd = [
+        "plink2",
+        *input_args,
+        "--chr", CHR,
+        "--from-bp", str(start), "--to-bp", str(end),
+        "--keep", keep_file,
+        "--r2-unphased",
+        "--ld-window-kb", str(max_dist_kb),
+        "--ld-window-r2", str(r2_threshold),
+        "--maf", str(min_maf),
+        "--allow-extra-chr",
+        "--out", outprefix,
+    ]
     try:
-        run_cypher("MATCH ()-[r:LD]->() DELETE r;", timeout=60)
-    except Exception:
-        pass
+        _, elapsed, peak_mb = measure_subprocess(cmd, timeout=3600)
+    except RuntimeError as e:
+        return {"error": str(e), "time_s": 0, "peak_mem_mb": 0}
+
+    # Count pairs from output (.vcor or .ld)
+    n_pairs = 0
+    for ext in [".vcor", ".ld"]:
+        ld_file = outprefix + ext
+        if os.path.exists(ld_file):
+            n_pairs = _count_file_lines(ld_file, skip_header=True)
+            break
 
     return {
-        "n_pairs_r2_02": result.get("n_pairs"),
+        "n_pairs": n_pairs,
+        "time_s": elapsed,
+        "peak_mem_mb": peak_mb,
+    }
+
+
+def ld_graphpop_windowed(start, end, pop, max_dist, r2_threshold, min_af):
+    """Run graphpop.ld with MAF filter and write_edges=false (read-only benchmark)."""
+    opts = f"{{min_af: {min_af}, write_edges: false}}"
+    query = (
+        f"CALL graphpop.ld('{CHR}', {start}, {end}, '{pop}', {max_dist}, "
+        f"{r2_threshold}, {opts}) "
+        "YIELD variant1 RETURN count(*) AS n_pairs;"
+    )
+    out, elapsed, peak_mb = run_cypher(query, timeout=3600)
+    result = parse_cypher_row(out)
+
+    return {
+        "n_pairs": result.get("n_pairs"),
+        "time_s": elapsed,
+        "peak_mem_mb": peak_mb,
+    }
+
+
+def ld_plink2_pruning(start, end, pop, tmpdir, window_kb, step, r2, min_maf,
+                       use_pgen=False):
+    """Run PLINK2 --indep-pairwise for LD pruning.
+
+    Reports retained variant count and time.
+    """
+    keep_file = _write_plink2_keep(tmpdir, pop)
+    tag = f"plink2_prune{'_pgen' if use_pgen else ''}_{start}_{end}"
+    outprefix = os.path.join(tmpdir, tag)
+
+    if use_pgen:
+        input_args = ["--pfile", PGEN_PREFIX, "vzs"]
+    else:
+        input_args = ["--vcf", VCF]
+
+    cmd = [
+        "plink2",
+        *input_args,
+        "--chr", CHR,
+        "--from-bp", str(start), "--to-bp", str(end),
+        "--keep", keep_file,
+        "--indep-pairwise", f"{window_kb}kb", "1", str(r2),
+        "--maf", str(min_maf),
+        "--allow-extra-chr",
+        "--out", outprefix,
+    ]
+    try:
+        _, elapsed, peak_mb = measure_subprocess(cmd, timeout=3600)
+    except RuntimeError as e:
+        return {"error": str(e), "time_s": 0, "peak_mem_mb": 0}
+
+    # Count retained variants from .prune.in
+    prune_file = outprefix + ".prune.in"
+    n_retained = 0
+    if os.path.exists(prune_file):
+        n_retained = _count_file_lines(prune_file, skip_header=False)
+
+    return {
+        "n_retained": n_retained,
         "time_s": elapsed,
         "peak_mem_mb": peak_mb,
     }
@@ -1191,12 +1276,21 @@ def main():
                         help="Run all region sizes")
     parser.add_argument("--output", default=None,
                         help="Output JSONL file path")
+    parser.add_argument("--ld-scenarios", action="store_true",
+                        help="Run only LD scenario benchmarks (D1/D2/D3)")
     args = parser.parse_args()
 
-    regions_to_run = list(REGIONS.keys()) if args.all_regions else [args.region]
+    if args.ld_scenarios:
+        regions_to_run = ["large", "full"]
+    elif args.all_regions:
+        regions_to_run = list(REGIONS.keys())
+    else:
+        regions_to_run = [args.region]
 
     print("=" * 80)
     print("  GraphPop Head-to-Head Benchmark")
+    if args.ld_scenarios:
+        print("  (LD scenarios only)")
     print("=" * 80)
     print()
     print("  Tool availability:")
@@ -1219,146 +1313,253 @@ def main():
 
         with tempfile.TemporaryDirectory(prefix="graphpop_bench_") as tmpdir:
 
-            # ---- Group A: Diversity ----
-            print(f"\n--- Group A: Diversity (π, θ_W, Tajima's D) — pop={POP1} ---")
             div_results = {}
-
-            if TOOLS["scikit-allel"]:
-                print("  scikit-allel...", end="", flush=True)
-                div_results["scikit-allel"] = diversity_scikit_allel(start, end, POP1)
-                print(f" {fmt_time(div_results['scikit-allel']['time_s'])}")
-
-            if TOOLS["vcftools"]:
-                print("  vcftools...", end="", flush=True)
-                div_results["vcftools"] = diversity_vcftools(start, end, POP1, tmpdir)
-                print(f" {fmt_time(div_results['vcftools']['time_s'])}")
-
-            print("  GraphPop...", end="", flush=True)
-            div_results["GraphPop"] = diversity_graphpop(start, end, POP1)
-            print(f" {fmt_time(div_results['GraphPop']['time_s'])}")
-
-            rows = []
-            for tool, r in div_results.items():
-                rows.append([
-                    tool,
-                    fmt_val(r.get("pi")), fmt_val(r.get("theta_w")),
-                    fmt_val(r.get("tajima_d")),
-                    fmt_time(r.get("time_s")), fmt_mem(r.get("peak_mem_mb")),
-                ])
-            print_group_table(
-                f"Diversity — {region_name} ({CHR}:{start:,}-{end:,})",
-                ["Tool", "π", "θ_W", "Tajima's D", "Time", "Peak Mem"],
-                rows,
-            )
-
-            # ---- Group B: Differentiation ----
-            print(f"\n--- Group B: Differentiation (Fst, Dxy) — {POP1} vs {POP2} ---")
             fst_results = {}
-
-            if TOOLS["scikit-allel"]:
-                print("  scikit-allel...", end="", flush=True)
-                fst_results["scikit-allel"] = fst_scikit_allel(start, end, POP1, POP2)
-                print(f" {fmt_time(fst_results['scikit-allel']['time_s'])}")
-
-            if TOOLS["vcftools"]:
-                print("  vcftools...", end="", flush=True)
-                fst_results["vcftools"] = fst_vcftools(start, end, POP1, POP2, tmpdir)
-                print(f" {fmt_time(fst_results['vcftools']['time_s'])}")
-
-            if TOOLS["pixy"]:
-                print("  pixy...", end="", flush=True)
-                fst_results["pixy"] = fst_pixy(start, end, POP1, POP2, tmpdir)
-                print(f" {fmt_time(fst_results['pixy']['time_s'])}")
-
-            if TOOLS["plink2"]:
-                print("  PLINK2 (VCF)...", end="", flush=True)
-                fst_results["PLINK2-VCF"] = fst_plink2(start, end, POP1, POP2, tmpdir)
-                print(f" {fmt_time(fst_results['PLINK2-VCF']['time_s'])}")
-
-            if TOOLS["plink2-pgen"]:
-                print("  PLINK2 (.pgen)...", end="", flush=True)
-                fst_results["PLINK2-pgen"] = fst_plink2_pgen(start, end, POP1, POP2, tmpdir)
-                print(f" {fmt_time(fst_results['PLINK2-pgen']['time_s'])}")
-
-            print("  GraphPop...", end="", flush=True)
-            fst_results["GraphPop"] = fst_graphpop(start, end, POP1, POP2)
-            print(f" {fmt_time(fst_results['GraphPop']['time_s'])}")
-
-            rows = []
-            for tool, r in fst_results.items():
-                fst_val = r.get("fst") or r.get("fst_wc") or r.get("fst_hudson") or r.get("pixy_fst")
-                dxy_val = r.get("dxy") or r.get("pixy_dxy")
-                rows.append([
-                    tool, fmt_val(fst_val), fmt_val(dxy_val),
-                    fmt_time(r.get("time_s")), fmt_mem(r.get("peak_mem_mb")),
-                ])
-            print_group_table(
-                f"Differentiation — {region_name} ({POP1} vs {POP2})",
-                ["Tool", "Fst", "Dxy", "Time", "Peak Mem"],
-                rows,
-            )
-
-            # ---- Group C: SFS ----
-            print(f"\n--- Group C: SFS — pop={POP2} ---")
             sfs_results = {}
+            ld_only = args.ld_scenarios
 
-            if TOOLS["scikit-allel"]:
-                print("  scikit-allel...", end="", flush=True)
-                sfs_results["scikit-allel"] = sfs_scikit_allel(start, end, POP2)
-                print(f" {fmt_time(sfs_results['scikit-allel']['time_s'])}")
-
-            print("  GraphPop...", end="", flush=True)
-            sfs_results["GraphPop"] = sfs_graphpop(start, end, POP2)
-            print(f" {fmt_time(sfs_results['GraphPop']['time_s'])}")
-
-            rows = []
-            for tool, r in sfs_results.items():
-                rows.append([
-                    tool, fmt_val(r.get("sfs_sum") or r.get("total"), 0),
-                    fmt_time(r.get("time_s")), fmt_mem(r.get("peak_mem_mb")),
-                ])
-            print_group_table(
-                f"SFS — {region_name}",
-                ["Tool", "Total Variants", "Time", "Peak Mem"],
-                rows,
-            )
-
-            # ---- Group D: LD ----
-            # Only run LD on small/medium (large/full too expensive for pairwise)
-            if region_name in ("small", "medium"):
-                print(f"\n--- Group D: LD (r² ≥ 0.2) — pop={POP2} ---")
-                ld_results = {}
+            if not ld_only:
+                # ---- Group A: Diversity ----
+                print(f"\n--- Group A: Diversity (π, θ_W, Tajima's D) — pop={POP1} ---")
 
                 if TOOLS["scikit-allel"]:
                     print("  scikit-allel...", end="", flush=True)
-                    ld_results["scikit-allel"] = ld_scikit_allel(start, end, POP2)
-                    print(f" {fmt_time(ld_results['scikit-allel']['time_s'])}")
+                    div_results["scikit-allel"] = diversity_scikit_allel(start, end, POP1)
+                    print(f" {fmt_time(div_results['scikit-allel']['time_s'])}")
 
-                if TOOLS["plink2"]:
-                    print("  PLINK2 (VCF)...", end="", flush=True)
-                    ld_results["PLINK2-VCF"] = ld_plink2(start, end, POP2, tmpdir)
-                    print(f" {fmt_time(ld_results['PLINK2-VCF']['time_s'])}")
-
-                if TOOLS["plink2-pgen"]:
-                    print("  PLINK2 (.pgen)...", end="", flush=True)
-                    ld_results["PLINK2-pgen"] = ld_plink2_pgen(start, end, POP2, tmpdir)
-                    print(f" {fmt_time(ld_results['PLINK2-pgen']['time_s'])}")
+                if TOOLS["vcftools"]:
+                    print("  vcftools...", end="", flush=True)
+                    div_results["vcftools"] = diversity_vcftools(start, end, POP1, tmpdir)
+                    print(f" {fmt_time(div_results['vcftools']['time_s'])}")
 
                 print("  GraphPop...", end="", flush=True)
-                ld_results["GraphPop"] = ld_graphpop(start, end, POP2)
-                print(f" {fmt_time(ld_results['GraphPop']['time_s'])}")
+                div_results["GraphPop"] = diversity_graphpop(start, end, POP1)
+                print(f" {fmt_time(div_results['GraphPop']['time_s'])}")
 
                 rows = []
-                for tool, r in ld_results.items():
+                for tool, r in div_results.items():
                     rows.append([
-                        tool, fmt_val(r.get("n_pairs_r2_02"), 0),
+                        tool,
+                        fmt_val(r.get("pi")), fmt_val(r.get("theta_w")),
+                        fmt_val(r.get("tajima_d")),
                         fmt_time(r.get("time_s")), fmt_mem(r.get("peak_mem_mb")),
                     ])
                 print_group_table(
-                    f"LD — {region_name}",
-                    ["Tool", "Pairs (r²≥0.2)", "Time", "Peak Mem"],
+                    f"Diversity — {region_name} ({CHR}:{start:,}-{end:,})",
+                    ["Tool", "π", "θ_W", "Tajima's D", "Time", "Peak Mem"],
                     rows,
                 )
+
+                # ---- Group B: Differentiation ----
+                print(f"\n--- Group B: Differentiation (Fst, Dxy) — {POP1} vs {POP2} ---")
+
+                if TOOLS["scikit-allel"]:
+                    print("  scikit-allel...", end="", flush=True)
+                    fst_results["scikit-allel"] = fst_scikit_allel(start, end, POP1, POP2)
+                    print(f" {fmt_time(fst_results['scikit-allel']['time_s'])}")
+
+                if TOOLS["vcftools"]:
+                    print("  vcftools...", end="", flush=True)
+                    fst_results["vcftools"] = fst_vcftools(start, end, POP1, POP2, tmpdir)
+                    print(f" {fmt_time(fst_results['vcftools']['time_s'])}")
+
+                if TOOLS["pixy"]:
+                    print("  pixy...", end="", flush=True)
+                    fst_results["pixy"] = fst_pixy(start, end, POP1, POP2, tmpdir)
+                    print(f" {fmt_time(fst_results['pixy']['time_s'])}")
+
+                if TOOLS["plink2"]:
+                    print("  PLINK2 (VCF)...", end="", flush=True)
+                    fst_results["PLINK2-VCF"] = fst_plink2(start, end, POP1, POP2, tmpdir)
+                    print(f" {fmt_time(fst_results['PLINK2-VCF']['time_s'])}")
+
+                if TOOLS["plink2-pgen"]:
+                    print("  PLINK2 (.pgen)...", end="", flush=True)
+                    fst_results["PLINK2-pgen"] = fst_plink2_pgen(start, end, POP1, POP2, tmpdir)
+                    print(f" {fmt_time(fst_results['PLINK2-pgen']['time_s'])}")
+
+                print("  GraphPop...", end="", flush=True)
+                fst_results["GraphPop"] = fst_graphpop(start, end, POP1, POP2)
+                print(f" {fmt_time(fst_results['GraphPop']['time_s'])}")
+
+                rows = []
+                for tool, r in fst_results.items():
+                    fst_val = r.get("fst") or r.get("fst_wc") or r.get("fst_hudson") or r.get("pixy_fst")
+                    dxy_val = r.get("dxy") or r.get("pixy_dxy")
+                    rows.append([
+                        tool, fmt_val(fst_val), fmt_val(dxy_val),
+                        fmt_time(r.get("time_s")), fmt_mem(r.get("peak_mem_mb")),
+                    ])
+                print_group_table(
+                    f"Differentiation — {region_name} ({POP1} vs {POP2})",
+                    ["Tool", "Fst", "Dxy", "Time", "Peak Mem"],
+                    rows,
+                )
+
+                # ---- Group C: SFS ----
+                print(f"\n--- Group C: SFS — pop={POP2} ---")
+
+                if TOOLS["scikit-allel"]:
+                    print("  scikit-allel...", end="", flush=True)
+                    sfs_results["scikit-allel"] = sfs_scikit_allel(start, end, POP2)
+                    print(f" {fmt_time(sfs_results['scikit-allel']['time_s'])}")
+
+                print("  GraphPop...", end="", flush=True)
+                sfs_results["GraphPop"] = sfs_graphpop(start, end, POP2)
+                print(f" {fmt_time(sfs_results['GraphPop']['time_s'])}")
+
+                rows = []
+                for tool, r in sfs_results.items():
+                    rows.append([
+                        tool, fmt_val(r.get("sfs_sum") or r.get("total"), 0),
+                        fmt_time(r.get("time_s")), fmt_mem(r.get("peak_mem_mb")),
+                    ])
+                print_group_table(
+                    f"SFS — {region_name}",
+                    ["Tool", "Total Variants", "Time", "Peak Mem"],
+                    rows,
+                )
+
+            # ---- Group D: LD Scenarios ----
+            ld_scenarios = {}
+
+            # D1: Regional Pairwise LD (100kb window, r²≥0.1, MAF≥0.05)
+            # Run on large (1Mb) with all tools; on full (chr22) skip scikit-allel
+            if region_name in ("large", "full"):
+                print(f"\n--- D1: Regional Pairwise LD (100kb, r²≥0.1, MAF≥0.05) — pop={POP2} ---")
+                d1 = {}
+
+                if TOOLS["scikit-allel"] and region_name == "large":
+                    print("  scikit-allel...", end="", flush=True)
+                    d1["scikit-allel"] = ld_scikit_allel_windowed(
+                        start, end, POP2, max_dist_bp=100_000, r2_threshold=0.1, min_maf=0.05)
+                    print(f" {fmt_time(d1['scikit-allel']['time_s'])}")
+
+                if TOOLS["vcftools"]:
+                    print("  vcftools...", end="", flush=True)
+                    d1["vcftools"] = ld_vcftools(
+                        start, end, POP2, tmpdir, max_dist_bp=100_000,
+                        r2_threshold=0.1, min_maf=0.05)
+                    print(f" {fmt_time(d1['vcftools']['time_s'])}")
+
+                if TOOLS["plink2"]:
+                    print("  PLINK2 (VCF)...", end="", flush=True)
+                    d1["PLINK2-VCF"] = ld_plink2_windowed(
+                        start, end, POP2, tmpdir, max_dist_kb=100,
+                        r2_threshold=0.1, min_maf=0.05, use_pgen=False,
+                        tag_suffix="_d1")
+                    print(f" {fmt_time(d1['PLINK2-VCF']['time_s'])}")
+
+                if TOOLS["plink2-pgen"]:
+                    print("  PLINK2 (.pgen)...", end="", flush=True)
+                    d1["PLINK2-pgen"] = ld_plink2_windowed(
+                        start, end, POP2, tmpdir, max_dist_kb=100,
+                        r2_threshold=0.1, min_maf=0.05, use_pgen=True,
+                        tag_suffix="_d1")
+                    print(f" {fmt_time(d1['PLINK2-pgen']['time_s'])}")
+
+                print("  GraphPop...", end="", flush=True)
+                d1["GraphPop"] = ld_graphpop_windowed(
+                    start, end, POP2, max_dist=100_000, r2_threshold=0.1, min_af=0.05)
+                print(f" {fmt_time(d1['GraphPop']['time_s'])}")
+
+                rows = []
+                for tool, r in d1.items():
+                    rows.append([
+                        tool, fmt_val(r.get("n_pairs"), 0),
+                        fmt_time(r.get("time_s")), fmt_mem(r.get("peak_mem_mb")),
+                    ])
+                print_group_table(
+                    f"D1: Regional Pairwise LD — {region_name}",
+                    ["Tool", "Pairs (r²≥0.1)", "Time", "Peak Mem"],
+                    rows,
+                )
+                ld_scenarios["d1"] = d1
+
+            # D2: LD Decay (500kb window, r²≥0 = all pairs, MAF≥0.05)
+            # Only feasible on large (1Mb) — full chr22 produces too many pairs
+            if region_name == "large":
+                print(f"\n--- D2: LD Decay (500kb, r²≥0, MAF≥0.05) — pop={POP2} ---")
+                d2 = {}
+
+                if TOOLS["scikit-allel"]:
+                    print("  scikit-allel...", end="", flush=True)
+                    d2["scikit-allel"] = ld_scikit_allel_windowed(
+                        start, end, POP2, max_dist_bp=500_000, r2_threshold=0.0, min_maf=0.05)
+                    print(f" {fmt_time(d2['scikit-allel']['time_s'])}")
+
+                if TOOLS["vcftools"]:
+                    print("  vcftools...", end="", flush=True)
+                    d2["vcftools"] = ld_vcftools(
+                        start, end, POP2, tmpdir, max_dist_bp=500_000,
+                        r2_threshold=0.0, min_maf=0.05)
+                    print(f" {fmt_time(d2['vcftools']['time_s'])}")
+
+                if TOOLS["plink2"]:
+                    print("  PLINK2 (VCF)...", end="", flush=True)
+                    d2["PLINK2-VCF"] = ld_plink2_windowed(
+                        start, end, POP2, tmpdir, max_dist_kb=500,
+                        r2_threshold=0.0, min_maf=0.05, use_pgen=False,
+                        tag_suffix="_d2")
+                    print(f" {fmt_time(d2['PLINK2-VCF']['time_s'])}")
+
+                if TOOLS["plink2-pgen"]:
+                    print("  PLINK2 (.pgen)...", end="", flush=True)
+                    d2["PLINK2-pgen"] = ld_plink2_windowed(
+                        start, end, POP2, tmpdir, max_dist_kb=500,
+                        r2_threshold=0.0, min_maf=0.05, use_pgen=True,
+                        tag_suffix="_d2")
+                    print(f" {fmt_time(d2['PLINK2-pgen']['time_s'])}")
+
+                print("  GraphPop...", end="", flush=True)
+                d2["GraphPop"] = ld_graphpop_windowed(
+                    start, end, POP2, max_dist=500_000, r2_threshold=0.0, min_af=0.05)
+                print(f" {fmt_time(d2['GraphPop']['time_s'])}")
+
+                rows = []
+                for tool, r in d2.items():
+                    rows.append([
+                        tool, fmt_val(r.get("n_pairs"), 0),
+                        fmt_time(r.get("time_s")), fmt_mem(r.get("peak_mem_mb")),
+                    ])
+                print_group_table(
+                    f"D2: LD Decay — {region_name}",
+                    ["Tool", "Pairs (all)", "Time", "Peak Mem"],
+                    rows,
+                )
+                ld_scenarios["d2"] = d2
+
+            # D3: LD Pruning (1000kb window, step 50, r²=0.8, MAF≥0.05)
+            # PLINK2 only (GraphPop has no pruning proc). Full chr22 only.
+            if region_name == "full" and TOOLS["plink2"]:
+                print(f"\n--- D3: LD Pruning (1000kb/step50, r²=0.8, MAF≥0.05) — pop={POP2} ---")
+                d3 = {}
+
+                print("  PLINK2 (VCF)...", end="", flush=True)
+                d3["PLINK2-VCF"] = ld_plink2_pruning(
+                    start, end, POP2, tmpdir, window_kb=1000, step=50,
+                    r2=0.8, min_maf=0.05, use_pgen=False)
+                print(f" {fmt_time(d3['PLINK2-VCF']['time_s'])}")
+
+                if TOOLS["plink2-pgen"]:
+                    print("  PLINK2 (.pgen)...", end="", flush=True)
+                    d3["PLINK2-pgen"] = ld_plink2_pruning(
+                        start, end, POP2, tmpdir, window_kb=1000, step=50,
+                        r2=0.8, min_maf=0.05, use_pgen=True)
+                    print(f" {fmt_time(d3['PLINK2-pgen']['time_s'])}")
+
+                rows = []
+                for tool, r in d3.items():
+                    rows.append([
+                        tool, fmt_val(r.get("n_retained"), 0),
+                        fmt_time(r.get("time_s")), fmt_mem(r.get("peak_mem_mb")),
+                    ])
+                print_group_table(
+                    f"D3: LD Pruning — {region_name}",
+                    ["Tool", "Retained Variants", "Time", "Peak Mem"],
+                    rows,
+                )
+                ld_scenarios["d3"] = d3
 
             # ---- Group E: Selection ----
             # Only on small/medium (expensive)
@@ -1430,8 +1631,9 @@ def main():
                 "differentiation": {k: v for k, v in fst_results.items()},
                 "sfs": {k: v for k, v in sfs_results.items()},
             }
+            if ld_scenarios:
+                region_record["ld_scenarios"] = ld_scenarios
             if region_name in ("small", "medium"):
-                region_record["ld"] = {k: v for k, v in ld_results.items()}
                 region_record["ihs"] = {k: v for k, v in ihs_results.items()}
                 region_record["xpehh"] = {k: v for k, v in xp_results.items()}
             all_results.append(region_record)
@@ -1452,9 +1654,12 @@ def main():
         print(f"\n  Region: {rname}")
         print(f"  {'Statistic':<20s}", end="")
         tool_names = set()
-        for group in ["diversity", "differentiation", "sfs", "ld", "ihs", "xpehh"]:
+        for group in ["diversity", "differentiation", "sfs", "ihs", "xpehh"]:
             if group in record:
                 tool_names.update(record[group].keys())
+        if "ld_scenarios" in record:
+            for scenario in record["ld_scenarios"].values():
+                tool_names.update(scenario.keys())
         tool_names = sorted(tool_names)
         for t in tool_names:
             print(f"  {t:>14s}", end="")
@@ -1468,7 +1673,6 @@ def main():
             ("π/θ_W/D", "diversity"),
             ("Fst/Dxy", "differentiation"),
             ("SFS", "sfs"),
-            ("LD (r²)", "ld"),
             ("iHS", "ihs"),
             ("XP-EHH", "xpehh"),
         ]
@@ -1483,6 +1687,22 @@ def main():
                 else:
                     print(f"  {'—':>14s}", end="")
             print()
+
+        # LD scenarios
+        if "ld_scenarios" in record:
+            scenario_labels = {"d1": "D1: Pairwise LD", "d2": "D2: LD Decay", "d3": "D3: LD Pruning"}
+            for key, label in scenario_labels.items():
+                if key not in record["ld_scenarios"]:
+                    continue
+                scenario = record["ld_scenarios"][key]
+                print(f"  {label:<20s}", end="")
+                for t in tool_names:
+                    if t in scenario:
+                        v = scenario[t].get("time_s")
+                        print(f"  {fmt_time(v):>14s}", end="")
+                    else:
+                        print(f"  {'—':>14s}", end="")
+                print()
 
 
 if __name__ == "__main__":

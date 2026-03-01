@@ -56,14 +56,24 @@ public class LDProcedure {
             @Name("end") long end,
             @Name("pop") String pop,
             @Name(value = "max_dist", defaultValue = "500000") long maxDist,
-            @Name(value = "r2_threshold", defaultValue = "0.2") double r2Threshold
+            @Name(value = "r2_threshold", defaultValue = "0.2") double r2Threshold,
+            @Name(value = "options", defaultValue = "{}") Map<String, Object> options
     ) {
+        double minAf = 0.0;
+        boolean writeEdges = true;
+        if (options != null) {
+            if (options.containsKey("min_af"))
+                minAf = ((Number) options.get("min_af")).doubleValue();
+            if (options.containsKey("write_edges"))
+                writeEdges = (Boolean) options.get("write_edges");
+        }
+
         // Phase 1: Load dense haplotype matrix (single-threaded)
         HaplotypeMatrix matrix = HaplotypeMatrix.load(tx, chr, pop, start, end);
         if (matrix == null || matrix.nVariants < 2) return Stream.empty();
 
-        // Identify polymorphic variants (skip monomorphic)
-        int[] polyIdx = identifyPolymorphic(matrix);
+        // Identify polymorphic variants (skip monomorphic, apply MAF filter)
+        int[] polyIdx = identifyPolymorphic(matrix, minAf);
         if (polyIdx.length < 2) return Stream.empty();
 
         // Pre-compute dosage vectors for all polymorphic variants
@@ -101,13 +111,15 @@ public class LDProcedure {
                 .flatMap(List::stream)
                 .collect(Collectors.toList());
 
-        // Phase 3: Sequential write of LD edges
+        // Phase 3: Sequential write of LD edges (skipped if write_edges=false)
         List<LDResult> results = new ArrayList<>();
         for (LDHit hit : hits) {
-            var rel = matrix.nodes[hit.vi].createRelationshipTo(matrix.nodes[hit.vj], LD_REL);
-            rel.setProperty("r2", hit.r2);
-            rel.setProperty("dprime", hit.dprime);
-            rel.setProperty("population", pop);
+            if (writeEdges) {
+                var rel = matrix.nodes[hit.vi].createRelationshipTo(matrix.nodes[hit.vj], LD_REL);
+                rel.setProperty("r2", hit.r2);
+                rel.setProperty("dprime", hit.dprime);
+                rel.setProperty("population", pop);
+            }
 
             LDResult lr = new LDResult();
             lr.variant1 = matrix.variantIds[hit.vi];
@@ -121,14 +133,17 @@ public class LDProcedure {
         return results.stream();
     }
 
-    private static int[] identifyPolymorphic(HaplotypeMatrix matrix) {
+    private static int[] identifyPolymorphic(HaplotypeMatrix matrix, double minAf) {
         List<Integer> poly = new ArrayList<>();
         for (int i = 0; i < matrix.nVariants; i++) {
             int ac = matrix.acs[i];
             int an = matrix.ans[i];
-            if (ac > 0 && ac < an && an >= 2) {
-                poly.add(i);
+            if (ac <= 0 || ac >= an || an < 2) continue;
+            if (minAf > 0) {
+                double af = (double) ac / an;
+                if (af < minAf || af > (1.0 - minAf)) continue;
             }
+            poly.add(i);
         }
         return poly.stream().mapToInt(Integer::intValue).toArray();
     }
