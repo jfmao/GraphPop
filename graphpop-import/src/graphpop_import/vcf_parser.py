@@ -153,6 +153,7 @@ class VCFParser:
         self._region = region
         self._include_filtered = include_filtered
         self._n_variants_processed = 0
+        self._n_multiallelic_skipped = 0
 
         # Load panel and build population map
         sample_to_pop = _load_panel(panel_path, stratify_by)
@@ -173,6 +174,10 @@ class VCFParser:
     @property
     def n_variants_processed(self) -> int:
         return self._n_variants_processed
+
+    @property
+    def n_multiallelic_skipped(self) -> int:
+        return self._n_multiallelic_skipped
 
     def __iter__(self) -> Iterator[VariantRecord]:
         """Yield one VariantRecord per qualifying variant site."""
@@ -264,9 +269,7 @@ class VCFParser:
                 continue
 
             if len(alts) > 1:
-                logger.warning(
-                    "Skipping multi-allelic variant at %s:%d", v.CHROM, v.POS
-                )
+                self._n_multiallelic_skipped += 1
                 continue
 
             # --- Identity ---
@@ -368,3 +371,13 @@ class VCFParser:
             "VCF parsing complete: %d variants processed",
             self._n_variants_processed,
         )
+        if self._n_multiallelic_skipped > 0:
+            logger.warning(
+                "%d multi-allelic sites skipped (%.1f%% of encountered sites). "
+                "To retain these variants, decompose before import with: "
+                "bash scripts/prepare-vcf.sh INPUT.vcf.gz OUTPUT.vcf.gz",
+                self._n_multiallelic_skipped,
+                100.0
+                * self._n_multiallelic_skipped
+                / (self._n_variants_processed + self._n_multiallelic_skipped),
+            )
