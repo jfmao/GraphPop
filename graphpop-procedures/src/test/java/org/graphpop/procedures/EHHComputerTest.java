@@ -169,6 +169,63 @@ class EHHComputerTest {
         assertEquals(0.0, EHHComputer.computeIHH(m, 0, new int[]{}, 0.05), EPS);
     }
 
+    // -----------------------------------------------------------------------
+    // computeSL: count SNP positions traversed
+    // -----------------------------------------------------------------------
+
+    @Test
+    void computeSL_twoVariants_allIdentical_countsOne() {
+        // All 4 haplotypes identical at both sites → EHH never drops → SL = 1 (one step)
+        long[] pos = {1000, 1100};
+        byte[][] hap = {
+                {1, 1, 1, 1},
+                {1, 1, 1, 1},
+        };
+        HaplotypeMatrix m = buildMatrix(pos, hap);
+        int[] carriers = {0, 1, 2, 3};
+
+        // Only 1 variant downstream from focal(0), upstream has 0
+        int sl = EHHComputer.computeSL(m, 0, carriers, 0.0);
+        assertEquals(1, sl); // 1 step downstream, 0 upstream
+    }
+
+    @Test
+    void computeSL_threeVariants_countsCorrectly() {
+        // Focal at 1 (middle). Walk up 1 step, down 1 step = 2 total
+        // No splitting → EHH stays above 0.05
+        long[] pos = {900, 1000, 1200};
+        byte[][] hap = {
+                {1, 1, 1, 1},
+                {1, 1, 1, 1}, // focal
+                {1, 1, 1, 1},
+        };
+        HaplotypeMatrix m = buildMatrix(pos, hap);
+        int[] carriers = {0, 1, 2, 3};
+
+        int sl = EHHComputer.computeSL(m, 1, carriers, 0.0);
+        assertEquals(2, sl); // 1 upstream + 1 downstream
+    }
+
+    @Test
+    void computeSL_singleCarrier_returnsZero() {
+        long[] pos = {1000, 1100};
+        byte[][] hap = {{1, 0}, {1, 0}};
+        HaplotypeMatrix m = buildMatrix(pos, hap);
+        assertEquals(0, EHHComputer.computeSL(m, 0, new int[]{0}, 0.05));
+    }
+
+    @Test
+    void computeSL_emptyCarriers_returnsZero() {
+        long[] pos = {1000, 1100};
+        byte[][] hap = {{1, 0}, {1, 0}};
+        HaplotypeMatrix m = buildMatrix(pos, hap);
+        assertEquals(0, EHHComputer.computeSL(m, 0, new int[]{}, 0.05));
+    }
+
+    // -----------------------------------------------------------------------
+    // Existing tests below
+    // -----------------------------------------------------------------------
+
     @Test
     void minEHH_stopsEarly() {
         // With default minEHH=0.05, EHH should stop when below threshold.

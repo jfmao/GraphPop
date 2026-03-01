@@ -19,7 +19,7 @@ import java.util.stream.Stream;
  *
  * <p>Usage:
  * <pre>
- * CALL graphpop.joint_sfs('chr22', 16000000, 17000000, 'AFR', 'EUR', false)
+ * CALL graphpop.joint_sfs('chr22', 16000000, 17000000, 'AFR', 'EUR', false, {min_af: 0.01})
  * YIELD joint_sfs, n_variants, max_ac1, max_ac2
  * </pre>
  * </p>
@@ -42,14 +42,25 @@ public class JointSFSProcedure {
     }
 
     @Procedure(name = "graphpop.joint_sfs", mode = Mode.READ)
+    @SuppressWarnings("unchecked")
     public Stream<JointSFSResult> jointSfs(
             @Name("chr") String chr,
             @Name("start") long start,
             @Name("end") long end,
             @Name("pop1") String pop1,
             @Name("pop2") String pop2,
-            @Name(value = "folded", defaultValue = "false") boolean folded
+            @Name(value = "folded", defaultValue = "false") boolean folded,
+            @Name(value = "options", defaultValue = "{}") Map<String, Object> options
     ) {
+        VariantFilter filter = VariantFilter.fromOptions(options);
+        List<String> samples1 = options != null ? (List<String>) options.get("samples1") : null;
+        List<String> samples2 = options != null ? (List<String>) options.get("samples2") : null;
+        boolean useSubset1 = samples1 != null && !samples1.isEmpty();
+        boolean useSubset2 = samples2 != null && !samples2.isEmpty();
+
+        Map<String, Integer> subsetIndex1 = useSubset1 ? GenotypeLoader.buildSampleIndex(tx, samples1) : null;
+        Map<String, Integer> subsetIndex2 = useSubset2 ? GenotypeLoader.buildSampleIndex(tx, samples2) : null;
+
         int popIndex1 = -1;
         int popIndex2 = -1;
         int maxAn1 = 0;
@@ -58,7 +69,7 @@ public class JointSFSProcedure {
         List<int[]> entries = new ArrayList<>(); // [ac1, an1, ac2, an2]
 
         var result = tx.execute(
-                "MATCH (v:Variant) WHERE v.chr = $chr AND v.pos >= $start AND v.pos <= $end RETURN v",
+                VariantQuery.build(options),
                 Map.of("chr", chr, "start", start, "end", end)
         );
 
@@ -67,23 +78,41 @@ public class JointSFSProcedure {
                 Map<String, Object> row = result.next();
                 Node variant = (Node) row.get("v");
 
-                if (popIndex1 < 0) {
-                    String[] popIds = ArrayUtil.toStringArray(variant.getProperty("pop_ids"));
-                    for (int i = 0; i < popIds.length; i++) {
-                        if (popIds[i].equals(pop1)) popIndex1 = i;
-                        if (popIds[i].equals(pop2)) popIndex2 = i;
+                int ac1, an1, ac2, an2;
+
+                if (useSubset1) {
+                    SampleSubsetComputer.SubsetStats ss = SampleSubsetComputer.compute(variant, subsetIndex1);
+                    ac1 = ss.ac; an1 = ss.an;
+                } else {
+                    if (popIndex1 < 0) {
+                        String[] popIds = ArrayUtil.toStringArray(variant.getProperty("pop_ids"));
+                        for (int i = 0; i < popIds.length; i++) {
+                            if (popIds[i].equals(pop1)) popIndex1 = i;
+                            if (popIds[i].equals(pop2)) popIndex2 = i;
+                        }
+                        if (popIndex1 < 0) throw new RuntimeException("Population not found: " + pop1);
+                        if (!useSubset2 && popIndex2 < 0) throw new RuntimeException("Population not found: " + pop2);
                     }
-                    if (popIndex1 < 0) throw new RuntimeException("Population not found: " + pop1);
-                    if (popIndex2 < 0) throw new RuntimeException("Population not found: " + pop2);
+                    int[] acArr = ArrayUtil.toIntArray(variant.getProperty("ac"));
+                    int[] anArr = ArrayUtil.toIntArray(variant.getProperty("an"));
+                    ac1 = acArr[popIndex1]; an1 = anArr[popIndex1];
                 }
 
-                int[] acArr = ArrayUtil.toIntArray(variant.getProperty("ac"));
-                int[] anArr = ArrayUtil.toIntArray(variant.getProperty("an"));
-
-                int ac1 = acArr[popIndex1], an1 = anArr[popIndex1];
-                int ac2 = acArr[popIndex2], an2 = anArr[popIndex2];
+                if (useSubset2) {
+                    SampleSubsetComputer.SubsetStats ss = SampleSubsetComputer.compute(variant, subsetIndex2);
+                    ac2 = ss.ac; an2 = ss.an;
+                } else {
+                    int[] acArr = ArrayUtil.toIntArray(variant.getProperty("ac"));
+                    int[] anArr = ArrayUtil.toIntArray(variant.getProperty("an"));
+                    ac2 = acArr[popIndex2]; an2 = anArr[popIndex2];
+                }
 
                 if (an1 < 2 || an2 < 2) continue;
+
+                // Apply AF filter
+                double af1 = (double) ac1 / an1;
+                if (filter.isActive() && (af1 < filter.minAf || af1 > filter.maxAf)) continue;
+
                 if (an1 > maxAn1) maxAn1 = an1;
                 if (an2 > maxAn2) maxAn2 = an2;
 

@@ -49,18 +49,18 @@ public class XPEHHProcedure {
     }
 
     @Procedure(name = "graphpop.xpehh", mode = Mode.WRITE)
+    @SuppressWarnings("unchecked")
     public Stream<XPEHHResult> xpehh(
             @Name("chr") String chr,
             @Name("pop1") String pop1,
             @Name("pop2") String pop2,
             @Name(value = "options", defaultValue = "{}") Map<String, Object> options
     ) {
-        double minAf = DEFAULT_MIN_AF;
+        VariantFilter filter = VariantFilter.fromOptions(options);
+        double minAf = filter.minAf > 0 ? filter.minAf : DEFAULT_MIN_AF;
         Long regionStart = null;
         Long regionEnd = null;
         if (options != null) {
-            if (options.containsKey("min_af"))
-                minAf = ((Number) options.get("min_af")).doubleValue();
             if (options.containsKey("start"))
                 regionStart = ((Number) options.get("start")).longValue();
             if (options.containsKey("end"))
@@ -68,15 +68,32 @@ public class XPEHHProcedure {
         }
 
         // Phase 1: Load paired haplotype matrices (single-threaded, one variant pass)
-        HaplotypeMatrix[] pair = HaplotypeMatrix.loadPair(tx, chr, pop1, pop2,
-                regionStart, regionEnd);
-        if (pair == null) return Stream.empty();
-        HaplotypeMatrix m1 = pair[0];
-        HaplotypeMatrix m2 = pair[1];
+        // Custom sample support via samples1/samples2
+        List<String> samples1 = options != null ? (List<String>) options.get("samples1") : null;
+        List<String> samples2 = options != null ? (List<String>) options.get("samples2") : null;
+
+        HaplotypeMatrix m1, m2;
+        if ((samples1 != null && !samples1.isEmpty()) || (samples2 != null && !samples2.isEmpty())) {
+            // At least one custom sample list — load individually
+            Map<String, Integer> idx1 = (samples1 != null && !samples1.isEmpty())
+                    ? GenotypeLoader.buildSampleIndex(tx, samples1)
+                    : GenotypeLoader.buildSampleIndex(tx, pop1);
+            Map<String, Integer> idx2 = (samples2 != null && !samples2.isEmpty())
+                    ? GenotypeLoader.buildSampleIndex(tx, samples2)
+                    : GenotypeLoader.buildSampleIndex(tx, pop2);
+            m1 = HaplotypeMatrix.load(tx, chr, idx1, regionStart, regionEnd);
+            m2 = HaplotypeMatrix.load(tx, chr, idx2, regionStart, regionEnd);
+            if (m1 == null || m2 == null) return Stream.empty();
+        } else {
+            HaplotypeMatrix[] pair = HaplotypeMatrix.loadPair(tx, chr, pop1, pop2,
+                    regionStart, regionEnd);
+            if (pair == null) return Stream.empty();
+            m1 = pair[0];
+            m2 = pair[1];
+        }
 
         // Identify focal variants (polymorphic in at least one population)
-        final double minAfFinal = minAf;
-        int[] focalIndices = identifyFocal(m1, m2, minAfFinal);
+        int[] focalIndices = identifyFocal(m1, m2, minAf, filter);
         if (focalIndices.length == 0) return Stream.empty();
 
         // Phase 2: Parallel iHH computation per variant (no DB access)
@@ -86,7 +103,6 @@ public class XPEHHProcedure {
         IntStream.range(0, focalIndices.length).parallel().forEach(i -> {
             int vidx = focalIndices[i];
 
-            // For XP-EHH: compute EHH for ALL haplotypes in each population
             int[] allHaps1 = allHaplotypeIndices(m1.nHaplotypes);
             int[] allHaps2 = allHaplotypeIndices(m2.nHaplotypes);
 
@@ -144,7 +160,8 @@ public class XPEHHProcedure {
         return results.stream();
     }
 
-    private static int[] identifyFocal(HaplotypeMatrix m1, HaplotypeMatrix m2, double minAf) {
+    private static int[] identifyFocal(HaplotypeMatrix m1, HaplotypeMatrix m2,
+                                       double minAf, VariantFilter filter) {
         List<Integer> focal = new ArrayList<>();
         for (int i = 0; i < m1.nVariants; i++) {
             int an1 = m1.ans[i], an2 = m2.ans[i];
@@ -158,6 +175,10 @@ public class XPEHHProcedure {
             boolean poly1 = ac1 > 0 && ac1 < an1 && af1 >= minAf && af1 <= (1.0 - minAf);
             boolean poly2 = ac2 > 0 && ac2 < an2 && af2 >= minAf && af2 <= (1.0 - minAf);
             if (!poly1 && !poly2) continue;
+
+            if (filter.isActive()) {
+                if (af1 < filter.minAf || af1 > filter.maxAf) continue;
+            }
 
             focal.add(i);
         }

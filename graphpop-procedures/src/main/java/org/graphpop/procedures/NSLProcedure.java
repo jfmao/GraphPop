@@ -11,25 +11,28 @@ import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
 /**
- * Computes the Integrated Haplotype Score (iHS) for detecting recent positive selection.
+ * Computes the nSL (number of Segregating sites by Length) statistic
+ * for detecting recent positive selection.
  *
- * <p>Architecture: load → parallel compute → standardize → sequential write.
- * <ol>
- *   <li>Load dense haplotype matrix via {@link HaplotypeMatrix} (single-threaded)</li>
- *   <li>Compute iHH_derived and iHH_ancestral in parallel per variant (ForkJoinPool)</li>
- *   <li>Standardize within allele-frequency bins</li>
- *   <li>Write iHS properties on Variant nodes (single-threaded)</li>
- * </ol>
- * </p>
+ * <p>nSL is similar to iHS but counts SNP positions traversed instead of
+ * integrating over physical distance. This makes it robust to variation in
+ * recombination rate and does not require a genetic map.</p>
+ *
+ * <p>Architecture: load → parallel SL compute → AF-bin standardize → sequential write.
+ * Follows the same 4-phase pattern as {@link IHSProcedure}.</p>
+ *
+ * <p>Reference: Ferrer-Admetlla A, Liang M, Korneliussen T, Nielsen R.
+ * On detecting incomplete soft or hard selective sweeps using haplotype structure.
+ * Mol Biol Evol. 2014;31(5):1275-91.</p>
  *
  * <p>Usage:
  * <pre>
- * CALL graphpop.ihs('chr22', 'EUR', {min_af: 0.05, start: 16000000, end: 17000000})
- * YIELD variantId, pos, af, ihs_unstd, ihs
+ * CALL graphpop.nsl('chr22', 'EUR', {min_af: 0.05, start: 16000000, end: 17000000})
+ * YIELD variantId, pos, af, nsl_unstd, nsl
  * </pre>
  * </p>
  */
-public class IHSProcedure {
+public class NSLProcedure {
 
     private static final double DEFAULT_MIN_AF = 0.05;
     private static final int AF_BINS = 20;
@@ -37,19 +40,19 @@ public class IHSProcedure {
     @Context
     public Transaction tx;
 
-    public static class IHSResult {
+    public static class NSLResult {
         public String variantId;
         public long pos;
         public double af;
-        public double ihs_unstd;
-        public double ihs;
+        public double nsl_unstd;
+        public double nsl;
 
-        public IHSResult() {}
+        public NSLResult() {}
     }
 
-    @Procedure(name = "graphpop.ihs", mode = Mode.WRITE)
+    @Procedure(name = "graphpop.nsl", mode = Mode.WRITE)
     @SuppressWarnings("unchecked")
-    public Stream<IHSResult> ihs(
+    public Stream<NSLResult> nsl(
             @Name("chr") String chr,
             @Name("pop") String pop,
             @Name(value = "options", defaultValue = "{}") Map<String, Object> options
@@ -82,8 +85,8 @@ public class IHSProcedure {
         int[] focalIndices = identifyFocal(matrix, minAf, filter);
         if (focalIndices.length == 0) return Stream.empty();
 
-        // Phase 2: Parallel iHH computation (no DB access)
-        double[] ihsUnstd = new double[focalIndices.length];
+        // Phase 2: Parallel SL computation (no DB access)
+        double[] nslUnstd = new double[focalIndices.length];
         boolean[] valid = new boolean[focalIndices.length];
 
         IntStream.range(0, focalIndices.length).parallel().forEach(i -> {
@@ -111,11 +114,11 @@ public class IHSProcedure {
                 }
             }
 
-            double ihhDerived = EHHComputer.computeIHH(matrix, vidx, derivedIdx);
-            double ihhAncestral = EHHComputer.computeIHH(matrix, vidx, ancestralIdx);
+            int slDerived = EHHComputer.computeSL(matrix, vidx, derivedIdx);
+            int slAncestral = EHHComputer.computeSL(matrix, vidx, ancestralIdx);
 
-            if (ihhDerived > 0 && ihhAncestral > 0) {
-                ihsUnstd[i] = Math.log(ihhAncestral / ihhDerived);
+            if (slDerived > 0 && slAncestral > 0) {
+                nslUnstd[i] = Math.log((double) slAncestral / slDerived);
                 valid[i] = true;
             }
         });
@@ -128,40 +131,40 @@ public class IHSProcedure {
             bins.computeIfAbsent(bin, k -> new ArrayList<>()).add(i);
         }
 
-        double[] ihsStd = new double[focalIndices.length];
+        double[] nslStd = new double[focalIndices.length];
         for (List<Integer> binList : bins.values()) {
             double sum = 0.0;
-            for (int i : binList) sum += ihsUnstd[i];
+            for (int idx : binList) sum += nslUnstd[idx];
             double mean = sum / binList.size();
 
             double varSum = 0.0;
-            for (int i : binList) {
-                double d = ihsUnstd[i] - mean;
+            for (int idx : binList) {
+                double d = nslUnstd[idx] - mean;
                 varSum += d * d;
             }
             double std = binList.size() > 1 ? Math.sqrt(varSum / (binList.size() - 1)) : 1.0;
 
-            for (int i : binList) {
-                ihsStd[i] = std > 0 ? (ihsUnstd[i] - mean) / std : 0.0;
+            for (int idx : binList) {
+                nslStd[idx] = std > 0 ? (nslUnstd[idx] - mean) / std : 0.0;
             }
         }
 
         // Phase 4: Sequential write to graph
-        List<IHSResult> results = new ArrayList<>();
+        List<NSLResult> results = new ArrayList<>();
         for (int i = 0; i < focalIndices.length; i++) {
             if (!valid[i]) continue;
             int vidx = focalIndices[i];
 
-            matrix.nodes[vidx].setProperty("ihs_" + pop, ihsStd[i]);
-            matrix.nodes[vidx].setProperty("ihs_unstd_" + pop, ihsUnstd[i]);
+            matrix.nodes[vidx].setProperty("nsl_" + pop, nslStd[i]);
+            matrix.nodes[vidx].setProperty("nsl_unstd_" + pop, nslUnstd[i]);
 
-            IHSResult ir = new IHSResult();
-            ir.variantId = matrix.variantIds[vidx];
-            ir.pos = matrix.positions[vidx];
-            ir.af = matrix.afs[vidx];
-            ir.ihs_unstd = ihsUnstd[i];
-            ir.ihs = ihsStd[i];
-            results.add(ir);
+            NSLResult nr = new NSLResult();
+            nr.variantId = matrix.variantIds[vidx];
+            nr.pos = matrix.positions[vidx];
+            nr.af = matrix.afs[vidx];
+            nr.nsl_unstd = nslUnstd[i];
+            nr.nsl = nslStd[i];
+            results.add(nr);
         }
 
         results.sort(Comparator.comparingLong(r -> r.pos));

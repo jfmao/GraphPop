@@ -59,6 +59,7 @@ public class GenomeScanProcedure {
         public double pi;
         public double theta_w;
         public double tajima_d;
+        public double fay_wu_h;
         public double het_exp;
         public double het_obs;
         public double fis;
@@ -80,6 +81,7 @@ public class GenomeScanProcedure {
     ) {
         String pop2 = options != null ? (String) options.get("pop2") : null;
         String runIdOverride = options != null ? (String) options.get("run_id") : null;
+        VariantFilter filter = VariantFilter.fromOptions(options);
 
         // Generate run_id
         String runId;
@@ -94,7 +96,7 @@ public class GenomeScanProcedure {
 
         // Fetch all variants on this chromosome, sorted by position.
         var result = tx.execute(
-                "MATCH (v:Variant) WHERE v.chr = $chr RETURN v ORDER BY v.pos",
+                VariantQuery.buildChromosome(options),
                 Map.of("chr", chr)
         );
 
@@ -120,8 +122,14 @@ public class GenomeScanProcedure {
                 int[] anArr = ArrayUtil.toIntArray(variant.getProperty("an"));
                 double[] afArr = ArrayUtil.toDoubleArray(variant.getProperty("af"));
                 int[] hetArr = ArrayUtil.toIntArray(variant.getProperty("het_count"));
+                int[] homAltArr = ArrayUtil.toIntArray(variant.getProperty("hom_alt_count"));
 
-                variants.add(new VariantData(pos, acArr, anArr, afArr, hetArr));
+                // Ancestral allele for Fay & Wu's H
+                Object ancestralObj = variant.getProperty("ancestral_allele", null);
+                String ancestralAllele = ancestralObj != null ? (String) ancestralObj : null;
+
+                variants.add(new VariantData(pos, acArr, anArr, afArr, hetArr, homAltArr,
+                        ancestralAllele, variant));
             }
         } finally {
             result.close();
@@ -140,12 +148,13 @@ public class GenomeScanProcedure {
         }
 
         // ---- M1.4: Pre-compute per-variant statistics into flat arrays ----
-        // Each stat computed exactly once, windows become pure array summation.
         double[] piArr = new double[nVar];
         double[] heArr = new double[nVar];
         double[] hoArr = new double[nVar];
         boolean[] segregating = new boolean[nVar];
-        boolean[] valid = new boolean[nVar]; // an >= 2
+        boolean[] valid = new boolean[nVar];
+        double[] thetaHArr = new double[nVar];
+        boolean[] polarized = new boolean[nVar];
 
         // Comparative arrays (only allocated if pop2 provided)
         double[] fstNumArr = null, fstDenArr = null, dxyArr = null;
@@ -167,14 +176,37 @@ public class GenomeScanProcedure {
             int an = v.an[ctx.index];
             double af = v.af[ctx.index];
             int het = v.het[ctx.index];
+            int homAlt = v.homAlt[ctx.index];
 
             if (an < 2) continue;
+
+            // Apply filter
+            if (filter.isActive() && !filter.passes(ac, an, af, het, homAlt, v.node)) {
+                continue;
+            }
+
             valid[i] = true;
 
             piArr[i] = VectorOps.piPerSite(af, an);
             heArr[i] = 2.0 * af * (1.0 - af);
             hoArr[i] = (double) het / (an / 2);
             segregating[i] = ac > 0 && ac < an;
+
+            // Fay & Wu's H
+            if (v.ancestralAllele != null) {
+                int derivedCount;
+                if ("REF".equals(v.ancestralAllele)) {
+                    derivedCount = ac;
+                } else if ("ALT".equals(v.ancestralAllele)) {
+                    derivedCount = an - ac;
+                } else {
+                    derivedCount = -1;
+                }
+                if (derivedCount >= 0) {
+                    thetaHArr[i] = FayWuH.thetaHPerSite(derivedCount, an);
+                    polarized[i] = true;
+                }
+            }
 
             if (ctx2 != null) {
                 int an2 = v.an[ctx2.index];
@@ -185,7 +217,7 @@ public class GenomeScanProcedure {
                     fstNumArr[i] = fstC[0];
                     fstDenArr[i] = fstC[1];
                     dxyArr[i] = VectorOps.dxyPerSite(af, af2);
-                    piW1Arr[i] = piArr[i]; // same as piPerSite(af, an)
+                    piW1Arr[i] = piArr[i];
                     piW2Arr[i] = VectorOps.piPerSite(af2, an2);
                 }
             }
@@ -215,15 +247,15 @@ public class GenomeScanProcedure {
             long wStart = windowBounds.get(w)[0];
             long wEnd = windowBounds.get(w)[1];
 
-            // Binary search for first variant >= wStart
             int lo = Arrays.binarySearch(positions, wStart);
             if (lo < 0) lo = -(lo + 1);
 
-            // Pure array summation over pre-computed stats
             double piSum = 0.0, heSum = 0.0, hoSum = 0.0;
             long nVariants = 0, nSeg = 0;
             double fstNum = 0.0, fstDen = 0.0, dxySum = 0.0;
             double piW1Sum = 0.0, piW2Sum = 0.0;
+            double thetaHSum = 0.0, piPolarSum = 0.0;
+            long nPol = 0;
 
             for (int j = lo; j < nVar; j++) {
                 if (positions[j] > wEnd) break;
@@ -234,6 +266,12 @@ public class GenomeScanProcedure {
                 heSum += heArr[j];
                 hoSum += hoArr[j];
                 if (segregating[j]) nSeg++;
+
+                if (polarized[j]) {
+                    thetaHSum += thetaHArr[j];
+                    piPolarSum += piArr[j];
+                    nPol++;
+                }
 
                 if (ctx2F != null && validCompF[j]) {
                     fstNum += fstNumF[j];
@@ -262,6 +300,10 @@ public class GenomeScanProcedure {
             wr.het_exp = heSum / L;
             wr.het_obs = hoSum / L;
             wr.fis = wr.het_exp > 0 ? 1.0 - wr.het_obs / wr.het_exp : 0.0;
+
+            if (nPol > 0) {
+                wr.fay_wu_h = FayWuH.compute(piPolarSum, thetaHSum) / nPol;
+            }
 
             if (ctx2F != null && fstDen > 0) {
                 wr.fst = fstNum / fstDen;
@@ -293,6 +335,7 @@ public class GenomeScanProcedure {
             gwNode.setProperty("pi", wr.pi);
             gwNode.setProperty("theta_w", wr.theta_w);
             gwNode.setProperty("tajima_d", wr.tajima_d);
+            gwNode.setProperty("fay_wu_h", wr.fay_wu_h);
             gwNode.setProperty("het_exp", wr.het_exp);
             gwNode.setProperty("het_obs", wr.het_obs);
             gwNode.setProperty("fis", wr.fis);
@@ -323,13 +366,20 @@ public class GenomeScanProcedure {
         final int[] an;
         final double[] af;
         final int[] het;
+        final int[] homAlt;
+        final String ancestralAllele;
+        final Node node;
 
-        VariantData(long pos, int[] ac, int[] an, double[] af, int[] het) {
+        VariantData(long pos, int[] ac, int[] an, double[] af, int[] het, int[] homAlt,
+                    String ancestralAllele, Node node) {
             this.pos = pos;
             this.ac = ac;
             this.an = an;
             this.af = af;
             this.het = het;
+            this.homAlt = homAlt;
+            this.ancestralAllele = ancestralAllele;
+            this.node = node;
         }
     }
 }

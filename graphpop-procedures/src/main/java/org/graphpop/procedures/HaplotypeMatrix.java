@@ -122,6 +122,24 @@ final class HaplotypeMatrix {
     }
 
     /**
+     * Load a haplotype matrix for a chromosome region using a pre-built sample index.
+     * This overload supports custom sample subsets — the caller builds the sample index
+     * from an explicit list of sample IDs.
+     *
+     * @param tx          active transaction
+     * @param chr         chromosome
+     * @param sampleIndex pre-built sample index (sampleId → array position)
+     * @param start       region start (use {@code null} for whole chromosome)
+     * @param end         region end (use {@code null} for whole chromosome)
+     * @return loaded matrix, or null if no variants/samples found
+     */
+    static HaplotypeMatrix load(Transaction tx, String chr,
+                                Map<String, Integer> sampleIndex,
+                                Long start, Long end) {
+        return loadInternal(tx, chr, sampleIndex, start, end);
+    }
+
+    /**
      * Load a haplotype matrix for a chromosome region and population.
      *
      * @param tx    active transaction
@@ -135,6 +153,12 @@ final class HaplotypeMatrix {
                                 Long start, Long end) {
         // 1. Build sample index for the population
         Map<String, Integer> sampleIndex = GenotypeLoader.buildSampleIndex(tx, pop);
+        return loadInternal(tx, chr, sampleIndex, start, end);
+    }
+
+    private static HaplotypeMatrix loadInternal(Transaction tx, String chr,
+                                                Map<String, Integer> sampleIndex,
+                                                Long start, Long end) {
         int nSamples = sampleIndex.size();
         if (nSamples == 0) return null;
         int nHaplotypes = nSamples * 2;
@@ -153,37 +177,19 @@ final class HaplotypeMatrix {
 
         var result = tx.execute(query, params);
 
-        // 3. Collect variant metadata and resolve population index
+        // 3. Collect variant metadata
         List<String> vidList = new ArrayList<>();
         List<Long> posList = new ArrayList<>();
         List<Node> nodeList = new ArrayList<>();
-        List<Double> afList = new ArrayList<>();
-        List<Integer> acList = new ArrayList<>();
-        List<Integer> anList = new ArrayList<>();
-
-        PopulationContext ctx = null;
 
         try {
             while (result.hasNext()) {
                 Map<String, Object> row = result.next();
                 Node node = (Node) row.get("v");
 
-                if (ctx == null) {
-                    ctx = PopulationContext.resolve(tx, node, pop);
-                }
-
-                String variantId = (String) node.getProperty("variantId");
-                long pos = ((Number) node.getProperty("pos")).longValue();
-                double[] afArr = ArrayUtil.toDoubleArray(node.getProperty("af"));
-                int[] acArr = ArrayUtil.toIntArray(node.getProperty("ac"));
-                int[] anArr = ArrayUtil.toIntArray(node.getProperty("an"));
-
-                vidList.add(variantId);
-                posList.add(pos);
+                vidList.add((String) node.getProperty("variantId"));
+                posList.add(((Number) node.getProperty("pos")).longValue());
                 nodeList.add(node);
-                afList.add(afArr[ctx.index]);
-                acList.add(acArr[ctx.index]);
-                anList.add(anArr[ctx.index]);
             }
         } finally {
             result.close();
@@ -196,18 +202,16 @@ final class HaplotypeMatrix {
         String[] variantIds = vidList.toArray(new String[0]);
         long[] positions = new long[nVariants];
         Node[] nodes = nodeList.toArray(new Node[0]);
-        double[] afs = new double[nVariants];
-        int[] acs = new int[nVariants];
-        int[] ans = new int[nVariants];
         for (int i = 0; i < nVariants; i++) {
             positions[i] = posList.get(i);
-            afs[i] = afList.get(i);
-            acs[i] = acList.get(i);
-            ans[i] = anList.get(i);
         }
 
         // 5. Load haplotype data via graph API (one pass over CARRIES edges)
+        //    Compute ac/an/af from the loaded haplotypes
         byte[][] haplotypes = new byte[nVariants][nHaplotypes];
+        int[] acs = new int[nVariants];
+        int[] ans = new int[nVariants];
+        double[] afs = new double[nVariants];
 
         for (int v = 0; v < nVariants; v++) {
             Node varNode = nodes[v];
@@ -217,7 +221,7 @@ final class HaplotypeMatrix {
                 Node sampleNode = rel.getStartNode();
                 String sid = (String) sampleNode.getProperty("sampleId");
                 Integer sIdx = sampleIndex.get(sid);
-                if (sIdx == null) continue; // not in target population
+                if (sIdx == null) continue; // not in target sample set
 
                 int gt = ((Number) rel.getProperty("gt")).intValue();
                 if (gt == 2) {
@@ -229,6 +233,13 @@ final class HaplotypeMatrix {
                     hapRow[2 * sIdx + phase] = 1;
                 }
             }
+
+            // Compute AC from haplotypes
+            int ac = 0;
+            for (int h = 0; h < nHaplotypes; h++) ac += hapRow[h];
+            acs[v] = ac;
+            ans[v] = nHaplotypes;
+            afs[v] = (double) ac / nHaplotypes;
         }
 
         return new HaplotypeMatrix(variantIds, positions, nodes, afs, acs, ans,

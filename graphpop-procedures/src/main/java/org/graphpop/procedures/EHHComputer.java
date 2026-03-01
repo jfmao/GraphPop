@@ -54,6 +54,38 @@ final class EHHComputer {
     }
 
     /**
+     * Compute Segregating sites by Length (SL) — the number of SNP positions traversed
+     * before EHH decays below minEHH. Used by nSL.
+     *
+     * <p>Unlike iHH which integrates EHH over physical distance (bp), SL counts the
+     * number of variant positions traversed. This makes nSL independent of recombination
+     * rate variation across the genome.</p>
+     *
+     * @param matrix         dense haplotype matrix
+     * @param focalIdx       index of the focal variant in the matrix
+     * @param carrierHapIdxs haplotype indices that carry the focal allele
+     * @param minEHH         stop when EHH drops below this threshold
+     * @return total number of SNP positions traversed (upstream + downstream)
+     */
+    static int computeSL(HaplotypeMatrix matrix, int focalIdx,
+                         int[] carrierHapIdxs, double minEHH) {
+        if (carrierHapIdxs.length < 2) return 0;
+
+        int slUp = walkDirectionSL(matrix, focalIdx, carrierHapIdxs, minEHH, -1);
+        int slDown = walkDirectionSL(matrix, focalIdx, carrierHapIdxs, minEHH, +1);
+
+        return slUp + slDown;
+    }
+
+    /**
+     * Overload with default minEHH of 0.05.
+     */
+    static int computeSL(HaplotypeMatrix matrix, int focalIdx,
+                         int[] carrierHapIdxs) {
+        return computeSL(matrix, focalIdx, carrierHapIdxs, DEFAULT_MIN_EHH);
+    }
+
+    /**
      * Walk in one direction from the focal variant, tracking haplotype group splits
      * using flat arrays and incremental sumPairs.
      *
@@ -161,5 +193,89 @@ final class EHHComputer {
         }
 
         return ihh;
+    }
+
+    /**
+     * Walk in one direction counting SNP positions traversed (for SL/nSL).
+     * Same group-splitting logic as walkDirection, but counts steps instead of
+     * integrating physical distance.
+     */
+    private static int walkDirectionSL(HaplotypeMatrix matrix, int focalIdx,
+                                       int[] carrierHapIdxs,
+                                       double minEHH, int step) {
+        int nHaps = carrierHapIdxs.length;
+        if (nHaps < 2) return 0;
+
+        double nPairs = (double) nHaps * (nHaps - 1) / 2.0;
+
+        int[] groupOf = new int[nHaps];
+        int nextGroupId = 1;
+
+        int[] groupSize = new int[nHaps];
+        groupSize[0] = nHaps;
+
+        double sumPairs = nPairs;
+
+        int[] count0 = new int[nHaps];
+        int[] count1 = new int[nHaps];
+        int[] seenGroups = new int[nHaps];
+        int nSeen;
+
+        int snpCount = 0;
+
+        int idx = focalIdx + step;
+        while (idx >= 0 && idx < matrix.nVariants) {
+            byte[] hapRow = matrix.haplotypes[idx];
+
+            nSeen = 0;
+            for (int h = 0; h < nHaps; h++) {
+                int grp = groupOf[h];
+                if (count0[grp] == 0 && count1[grp] == 0) {
+                    seenGroups[nSeen++] = grp;
+                }
+                if (hapRow[carrierHapIdxs[h]] == 1) {
+                    count1[grp]++;
+                } else {
+                    count0[grp]++;
+                }
+            }
+
+            for (int s = 0; s < nSeen; s++) {
+                int grp = seenGroups[s];
+                int c0 = count0[grp];
+                int c1 = count1[grp];
+
+                if (c0 > 0 && c1 > 0) {
+                    int oldSize = groupSize[grp];
+                    sumPairs -= (double) oldSize * (oldSize - 1) / 2.0;
+
+                    groupSize[grp] = c0;
+                    sumPairs += (double) c0 * (c0 - 1) / 2.0;
+
+                    int newGrp = nextGroupId++;
+                    groupSize[newGrp] = c1;
+                    sumPairs += (double) c1 * (c1 - 1) / 2.0;
+
+                    for (int h = 0; h < nHaps; h++) {
+                        if (groupOf[h] == grp && hapRow[carrierHapIdxs[h]] == 1) {
+                            groupOf[h] = newGrp;
+                        }
+                    }
+                }
+
+                count0[grp] = 0;
+                count1[grp] = 0;
+            }
+
+            double ehh = sumPairs / nPairs;
+
+            snpCount++;
+
+            if (ehh < minEHH) break;
+
+            idx += step;
+        }
+
+        return snpCount;
     }
 }

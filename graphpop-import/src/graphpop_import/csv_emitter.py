@@ -68,6 +68,7 @@ VARIANT_HEADER = [
     "het_count:int[]", "hom_alt_count:int[]",
     "ac_total:int", "an_total:int", "af_total:float", "call_rate:float",
     "het_exp:float[]",
+    "ancestral_allele", "is_polarized:boolean",
 ]
 
 SAMPLE_HEADER = ["sampleId:ID(Sample)", ":LABEL", "population"]
@@ -215,6 +216,8 @@ class CSVEmitter:
 
         for rec in chunk:
             # -- Variant node --
+            ancestral = getattr(rec, "ancestral_allele", None) or ""
+            is_pol = getattr(rec, "is_polarized", False)
             vw.writerow([
                 rec.id,
                 "Variant",
@@ -234,6 +237,8 @@ class CSVEmitter:
                 _fmt_float(rec.af_total),
                 _fmt_float(rec.call_rate),
                 delim.join(_fmt_float(x) for x in rec.het_exp),
+                ancestral,
+                str(is_pol).lower(),
             ])
             self._n_variants += 1
 

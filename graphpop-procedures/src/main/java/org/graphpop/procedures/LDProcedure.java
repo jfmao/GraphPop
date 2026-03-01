@@ -50,6 +50,7 @@ public class LDProcedure {
     }
 
     @Procedure(name = "graphpop.ld", mode = Mode.WRITE)
+    @SuppressWarnings("unchecked")
     public Stream<LDResult> ld(
             @Name("chr") String chr,
             @Name("start") long start,
@@ -59,21 +60,27 @@ public class LDProcedure {
             @Name(value = "r2_threshold", defaultValue = "0.2") double r2Threshold,
             @Name(value = "options", defaultValue = "{}") Map<String, Object> options
     ) {
-        double minAf = 0.0;
+        VariantFilter filter = VariantFilter.fromOptions(options);
         boolean writeEdges = true;
-        if (options != null) {
-            if (options.containsKey("min_af"))
-                minAf = ((Number) options.get("min_af")).doubleValue();
-            if (options.containsKey("write_edges"))
-                writeEdges = (Boolean) options.get("write_edges");
+        if (options != null && options.containsKey("write_edges")) {
+            writeEdges = (Boolean) options.get("write_edges");
         }
 
+        List<String> sampleList = options != null ? (List<String>) options.get("samples") : null;
+        boolean useSubset = sampleList != null && !sampleList.isEmpty();
+
         // Phase 1: Load dense haplotype matrix (single-threaded)
-        HaplotypeMatrix matrix = HaplotypeMatrix.load(tx, chr, pop, start, end);
+        HaplotypeMatrix matrix;
+        if (useSubset) {
+            Map<String, Integer> sampleIndex = GenotypeLoader.buildSampleIndex(tx, sampleList);
+            matrix = HaplotypeMatrix.load(tx, chr, sampleIndex, start, end);
+        } else {
+            matrix = HaplotypeMatrix.load(tx, chr, pop, start, end);
+        }
         if (matrix == null || matrix.nVariants < 2) return Stream.empty();
 
-        // Identify polymorphic variants (skip monomorphic, apply MAF filter)
-        int[] polyIdx = identifyPolymorphic(matrix, minAf);
+        // Identify polymorphic variants (skip monomorphic, apply filters)
+        int[] polyIdx = identifyPolymorphic(matrix, filter);
         if (polyIdx.length < 2) return Stream.empty();
 
         // Pre-compute dosage vectors for all polymorphic variants
@@ -85,7 +92,6 @@ public class LDProcedure {
         int nHaps = matrix.nHaplotypes;
 
         // Phase 2: Parallel pairwise r² + D' computation (no DB access)
-        // Thread-local collection via flatMap — no CAS contention
         List<LDHit> hits = IntStream.range(0, polyIdx.length).parallel()
                 .mapToObj(i -> {
                     int vi = polyIdx[i];
@@ -101,7 +107,6 @@ public class LDProcedure {
 
                         double r2 = VectorOps.pearsonR2(dosages[i], dosages[j]);
                         if (r2 >= r2Threshold) {
-                            // Compute D' directly from byte[] — no int[] allocation
                             double dprime = VectorOps.dPrime(hapI, matrix.haplotypes[vj], nHaps);
                             local.add(new LDHit(i, j, vi, vj, r2, dprime, dist));
                         }
@@ -133,24 +138,30 @@ public class LDProcedure {
         return results.stream();
     }
 
-    private static int[] identifyPolymorphic(HaplotypeMatrix matrix, double minAf) {
+    private static int[] identifyPolymorphic(HaplotypeMatrix matrix, VariantFilter filter) {
         List<Integer> poly = new ArrayList<>();
         for (int i = 0; i < matrix.nVariants; i++) {
             int ac = matrix.acs[i];
             int an = matrix.ans[i];
             if (ac <= 0 || ac >= an || an < 2) continue;
-            if (minAf > 0) {
-                double af = (double) ac / an;
-                if (af < minAf || af > (1.0 - minAf)) continue;
+            double af = (double) ac / an;
+
+            if (filter.isActive()) {
+                if (af < filter.minAf || af > filter.maxAf) continue;
+                // variant_type and HWE filters would require Node access;
+                // for FULL PATH, we skip those (nodes may be null in test matrices)
+            } else {
+                // No filter active — backward compatible
             }
+
             poly.add(i);
         }
         return poly.stream().mapToInt(Integer::intValue).toArray();
     }
 
     private static class LDHit {
-        final int idxI, idxJ;  // indices into polyIdx
-        final int vi, vj;      // indices into matrix
+        final int idxI, idxJ;
+        final int vi, vj;
         final double r2, dprime;
         final long dist;
 

@@ -54,6 +54,10 @@ class VariantRecord:
     af_total: float = 0.0
     call_rate: float = 0.0
 
+    # Ancestral allele annotation (optional, from Ensembl EPO FASTA)
+    ancestral_allele: str | None = None  # "REF", "ALT", or None
+    is_polarized: bool = False  # True if high-confidence EPO alignment
+
     # Sparse genotype edges
     carries: list[CarriesRecord] = field(default_factory=list)
 
@@ -120,6 +124,23 @@ def _load_panel(panel_path: str | Path, stratify_by: str) -> dict[str, str]:
 _SV_PREFIXES = ("<DEL", "<DUP", "<INV", "<INS", "<CNV", "<BND")
 
 
+def _load_ancestral_fasta(fasta_path: Path) -> str:
+    """Load an Ensembl ancestral allele FASTA into a single sequence string.
+
+    Uppercase = high-confidence EPO alignment, lowercase = low-confidence.
+    '.' or 'N' = unknown. Returns 0-indexed sequence.
+    """
+    lines = []
+    with open(fasta_path) as f:
+        for line in f:
+            if line.startswith(">"):
+                continue
+            lines.append(line.strip())
+    seq = "".join(lines)
+    logger.info("Loaded ancestral FASTA: %d positions from %s", len(seq), fasta_path)
+    return seq
+
+
 def _classify_variant(ref: str, alt: str) -> str:
     """Return 'SNP', 'INDEL', or 'SV'."""
     if alt.startswith("<") or any(alt.startswith(p) for p in _SV_PREFIXES):
@@ -148,12 +169,18 @@ class VCFParser:
         stratify_by: str = "superpopulation",
         region: str | None = None,
         include_filtered: bool = False,
+        ancestral_fasta: str | Path | None = None,
     ) -> None:
         self._vcf_path = str(vcf_path)
         self._region = region
         self._include_filtered = include_filtered
         self._n_variants_processed = 0
         self._n_multiallelic_skipped = 0
+
+        # Load optional ancestral FASTA for allele polarization
+        self._ancestral_seq: str | None = None
+        if ancestral_fasta is not None:
+            self._ancestral_seq = _load_ancestral_fasta(Path(ancestral_fasta))
 
         # Load panel and build population map
         sample_to_pop = _load_panel(panel_path, stratify_by)
@@ -339,6 +366,22 @@ class VCFParser:
                     )
                 )
 
+            # --- Ancestral allele annotation (optional) ---
+            ancestral_allele: str | None = None
+            is_polarized = False
+            if self._ancestral_seq is not None:
+                fasta_idx = pos - 1  # 0-indexed
+                if 0 <= fasta_idx < len(self._ancestral_seq):
+                    anc_char = self._ancestral_seq[fasta_idx]
+                    anc_upper = anc_char.upper()
+                    if anc_upper not in (".", "N", "-"):
+                        if anc_upper == ref[0].upper():
+                            ancestral_allele = "REF"
+                            is_polarized = anc_char.isupper()
+                        elif anc_upper == alt[0].upper():
+                            ancestral_allele = "ALT"
+                            is_polarized = anc_char.isupper()
+
             self._n_variants_processed += 1
             if self._n_variants_processed % 100_000 == 0:
                 logger.info(
@@ -364,6 +407,8 @@ class VCFParser:
                 an_total=an_total,
                 af_total=af_total,
                 call_rate=call_rate,
+                ancestral_allele=ancestral_allele,
+                is_polarized=is_polarized,
                 carries=carries,
             )
 

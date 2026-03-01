@@ -1,6 +1,7 @@
 package org.graphpop.procedures;
 
 import org.graphpop.VectorOps;
+import org.neo4j.graphdb.Label;
 import org.neo4j.graphdb.Node;
 import org.neo4j.graphdb.Transaction;
 import org.neo4j.procedure.Context;
@@ -13,48 +14,44 @@ import java.util.Map;
 import java.util.stream.Stream;
 
 /**
- * Computes diversity statistics for a genomic region and population.
+ * Whole-chromosome population summary statistics.
  *
- * <p>FAST PATH: uses only the allele-count arrays stored on Variant nodes,
- * so complexity is O(V x K) independent of sample size.</p>
- *
- * <p>When {@code samples} option is provided, switches to CARRIES-edge traversal
- * for on-the-fly recomputation (slower but fully flexible).</p>
+ * <p>Computes diversity, neutrality tests, and heterozygosity across an entire
+ * chromosome for a population, and writes results as properties on the Population node.</p>
  *
  * <p>Usage:
  * <pre>
- * CALL graphpop.diversity('chr22', 16000000, 17000000, 'AFR')
- * YIELD pi, theta_w, tajima_d, fay_wu_h, het_exp, het_obs, fis, n_variants, n_segregating
+ * CALL graphpop.pop_summary('chr22', 'EUR', {variant_type: 'SNP'})
+ * YIELD pi, theta_w, tajima_d, fay_wu_h, mean_he, mean_ho, mean_fis,
+ *       n_variants, n_segregating, n_polarized
  * </pre>
  * </p>
  */
-public class DiversityProcedure {
+public class PopSummaryProcedure {
 
     @Context
     public Transaction tx;
 
-    public static class DiversityResult {
+    public static class PopSummaryResult {
         public double pi;
         public double theta_w;
         public double tajima_d;
         public double fay_wu_h;
         public double fay_wu_h_norm;
-        public double het_exp;
-        public double het_obs;
-        public double fis;
+        public double mean_he;
+        public double mean_ho;
+        public double mean_fis;
         public long n_variants;
         public long n_segregating;
         public long n_polarized;
 
-        public DiversityResult() {}
+        public PopSummaryResult() {}
     }
 
-    @Procedure(name = "graphpop.diversity", mode = Mode.READ)
+    @Procedure(name = "graphpop.pop_summary", mode = Mode.WRITE)
     @SuppressWarnings("unchecked")
-    public Stream<DiversityResult> diversity(
+    public Stream<PopSummaryResult> popSummary(
             @Name("chr") String chr,
-            @Name("start") long start,
-            @Name("end") long end,
             @Name("pop") String pop,
             @Name(value = "options", defaultValue = "{}") Map<String, Object> options
     ) {
@@ -78,9 +75,10 @@ public class DiversityProcedure {
         long nSegregating = 0;
         long nPolarized = 0;
 
+        // Query all variants on the chromosome
         var result = tx.execute(
-                VariantQuery.build(options),
-                Map.of("chr", chr, "start", start, "end", end)
+                VariantQuery.buildChromosome(options),
+                Map.of("chr", chr)
         );
 
         try {
@@ -127,7 +125,7 @@ public class DiversityProcedure {
                     nSegregating++;
                 }
 
-                // Fay & Wu's H: requires ancestral allele
+                // Fay & Wu's H
                 Object ancestralObj = variant.getProperty("ancestral_allele", null);
                 if (ancestralObj != null) {
                     String ancestral = (String) ancestralObj;
@@ -137,7 +135,7 @@ public class DiversityProcedure {
                     } else if ("ALT".equals(ancestral)) {
                         derivedCount = an - ac;
                     } else {
-                        continue; // skip unknown polarization within this block
+                        continue;
                     }
                     nPolarized++;
                     thetaHSum += FayWuH.thetaHPerSite(derivedCount, an);
@@ -148,7 +146,7 @@ public class DiversityProcedure {
             result.close();
         }
 
-        DiversityResult out = new DiversityResult();
+        PopSummaryResult out = new PopSummaryResult();
         out.n_variants = nVariants;
         out.n_segregating = nSegregating;
         out.n_polarized = nPolarized;
@@ -157,7 +155,6 @@ public class DiversityProcedure {
             return Stream.of(out);
         }
 
-        // For custom subsets, derive harmonic numbers from the subset size
         int n;
         double a_n, a_n2;
         if (useSubset) {
@@ -174,9 +171,9 @@ public class DiversityProcedure {
 
         double L = nVariants;
         out.pi = piSum / L;
-        out.het_exp = heSum / L;
-        out.het_obs = hoSum / L;
-        out.fis = out.het_exp > 0 ? 1.0 - out.het_obs / out.het_exp : 0.0;
+        out.mean_he = heSum / L;
+        out.mean_ho = hoSum / L;
+        out.mean_fis = out.mean_he > 0 ? 1.0 - out.mean_ho / out.mean_he : 0.0;
         out.theta_w = a_n > 0 ? (nSegregating / a_n) / L : 0.0;
 
         if (useSubset) {
@@ -185,10 +182,19 @@ public class DiversityProcedure {
             out.tajima_d = TajimaD.compute(piSum, nSegregating, ctx);
         }
 
-        // Fay & Wu's H (only if we have polarized sites)
         if (nPolarized > 0) {
             out.fay_wu_h = FayWuH.compute(piPolarizedSum, thetaHSum) / nPolarized;
             out.fay_wu_h_norm = FayWuH.normalizedH(piPolarizedSum, thetaHSum, nPolarized, n, a_n);
+        }
+
+        // Write summary to Population node
+        Node popNode = tx.findNode(Label.label("Population"), "populationId", pop);
+        if (popNode != null) {
+            popNode.setProperty("summary_pi_" + chr, out.pi);
+            popNode.setProperty("summary_theta_w_" + chr, out.theta_w);
+            popNode.setProperty("summary_tajima_d_" + chr, out.tajima_d);
+            popNode.setProperty("summary_fay_wu_h_" + chr, out.fay_wu_h);
+            popNode.setProperty("summary_n_variants_" + chr, out.n_variants);
         }
 
         return Stream.of(out);

@@ -5,6 +5,8 @@ import org.neo4j.graphdb.Node;
 import org.neo4j.graphdb.Transaction;
 
 import java.util.*;
+import java.util.List;
+import java.util.Set;
 
 /**
  * Loads CARRIES edge data into dosage vectors for individual-level statistics.
@@ -36,6 +38,37 @@ final class GenotypeLoader {
             }
         } finally {
             result.close();
+        }
+        return index;
+    }
+
+    /**
+     * Build sample index from an explicit list of sample IDs.
+     * Queries Sample nodes by ID, preserving the order of the input list.
+     * Unknown sample IDs are silently skipped.
+     */
+    static Map<String, Integer> buildSampleIndex(Transaction tx, List<String> sampleIds) {
+        Map<String, Integer> index = new LinkedHashMap<>();
+        var result = tx.execute(
+                "MATCH (s:Sample) WHERE s.sampleId IN $sids RETURN s.sampleId AS sid",
+                Map.of("sids", sampleIds)
+        );
+
+        // Collect existing sample IDs
+        Set<String> existing = new HashSet<>();
+        try {
+            while (result.hasNext()) {
+                existing.add((String) result.next().get("sid"));
+            }
+        } finally {
+            result.close();
+        }
+
+        // Preserve input order, skip non-existent
+        for (String sid : sampleIds) {
+            if (existing.contains(sid) && !index.containsKey(sid)) {
+                index.put(sid, index.size());
+            }
         }
         return index;
     }
