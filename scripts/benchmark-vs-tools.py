@@ -61,6 +61,7 @@ REGIONS = {
     "small":  (16_000_000, 16_100_000),
     "medium": (16_000_000, 16_500_000),
     "large":  (16_000_000, 17_000_000),
+    "full":   (10_510_000, 50_810_000),   # full chr22 (~1.07M variants)
 }
 
 # ---------------------------------------------------------------------------
@@ -436,7 +437,7 @@ def diversity_vcftools(start, end, pop, tmpdir):
         "--site-pi", "--out", outprefix + "_pi",
     ]
     try:
-        _, time_pi, mem_pi = measure_subprocess(cmd_pi)
+        _, time_pi, mem_pi = measure_subprocess(cmd_pi, timeout=3600)
     except RuntimeError:
         time_pi, mem_pi = 0.0, 0.0
 
@@ -460,7 +461,7 @@ def diversity_vcftools(start, end, pop, tmpdir):
         "--TajimaD", str(window), "--out", outprefix + "_td",
     ]
     try:
-        _, time_td, mem_td = measure_subprocess(cmd_td)
+        _, time_td, mem_td = measure_subprocess(cmd_td, timeout=3600)
     except RuntimeError:
         time_td, mem_td = 0.0, 0.0
 
@@ -556,7 +557,7 @@ def fst_vcftools(start, end, pop1, pop2, tmpdir):
         "--out", outprefix,
     ]
     t0 = time.perf_counter()
-    proc = subprocess.run(cmd, capture_output=True, text=True, timeout=300)
+    proc = subprocess.run(cmd, capture_output=True, text=True, timeout=3600)
     elapsed = time.perf_counter() - t0
 
     # Parse peak RSS from /usr/bin/time in stderr
@@ -1323,8 +1324,8 @@ def main():
             )
 
             # ---- Group D: LD ----
-            # Only run LD on small/medium (large is too expensive for pairwise)
-            if region_name != "large":
+            # Only run LD on small/medium (large/full too expensive for pairwise)
+            if region_name in ("small", "medium"):
                 print(f"\n--- Group D: LD (r² ≥ 0.2) — pop={POP2} ---")
                 ld_results = {}
 
@@ -1361,7 +1362,7 @@ def main():
 
             # ---- Group E: Selection ----
             # Only on small/medium (expensive)
-            if region_name != "large":
+            if region_name in ("small", "medium"):
                 print(f"\n--- Group E: iHS — pop={POP2} ---")
                 ihs_results = {}
 
@@ -1429,7 +1430,7 @@ def main():
                 "differentiation": {k: v for k, v in fst_results.items()},
                 "sfs": {k: v for k, v in sfs_results.items()},
             }
-            if region_name != "large":
+            if region_name in ("small", "medium"):
                 region_record["ld"] = {k: v for k, v in ld_results.items()}
                 region_record["ihs"] = {k: v for k, v in ihs_results.items()}
                 region_record["xpehh"] = {k: v for k, v in xp_results.items()}
