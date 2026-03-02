@@ -59,6 +59,18 @@ public class NSLProcedure {
             @Name("pop") String pop,
             @Name(value = "options", defaultValue = "{}") Map<String, Object> options
     ) {
+        // Default to SNPs only — nSL was designed for SNP data and indels in
+        // the scan path alter SSL accumulation. Users can override with
+        // variant_type: 'ALL' to include all biallelic variants.
+        if (options == null) {
+            options = Map.of("variant_type", "SNP");
+        } else if (!options.containsKey("variant_type")) {
+            options = new HashMap<>(options);
+            options.put("variant_type", "SNP");
+        } else if ("ALL".equals(options.get("variant_type"))) {
+            options = new HashMap<>(options);
+            options.remove("variant_type");  // no type filter
+        }
         VariantFilter filter = VariantFilter.fromOptions(options);
         double minAf = filter.minAf > 0 ? filter.minAf : DEFAULT_MIN_AF;
         Long regionStart = null;
@@ -254,6 +266,7 @@ public class NSLProcedure {
 
     private static int[] identifyFocal(HaplotypeMatrix matrix, double minAf, VariantFilter filter) {
         List<Integer> focal = new ArrayList<>();
+        String variantType = filter.variantType;
         for (int i = 0; i < matrix.nVariants; i++) {
             int ac = matrix.acs[i];
             int an = matrix.ans[i];
@@ -263,6 +276,12 @@ public class NSLProcedure {
 
             if (filter.isActive()) {
                 if (af < filter.minAf || af > filter.maxAf) continue;
+            }
+
+            // Check variant_type from node property (crucial for nSL scan path)
+            if (variantType != null && matrix.nodes != null) {
+                Object vt = matrix.nodes[i].getProperty("variant_type", null);
+                if (vt == null || !variantType.equals(vt)) continue;
             }
 
             focal.add(i);
