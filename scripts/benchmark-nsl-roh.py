@@ -413,11 +413,8 @@ def nsl_correlation(start, end, pop):
 
     Matches variants by position, computes r on the unstandardized scores.
 
-    Note: scikit-allel computes log(SL_1 / SL_0) [alt/ref].
-    GraphPop computes log(SL_ancestral / SL_derived) = log(SL_0 / SL_1)
-    since haplotype matrix stores ALT as 1 and REF as 0.
-    So GraphPop nSL_unstd ≈ -scikit_allel nSL_raw. We negate GraphPop
-    scores before comparing.
+    Both scikit-allel and GraphPop now compute log(SL_1 / SL_0) using the
+    original Ferrer-Admetlla (2014) pairwise SSL algorithm.
     """
     import allel
 
@@ -463,8 +460,7 @@ def nsl_correlation(start, end, pop):
         return {"n_common": len(common_pos), "pearson_r": None}
 
     sa_vals = np.array([sa_scores[p] for p in common_pos])
-    # Negate GraphPop: log(SL_anc/SL_der) = -log(SL_alt/SL_ref)
-    gp_vals = np.array([-gp_scores[p] for p in common_pos])
+    gp_vals = np.array([gp_scores[p] for p in common_pos])
 
     r = np.corrcoef(sa_vals, gp_vals)[0, 1]
     return {

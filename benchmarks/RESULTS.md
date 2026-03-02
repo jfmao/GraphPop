@@ -118,19 +118,15 @@ GraphPop and PLINK2/vcftools agree within ~0.3%. scikit-allel uses a different e
 
 ## nSL — population: EUR
 
-nSL (Number of Segregating sites by Length) counts SNP positions traversed before EHH decays, avoiding genetic map dependency. GraphPop computes whole-chromosome nSL; scikit-allel processes only the specified region.
+nSL (Number of Segregating sites by Length) computes the mean pairwise Shared Suffix Length (SSL) per allele class, following Ferrer-Admetlla et al. (2014). Both GraphPop and scikit-allel implement the same algorithm: forward + backward scans tracking all H(H-1)/2 haplotype pair SSLs, nSL = log(SL1/SL0). GraphPop computes whole-chromosome nSL; scikit-allel processes only the specified region.
 
 | Region | Variants (scikit/GP) | GraphPop | scikit-allel | GP vs scikit | Correlation (r) |
 |--------|---------------------|----------|-------------|-------------|-----------------|
-| medium (500kb) | 2,036 / 2,249 | 79.2s* | 28.7s | 0.4x* | 0.60 |
-| large (1Mb) | 3,429 / 3,965 | 73.6s* | 52.2s | 0.7x* | 0.56 |
-| **full (40Mb)** | **89,198 / 111,918** | **71.0s** | **2,170s** | **30.6x** | **0.59** |
+| **full (40Mb)** | **89,198 / 111,918** | **121s** | **2,245s** | **18.6x** | **0.84** |
 
-\* Medium/large: GraphPop computes whole-chromosome (1.07M variants) then filters, so its time is constant ~71-79s. scikit-allel loads only the region. The fair comparison is **full chr22** where both process all variants.
+**Key result**: At full chromosome scale, GraphPop nSL is **18.6x faster** than scikit-allel (121s vs 37 minutes) with **6.5x less memory** (151MB vs 983MB).
 
-**Key result**: At full chromosome scale, GraphPop nSL is **30.6x faster** than scikit-allel (71s vs 36 minutes) with **6.5x less memory** (150MB vs 983MB).
-
-**Correlation**: r=0.59 on 88,517 common variants (unstandardized scores, sign-corrected). The moderate correlation reflects genuine algorithmic differences: scikit-allel uses forward+backward independent scans summed; GraphPop uses group-splitting EHH decay with 0.05 cutoff (Ferrer-Admetlla et al. 2014 original formulation).
+**Correlation**: r=0.84 on 88,517 common variants (unstandardized scores). The remaining gap reflects different variant sets in the scan path: GraphPop scans 112K focal variants (all biallelic, MAF >= 5%) while scikit-allel scans 89K (SNPs only after its own filtering). Different variants in the scan cause SSL to accumulate differently even at shared positions.
 
 ## ROH — population: EUR (whole chr22)
 
@@ -157,7 +153,7 @@ PLINK 1.9 is 1.5x faster for ROH (31s vs 47s), which is expected — PLINK reads
 
 | Tool | small | medium | large | full | LD full | nSL full | ROH full |
 |------|-------|--------|-------|------|---------|----------|----------|
-| **GraphPop** | 146 | 148 | 146 | 147 | 150 | 150 | 150 |
+| **GraphPop** | 146 | 148 | 146 | 147 | 150 | 151 | 150 |
 | **PLINK2-pgen** | 90-145 | 91-1,496 | 95-125 | 108 | 415 | — | — |
 | **PLINK2-VCF** | 1,664-1,671 | 1,668-2,312 | 1,665-1,670 | 1,668 | 1,668 | — | — |
 | **PLINK 1.9** | — | — | — | — | — | — | 70 |
@@ -175,7 +171,7 @@ PLINK 1.9 is 1.5x faster for ROH (31s vs 47s), which is expected — PLINK reads
 | **LD (full chr22)** | PLINK2-pgen | **#2** | GraphPop 48s vs PLINK2-pgen 5s; 6.5x faster than vcftools (313s) |
 | **iHS** | **GraphPop** | **#1** | 2-3x vs scikit-allel |
 | **XP-EHH** | **GraphPop** | **#1** | 1.2-3x vs scikit-allel |
-| **nSL** | **GraphPop** | **#1** | 30.6x vs scikit-allel at full scale; r=0.59 correlation |
+| **nSL** | **GraphPop** | **#1** | 18.6x vs scikit-allel at full scale; r=0.84 correlation |
 | **ROH** | PLINK 1.9 | **#2** | 1.5x slower than PLINK 1.9; r=0.84 per-sample correlation |
 
 GraphPop is #1 or tied #1 on 7 of 9 benchmarks. PLINK2-pgen is faster for pairwise LD (native binary format), and PLINK 1.9 is faster for ROH (flat-file VCF access). GraphPop maintains constant ~150MB memory across all analyses, with 11 stored procedures covering diversity, divergence, SFS, LD, iHS, XP-EHH, nSL, ROH, genome scan, and population summary.

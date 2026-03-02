@@ -7,19 +7,21 @@ import org.neo4j.procedure.Name;
 import org.neo4j.procedure.Procedure;
 
 import java.util.*;
-import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
 /**
  * Computes the nSL (number of Segregating sites by Length) statistic
  * for detecting recent positive selection.
  *
- * <p>nSL is similar to iHS but counts SNP positions traversed instead of
- * integrating over physical distance. This makes it robust to variation in
- * recombination rate and does not require a genetic map.</p>
+ * <p>Implements the original algorithm from Ferrer-Admetlla et al. (2014):
+ * for each focal variant, nSL = log(SL1 / SL0) where SL1 is the mean
+ * pairwise Shared Suffix Length among haplotypes carrying allele 1, and
+ * SL0 is the mean among allele 0 carriers. Shared suffix length for a pair
+ * is the number of contiguous sites (from the focal outward) where the two
+ * haplotypes carry identical alleles.</p>
  *
- * <p>Architecture: load → parallel SL compute → AF-bin standardize → sequential write.
- * Follows the same 4-phase pattern as {@link IHSProcedure}.</p>
+ * <p>Architecture: load &rarr; forward+backward pairwise SSL scan &rarr;
+ * AF-bin standardize &rarr; sequential write.</p>
  *
  * <p>Reference: Ferrer-Admetlla A, Liang M, Korneliussen T, Nielsen R.
  * On detecting incomplete soft or hard selective sweeps using haplotype structure.
@@ -81,57 +83,57 @@ public class NSLProcedure {
         }
         if (matrix == null || matrix.nVariants == 0) return Stream.empty();
 
-        // Identify focal variants: common, polymorphic
+        // Identify focal variants: common, polymorphic, passing filters
         int[] focalIndices = identifyFocal(matrix, minAf, filter);
         if (focalIndices.length == 0) return Stream.empty();
 
-        // Phase 2: Parallel SL computation (no DB access)
-        double[] nslUnstd = new double[focalIndices.length];
-        boolean[] valid = new boolean[focalIndices.length];
+        int nFocal = focalIndices.length;
+        int nHaps = matrix.nHaplotypes;
 
-        IntStream.range(0, focalIndices.length).parallel().forEach(i -> {
-            int vidx = focalIndices[i];
+        // Phase 2: Pairwise SSL scan (Ferrer-Admetlla 2014)
+        // Forward and backward scans run in parallel (independent state)
+        double[] sl0Fwd = new double[nFocal];
+        double[] sl1Fwd = new double[nFocal];
+        double[] sl0Rev = new double[nFocal];
+        double[] sl1Rev = new double[nFocal];
 
-            byte[] focalHaps = matrix.haplotypes[vidx];
-            int nHaps = matrix.nHaplotypes;
+        Thread fwdThread = new Thread(() ->
+                scanDirection(matrix, focalIndices, nHaps, sl0Fwd, sl1Fwd, +1), "nSL-fwd");
+        Thread revThread = new Thread(() ->
+                scanDirection(matrix, focalIndices, nHaps, sl0Rev, sl1Rev, -1), "nSL-rev");
 
-            int nDerived = 0;
-            for (int h = 0; h < nHaps; h++) {
-                if (focalHaps[h] == 1) nDerived++;
-            }
-            int nAncestral = nHaps - nDerived;
+        fwdThread.start();
+        revThread.start();
+        try {
+            fwdThread.join();
+            revThread.join();
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            return Stream.empty();
+        }
 
-            if (nDerived < 2 || nAncestral < 2) return;
+        // Combine forward + backward: nSL = log(SL1 / SL0)
+        double[] nslUnstd = new double[nFocal];
+        boolean[] valid = new boolean[nFocal];
 
-            int[] derivedIdx = new int[nDerived];
-            int[] ancestralIdx = new int[nAncestral];
-            int di = 0, ai = 0;
-            for (int h = 0; h < nHaps; h++) {
-                if (focalHaps[h] == 1) {
-                    derivedIdx[di++] = h;
-                } else {
-                    ancestralIdx[ai++] = h;
-                }
-            }
-
-            int slDerived = EHHComputer.computeSL(matrix, vidx, derivedIdx);
-            int slAncestral = EHHComputer.computeSL(matrix, vidx, ancestralIdx);
-
-            if (slDerived > 0 && slAncestral > 0) {
-                nslUnstd[i] = Math.log((double) slAncestral / slDerived);
+        for (int i = 0; i < nFocal; i++) {
+            double sl0 = sl0Fwd[i] + sl0Rev[i];
+            double sl1 = sl1Fwd[i] + sl1Rev[i];
+            if (sl0 > 0 && sl1 > 0) {
+                nslUnstd[i] = Math.log(sl1 / sl0);
                 valid[i] = true;
             }
-        });
+        }
 
         // Phase 3: Standardize within allele-frequency bins
         Map<Integer, List<Integer>> bins = new HashMap<>();
-        for (int i = 0; i < focalIndices.length; i++) {
+        for (int i = 0; i < nFocal; i++) {
             if (!valid[i]) continue;
             int bin = Math.min((int) (matrix.afs[focalIndices[i]] * AF_BINS), AF_BINS - 1);
             bins.computeIfAbsent(bin, k -> new ArrayList<>()).add(i);
         }
 
-        double[] nslStd = new double[focalIndices.length];
+        double[] nslStd = new double[nFocal];
         for (List<Integer> binList : bins.values()) {
             double sum = 0.0;
             for (int idx : binList) sum += nslUnstd[idx];
@@ -151,7 +153,7 @@ public class NSLProcedure {
 
         // Phase 4: Sequential write to graph
         List<NSLResult> results = new ArrayList<>();
-        for (int i = 0; i < focalIndices.length; i++) {
+        for (int i = 0; i < nFocal; i++) {
             if (!valid[i]) continue;
             int vidx = focalIndices[i];
 
@@ -169,6 +171,85 @@ public class NSLProcedure {
 
         results.sort(Comparator.comparingLong(r -> r.pos));
         return results.stream();
+    }
+
+    /**
+     * Scan focal variants in one direction computing mean pairwise SSL per allele class.
+     *
+     * <p>Maintains an int[] ssl of size nHaps*(nHaps-1)/2 tracking the shared suffix
+     * length for every haplotype pair. At each focal variant, for each pair (j,k):
+     * if both carry the same allele at the current site, ssl[pair] += 1 and the
+     * accumulated value is added to the appropriate allele-class sum. If they differ,
+     * ssl[pair] is reset to 0.</p>
+     *
+     * <p>This faithfully reproduces the algorithm from Ferrer-Admetlla et al. (2014)
+     * and matches scikit-allel's nsl01_scan implementation.</p>
+     *
+     * @param matrix       dense haplotype matrix
+     * @param focalIndices indices of focal variants in position order
+     * @param nHaps        number of haplotypes
+     * @param sl0Out       output: mean SSL for allele-0 pairs at each focal variant
+     * @param sl1Out       output: mean SSL for allele-1 pairs at each focal variant
+     * @param direction    +1 for forward (ascending index), -1 for backward
+     */
+    static void scanDirection(HaplotypeMatrix matrix, int[] focalIndices,
+                              int nHaps, double[] sl0Out, double[] sl1Out,
+                              int direction) {
+        int nFocal = focalIndices.length;
+        long nPairs = (long) nHaps * (nHaps - 1) / 2;
+        int[] ssl = new int[(int) nPairs];
+
+        // Build a lookup: matrix variant index -> focal array index (or -1)
+        // This lets us quickly check if a variant is focal during the scan
+        int maxIdx = focalIndices[nFocal - 1];
+        int minIdx = focalIndices[0];
+
+        // Iterate focal variants in scan order
+        int startF, endF, stepF;
+        if (direction > 0) {
+            startF = 0;
+            endF = nFocal;
+            stepF = 1;
+        } else {
+            startF = nFocal - 1;
+            endF = -1;
+            stepF = -1;
+        }
+
+        for (int fi = startF; fi != endF; fi += stepF) {
+            int vidx = focalIndices[fi];
+            byte[] haps = matrix.haplotypes[vidx];
+
+            // Update SSL for all pairs and accumulate per-allele sums
+            long ssl00Sum = 0, ssl11Sum = 0;
+            long n00 = 0, n11 = 0;
+            int u = 0;
+
+            for (int j = 0; j < nHaps; j++) {
+                byte a1 = haps[j];
+                for (int k = j + 1; k < nHaps; k++) {
+                    byte a2 = haps[k];
+                    if (a1 == a2) {
+                        int l = ssl[u] + 1;
+                        ssl[u] = l;
+                        if (a1 == 0) {
+                            ssl00Sum += l;
+                            n00++;
+                        } else {
+                            ssl11Sum += l;
+                            n11++;
+                        }
+                    } else {
+                        ssl[u] = 0;
+                    }
+                    u++;
+                }
+            }
+
+            // Mean SSL per allele class
+            sl0Out[fi] = n00 > 0 ? (double) ssl00Sum / n00 : 0.0;
+            sl1Out[fi] = n11 > 0 ? (double) ssl11Sum / n11 : 0.0;
+        }
     }
 
     private static int[] identifyFocal(HaplotypeMatrix matrix, double minAf, VariantFilter filter) {
