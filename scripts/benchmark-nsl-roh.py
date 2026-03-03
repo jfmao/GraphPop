@@ -162,6 +162,12 @@ def load_panel():
     return sample_pop
 
 
+def get_panel_samples(pop):
+    """Return list of sample IDs for a population from the panel file."""
+    panel = load_panel()
+    return sorted(s for s, p in panel.items() if p == pop)
+
+
 def load_haplotype_data(start, end, pop):
     """Load haplotype data from VCF for a region and population."""
     import cyvcf2
@@ -315,10 +321,16 @@ def nsl_scikit_allel(start, end, pop):
 
 
 def nsl_graphpop(start, end, pop):
-    """Run graphpop.nsl (whole chromosome, then filter to region)."""
-    # GraphPop nSL is whole-chromosome. We query and filter to region.
+    """Run graphpop.nsl (whole chromosome, then filter to region).
+
+    Passes the panel sample list so GraphPop uses the exact same samples
+    as scikit-allel, ensuring a fair comparison.
+    """
+    samples = get_panel_samples(pop)
+    sample_list_str = ", ".join(f"'{s}'" for s in samples)
     query = (
-        f"CALL graphpop.nsl('{CHR}', '{pop}', {{min_af: 0.05}}) "
+        f"CALL graphpop.nsl('{CHR}', '{pop}', "
+        f"{{min_af: 0.05, samples: [{sample_list_str}]}}) "
         f"YIELD variantId, pos, af, nsl_unstd, nsl "
         f"WITH pos, nsl WHERE pos >= {start} AND pos <= {end} "
         f"RETURN count(*) AS n_variants, avg(nsl) AS nsl_mean, "
@@ -336,9 +348,16 @@ def nsl_graphpop(start, end, pop):
 
 
 def nsl_graphpop_full(pop):
-    """Run graphpop.nsl for whole chromosome (full region benchmark)."""
+    """Run graphpop.nsl for whole chromosome (full region benchmark).
+
+    Passes the panel sample list so GraphPop uses the exact same samples
+    as scikit-allel, ensuring a fair comparison.
+    """
+    samples = get_panel_samples(pop)
+    sample_list_str = ", ".join(f"'{s}'" for s in samples)
     query = (
-        f"CALL graphpop.nsl('{CHR}', '{pop}', {{min_af: 0.05}}) "
+        f"CALL graphpop.nsl('{CHR}', '{pop}', "
+        f"{{min_af: 0.05, samples: [{sample_list_str}]}}) "
         f"YIELD variantId, pos, af, nsl_unstd, nsl "
         f"RETURN count(*) AS n_variants, avg(nsl) AS nsl_mean, "
         f"stDev(nsl) AS nsl_std;"

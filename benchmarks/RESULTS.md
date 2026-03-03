@@ -122,16 +122,9 @@ nSL (Number of Segregating sites by Length) computes the mean pairwise Shared Su
 
 | Region | Variants (scikit/GP) | GraphPop | scikit-allel | GP vs scikit | Correlation (r) |
 |--------|---------------------|----------|-------------|-------------|-----------------|
-| **full (40Mb)** | **89,198 / 89,119** | **235s** | **2,214s** | **9.4x** | **0.86** |
+| **full (40Mb)** | **89,198 / 89,198** | **86s** | **2,231s** | **26x** | **1.000** |
 
-**Key result**: At full chromosome scale, GraphPop nSL is **9.4x faster** than scikit-allel (235s vs 37 minutes) with **6.5x less memory** (150MB vs 983MB).
-
-**Algorithm verification**: On identical inputs (same 503 samples, same SNP-only variants, 1Mb region), GraphPop's pairwise SSL algorithm matches scikit-allel **exactly** (r=1.000, max|diff|=0.000).
-
-**Correlation explanation**: r=0.86 on 88,517 common variants reflects two understood factors, not algorithmic differences:
-
-1. **Different sample sets** (major factor): GraphPop uses all 633 EUR samples from the 2020 VCF; the scikit-allel benchmark uses 503 EUR samples from the older 2013 Phase 3 panel file. The 130 extra samples add 58% more haplotype pairs (505K → 801K), changing the mean SSL at every variant.
-2. **Variant count**: Both now scan SNPs only (~89K each). The 79-variant difference is from minor MAF-filter boundary effects with different sample sizes.
+**Key result**: At full chromosome scale, GraphPop nSL is **26x faster** than scikit-allel (86s vs 37 minutes) with **6.6x less memory** (148MB vs 983MB). On 89,116 common variants, the Pearson correlation is **r = 1.000** — the two implementations produce identical results.
 
 ## ROH — population: EUR (whole chr22)
 
@@ -158,7 +151,7 @@ PLINK 1.9 is 1.5x faster for ROH (31s vs 47s), which is expected — PLINK reads
 
 | Tool | small | medium | large | full | LD full | nSL full | ROH full |
 |------|-------|--------|-------|------|---------|----------|----------|
-| **GraphPop** | 146 | 148 | 146 | 147 | 150 | 151 | 150 |
+| **GraphPop** | 146 | 148 | 146 | 147 | 150 | 148 | 150 |
 | **PLINK2-pgen** | 90-145 | 91-1,496 | 95-125 | 108 | 415 | — | — |
 | **PLINK2-VCF** | 1,664-1,671 | 1,668-2,312 | 1,665-1,670 | 1,668 | 1,668 | — | — |
 | **PLINK 1.9** | — | — | — | — | — | — | 70 |
@@ -176,7 +169,7 @@ PLINK 1.9 is 1.5x faster for ROH (31s vs 47s), which is expected — PLINK reads
 | **LD (full chr22)** | PLINK2-pgen | **#2** | GraphPop 48s vs PLINK2-pgen 5s; 6.5x faster than vcftools (313s) |
 | **iHS** | **GraphPop** | **#1** | 2-3x vs scikit-allel |
 | **XP-EHH** | **GraphPop** | **#1** | 1.2-3x vs scikit-allel |
-| **nSL** | **GraphPop** | **#1** | 9.4x vs scikit-allel at full scale; r=1.0 on identical inputs (r=0.86 with different sample sets) |
+| **nSL** | **GraphPop** | **#1** | 26x vs scikit-allel at full scale; r=1.000 |
 | **ROH** | PLINK 1.9 | **#2** | 1.5x slower than PLINK 1.9; r=0.84 per-sample correlation |
 
 GraphPop is #1 or tied #1 on 7 of 9 benchmarks. PLINK2-pgen is faster for pairwise LD (native binary format), and PLINK 1.9 is faster for ROH (flat-file VCF access). GraphPop maintains constant ~150MB memory across all analyses, with 11 stored procedures covering diversity, divergence, SFS, LD, iHS, XP-EHH, nSL, ROH, genome scan, and population summary.

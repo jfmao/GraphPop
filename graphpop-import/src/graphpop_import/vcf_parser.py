@@ -25,7 +25,7 @@ class CarriesRecord:
     sample_id: str
     variant_id: str
     gt: int  # 1 = HET, 2 = HOM_ALT
-    phase: int  # 0 = unphased, 1 = phased
+    phase: int  # haplotype index carrying ALT allele (0 or 1) for phased hets
 
 
 @dataclass(slots=True)
@@ -355,16 +355,29 @@ class VCFParser:
             nonref_mask = (gt_types == 1) | (gt_types == 3)
             nonref_idx = np.flatnonzero(nonref_mask)
             carries: list[CarriesRecord] = []
-            for i in nonref_idx:
-                gt_val = gt_types[i]
-                carries.append(
-                    CarriesRecord(
-                        sample_id=sample_ids_arr[i],
-                        variant_id=variant_id,
-                        gt=1 if gt_val == 1 else 2,
-                        phase=int(gt_phases[i]),
+            if len(nonref_idx) > 0:
+                # v.genotypes: list of [allele0, allele1, is_phased] per sample
+                genotypes = v.genotypes
+                for i in nonref_idx:
+                    gt_val = gt_types[i]
+                    if gt_val == 1:
+                        # HET: determine which haplotype carries ALT
+                        # genotypes[i] = [a0, a1, phased]
+                        # a0=1 means ALT on first haplotype → phase=0
+                        # a1=1 means ALT on second haplotype → phase=1
+                        a0, a1, _ = genotypes[i]
+                        phase = 1 if a1 == 1 else 0
+                    else:
+                        # HOM_ALT: phase irrelevant (both haplotypes are ALT)
+                        phase = 0
+                    carries.append(
+                        CarriesRecord(
+                            sample_id=sample_ids_arr[i],
+                            variant_id=variant_id,
+                            gt=1 if gt_val == 1 else 2,
+                            phase=phase,
+                        )
                     )
-                )
 
             # --- Ancestral allele annotation (optional) ---
             ancestral_allele: str | None = None
