@@ -32,7 +32,10 @@ import java.util.stream.Stream;
  */
 public class XPEHHProcedure {
 
-    private static final double DEFAULT_MIN_AF = 0.05;
+    // XP-EHH uses ALL haplotypes (not carrier-only like iHS), so there is
+    // no statistical reason to require a minimum MAF. Reference tools (selscan,
+    // scikit-allel) process every shared polymorphic variant. Default to 0.0.
+    private static final double DEFAULT_MIN_AF = 0.0;
 
     @Context
     public Transaction tx;
@@ -56,6 +59,19 @@ public class XPEHHProcedure {
             @Name("pop2") String pop2,
             @Name(value = "options", defaultValue = "{}") Map<String, Object> options
     ) {
+        // Default to SNPs only — XP-EHH EHH walk path must match reference tools
+        // (selscan, rehh, scikit-allel) which all receive pre-filtered SNP input.
+        // Indels in the walk path cause extra haplotype group splits that distort
+        // the EHH decay curve. Users can override with variant_type: 'ALL'.
+        if (options == null) {
+            options = Map.of("variant_type", "SNP");
+        } else if (!options.containsKey("variant_type")) {
+            options = new HashMap<>(options);
+            options.put("variant_type", "SNP");
+        } else if ("ALL".equals(options.get("variant_type"))) {
+            options = new HashMap<>(options);
+            options.remove("variant_type");  // no type filter
+        }
         VariantFilter filter = VariantFilter.fromOptions(options);
         double minAf = filter.minAf > 0 ? filter.minAf : DEFAULT_MIN_AF;
         Long regionStart = null;
@@ -68,11 +84,12 @@ public class XPEHHProcedure {
         }
 
         // Phase 1: Load paired haplotype matrices (single-threaded, one variant pass)
-        // Custom sample support via samples1/samples2
+        // When variantType is set (default "SNP"), only matching variants are loaded.
         List<String> samples1 = options != null ? (List<String>) options.get("samples1") : null;
         List<String> samples2 = options != null ? (List<String>) options.get("samples2") : null;
+        String variantType = filter.variantType;
 
-        HaplotypeMatrix m1, m2;
+        HaplotypeMatrix[] matPair;
         if ((samples1 != null && !samples1.isEmpty()) || (samples2 != null && !samples2.isEmpty())) {
             // At least one custom sample list — load individually
             Map<String, Integer> idx1 = (samples1 != null && !samples1.isEmpty())
@@ -81,16 +98,23 @@ public class XPEHHProcedure {
             Map<String, Integer> idx2 = (samples2 != null && !samples2.isEmpty())
                     ? GenotypeLoader.buildSampleIndex(tx, samples2)
                     : GenotypeLoader.buildSampleIndex(tx, pop2);
-            m1 = HaplotypeMatrix.load(tx, chr, idx1, regionStart, regionEnd);
-            m2 = HaplotypeMatrix.load(tx, chr, idx2, regionStart, regionEnd);
-            if (m1 == null || m2 == null) return Stream.empty();
+            HaplotypeMatrix raw1 = HaplotypeMatrix.load(tx, chr, idx1, regionStart, regionEnd, variantType);
+            HaplotypeMatrix raw2 = HaplotypeMatrix.load(tx, chr, idx2, regionStart, regionEnd, variantType);
+            if (raw1 == null || raw2 == null) return Stream.empty();
+            // Filter to shared polymorphic intersection — both populations must
+            // walk the same variant set (matching scikit-allel/selscan behavior).
+            matPair = HaplotypeMatrix.intersectPolymorphic(raw1, raw2);
+            if (matPair[0].nVariants == 0) return Stream.empty();
         } else {
-            HaplotypeMatrix[] pair = HaplotypeMatrix.loadPair(tx, chr, pop1, pop2,
-                    regionStart, regionEnd);
-            if (pair == null) return Stream.empty();
-            m1 = pair[0];
-            m2 = pair[1];
+            // sharedPolyOnly=true: only load variants polymorphic in BOTH populations.
+            // This matches scikit-allel/selscan XP-EHH which operates on the shared
+            // intersection of per-population polymorphic variants.
+            matPair = HaplotypeMatrix.loadPair(tx, chr, pop1, pop2,
+                    regionStart, regionEnd, variantType, true);
+            if (matPair == null) return Stream.empty();
         }
+        final HaplotypeMatrix m1 = matPair[0];
+        final HaplotypeMatrix m2 = matPair[1];
 
         // Identify focal variants (polymorphic in at least one population)
         int[] focalIndices = identifyFocal(m1, m2, minAf, filter);
@@ -106,6 +130,9 @@ public class XPEHHProcedure {
             int[] allHaps1 = allHaplotypeIndices(m1.nHaplotypes);
             int[] allHaps2 = allHaplotypeIndices(m2.nHaplotypes);
 
+            // Both populations skip variants monomorphic within that population.
+            // scikit-allel's input is pre-filtered to shared polymorphic variants,
+            // so monomorphic-in-pop sites never appear in the walk path.
             double iHH1 = EHHComputer.computeIHH(m1, vidx, allHaps1);
             double iHH2 = EHHComputer.computeIHH(m2, vidx, allHaps2);
 
@@ -163,6 +190,7 @@ public class XPEHHProcedure {
     private static int[] identifyFocal(HaplotypeMatrix m1, HaplotypeMatrix m2,
                                        double minAf, VariantFilter filter) {
         List<Integer> focal = new ArrayList<>();
+        String variantType = filter.variantType;
         for (int i = 0; i < m1.nVariants; i++) {
             int an1 = m1.ans[i], an2 = m2.ans[i];
             int ac1 = m1.acs[i], ac2 = m2.acs[i];
@@ -172,12 +200,25 @@ public class XPEHHProcedure {
             if (ac1 == 0 && ac2 == 0) continue;
             if (ac1 == an1 && ac2 == an2) continue;
 
-            boolean poly1 = ac1 > 0 && ac1 < an1 && af1 >= minAf && af1 <= (1.0 - minAf);
-            boolean poly2 = ac2 > 0 && ac2 < an2 && af2 >= minAf && af2 <= (1.0 - minAf);
-            if (!poly1 && !poly2) continue;
+            // Require polymorphic in BOTH populations: scikit-allel/selscan
+            // work on the intersection of per-population variant sets, so
+            // only shared polymorphic sites are focal.
+            boolean poly1 = ac1 > 0 && ac1 < an1;
+            boolean poly2 = ac2 > 0 && ac2 < an2;
+            if (!poly1 || !poly2) continue;
+
+            // Apply MAF filter (if any) to pop1
+            if (af1 < minAf || af1 > (1.0 - minAf)) continue;
 
             if (filter.isActive()) {
                 if (af1 < filter.minAf || af1 > filter.maxAf) continue;
+            }
+
+            // Check variant_type from node property (defense-in-depth;
+            // matrix is already filtered at load time when variantType is set)
+            if (variantType != null && m1.nodes != null) {
+                Object vt = m1.nodes[i].getProperty("variant_type", null);
+                if (vt == null || !variantType.equals(vt)) continue;
             }
 
             focal.add(i);

@@ -18,6 +18,10 @@ package org.graphpop.procedures;
 final class EHHComputer {
 
     private static final double DEFAULT_MIN_EHH = 0.05;
+    /** Maximum physical gap (bp) before walk is aborted. Matches selscan/scikit-allel default. */
+    private static final long DEFAULT_MAX_GAP = 200_000;
+    /** Gap scaling threshold (bp). Gaps larger than this are down-weighted. Matches selscan/scikit-allel. */
+    private static final long DEFAULT_GAP_SCALE = 20_000;
 
     private EHHComputer() {}
 
@@ -25,32 +29,55 @@ final class EHHComputer {
      * Compute integrated EHH (iHH) by walking both directions from a focal variant
      * in the in-memory haplotype matrix.
      *
-     * @param matrix         dense haplotype matrix
-     * @param focalIdx       index of the focal variant in the matrix
-     * @param carrierHapIdxs haplotype indices (into matrix columns) that carry the focal allele
-     * @param minEHH         stop when EHH drops below this threshold
-     * @return integrated EHH (area under curve, in bp units)
+     * <p>Matches selscan/scikit-allel behavior:
+     * <ul>
+     *   <li>EHH truncated to 0 when below minEHH before final trapezoid step</li>
+     *   <li>Walk aborted (returns -1) if any gap exceeds maxGap (200kb)</li>
+     *   <li>Gaps larger than gapScale (20kb) are down-weighted by gapScale/gap</li>
+     * </ul>
+     * </p>
+     *
+     * @param matrix            dense haplotype matrix
+     * @param focalIdx          index of the focal variant in the matrix
+     * @param carrierHapIdxs    haplotype indices (into matrix columns) that carry the focal allele
+     * @param minEHH            stop when EHH drops below this threshold
+     * @param skipMonomorphic   if true, skip variants monomorphic in this population
+     *                          (correct for iHS where input is pre-filtered; wrong for
+     *                          XP-EHH where both pops must walk the same variant set)
+     * @return integrated EHH (area under curve, in bp units), or -1 if walk hit a gap > maxGap
      */
     static double computeIHH(HaplotypeMatrix matrix, int focalIdx,
-                             int[] carrierHapIdxs, double minEHH) {
+                             int[] carrierHapIdxs, double minEHH,
+                             boolean skipMonomorphic) {
         if (carrierHapIdxs.length < 2) return 0.0;
 
         long focalPos = matrix.positions[focalIdx];
 
         double ihhUp = walkDirection(matrix, focalIdx, carrierHapIdxs,
-                focalPos, minEHH, -1);
+                focalPos, minEHH, -1, skipMonomorphic);
+        if (ihhUp < 0) return -1;  // max_gap hit — mark locus invalid
+
         double ihhDown = walkDirection(matrix, focalIdx, carrierHapIdxs,
-                focalPos, minEHH, +1);
+                focalPos, minEHH, +1, skipMonomorphic);
+        if (ihhDown < 0) return -1;
 
         return ihhUp + ihhDown;
     }
 
     /**
-     * Overload with default minEHH of 0.05.
+     * Overload that skips monomorphic variants (default for iHS).
+     */
+    static double computeIHH(HaplotypeMatrix matrix, int focalIdx,
+                             int[] carrierHapIdxs, double minEHH) {
+        return computeIHH(matrix, focalIdx, carrierHapIdxs, minEHH, true);
+    }
+
+    /**
+     * Overload with default minEHH of 0.05 and skipMonomorphic=true.
      */
     static double computeIHH(HaplotypeMatrix matrix, int focalIdx,
                              int[] carrierHapIdxs) {
-        return computeIHH(matrix, focalIdx, carrierHapIdxs, DEFAULT_MIN_EHH);
+        return computeIHH(matrix, focalIdx, carrierHapIdxs, DEFAULT_MIN_EHH, true);
     }
 
     /**
@@ -89,11 +116,22 @@ final class EHHComputer {
      * Walk in one direction from the focal variant, tracking haplotype group splits
      * using flat arrays and incremental sumPairs.
      *
-     * @param step -1 for upstream (lower positions), +1 for downstream
+     * <p>Matches selscan/scikit-allel behavior:
+     * <ul>
+     *   <li>max_gap: if physical gap > 200kb, return -1 (abort entire locus)</li>
+     *   <li>gap_scale: if gap > 20kb, scale integration distance by gapScale/gap</li>
+     *   <li>EHH truncation: when EHH drops below minEHH, set to 0 before final trapezoid</li>
+     * </ul>
+     * </p>
+     *
+     * @param step              -1 for upstream (lower positions), +1 for downstream
+     * @param skipMonomorphic   skip variants where AC==0 or AC==AN in this matrix
+     * @return integrated EHH, or -1 if a gap > maxGap was encountered
      */
     private static double walkDirection(HaplotypeMatrix matrix, int focalIdx,
                                         int[] carrierHapIdxs,
-                                        long focalPos, double minEHH, int step) {
+                                        long focalPos, double minEHH, int step,
+                                        boolean skipMonomorphic) {
         int nHaps = carrierHapIdxs.length;
         if (nHaps < 2) return 0.0;
 
@@ -126,7 +164,29 @@ final class EHHComputer {
         // Walk the position-sorted array
         int idx = focalIdx + step;
         while (idx >= 0 && idx < matrix.nVariants) {
+            // Skip variants monomorphic in this population (iHS mode).
+            // For iHS, scikit-allel/selscan pre-filter to polymorphic variants,
+            // so monomorphic sites shouldn't contribute distance to iHH.
+            // For XP-EHH, both populations must walk the SAME variant set
+            // (shared polymorphic), so monomorphic-in-one-pop sites must NOT
+            // be skipped — they still contribute distance to the trapezoid.
+            if (skipMonomorphic) {
+                int acHere = matrix.acs[idx];
+                if (acHere == 0 || acHere == matrix.ans[idx]) {
+                    idx += step;
+                    continue;
+                }
+            }
+
             long pos = matrix.positions[idx];
+            long physGap = Math.abs(pos - prevPos);
+
+            // max_gap: abort entire locus if gap exceeds threshold
+            // (matches selscan skipLocus behavior)
+            if (physGap > DEFAULT_MAX_GAP) {
+                return -1;
+            }
+
             byte[] hapRow = matrix.haplotypes[idx];
 
             // Count alleles per group at this site
@@ -181,11 +241,24 @@ final class EHHComputer {
 
             double ehh = sumPairs / nPairs;
 
+            // EHH truncation: when EHH drops below threshold, set to 0 before
+            // the final trapezoid step. Matches selscan/scikit-allel behavior.
+            boolean belowThreshold = ehh < minEHH;
+            if (belowThreshold) {
+                ehh = 0.0;
+            }
+
+            // gap_scale: down-weight integration distance for large gaps
+            // effective_dist = physGap * min(1, gapScale / physGap)
+            double dist = physGap;
+            if (physGap > DEFAULT_GAP_SCALE) {
+                dist = DEFAULT_GAP_SCALE;
+            }
+
             // Integrate using trapezoidal rule
-            long dist = Math.abs(pos - prevPos);
             ihh += (prevEHH + ehh) / 2.0 * dist;
 
-            if (ehh < minEHH) break;
+            if (belowThreshold) break;
 
             prevEHH = ehh;
             prevPos = pos;

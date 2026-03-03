@@ -45,19 +45,20 @@ class EHHComputerTest {
 
     @Test
     void twoVariants_allIdentical_EHH1() {
-        // All 4 haplotypes carry alt at both sites → groups never split → EHH=1
-        // iHH = 1.0 * 100 (distance=100 bp in each direction, but only 1 step)
+        // All 4 carrier haplotypes carry same allele at both sites → groups never split → EHH=1
+        // Variant 1 must be polymorphic in the population (not skipped in walk).
+        // Carriers are {0,1,2,3} (alt at focal). At idx=1, haps 0-3 are all 0 → same group.
         long[] pos = {1000, 1100};
         byte[][] hap = {
-                {1, 1, 1, 1},  // variant 0: all alt
-                {1, 1, 1, 1},  // variant 1: all alt
+                {1, 1, 1, 1, 0, 0},  // variant 0 (focal): carriers={0,1,2,3}
+                {0, 0, 0, 0, 1, 1},  // variant 1: polymorphic (ac=2), but all carriers have 0
         };
 
         HaplotypeMatrix m = buildMatrix(pos, hap);
         int[] carriers = {0, 1, 2, 3};
 
         // From focal=0 walking downstream to idx=1 (distance=100):
-        // EHH at idx=1: all in same group → ehh=1.0
+        // EHH at idx=1: all carriers in same group → ehh=1.0
         // ihh_down = (1.0 + 1.0)/2 * 100 = 100
         // From focal=0 walking upstream: no variant → ihh_up = 0
         double ihh = EHHComputer.computeIHH(m, 0, carriers, 0.05);
@@ -91,14 +92,14 @@ class EHHComputerTest {
     @Test
     void threeVariants_trapezoidalIntegration() {
         // Focal at idx=1 (middle). Walk upstream to idx=0 and downstream to idx=2.
-        // 6 haplotypes all carry alt at focal.
+        // 8 haplotypes, 6 carry alt at focal (carriers={0,1,2,3,4,5}).
         // At idx=0: split into {0,1,2}→ref and {3,4,5}→alt → EHH = 2*C(3,2)/C(6,2) = 6/15 = 0.4
-        // At idx=2: all same allele → no split → EHH = 1.0
+        // At idx=2: polymorphic in pop, but all carriers have same allele → no split → EHH = 1.0
         long[] pos = {900, 1000, 1200};
         byte[][] hap = {
-                {0, 0, 0, 1, 1, 1},  // idx=0
-                {1, 1, 1, 1, 1, 1},  // idx=1 (focal) — all alt
-                {1, 1, 1, 1, 1, 1},  // idx=2 — all same
+                {0, 0, 0, 1, 1, 1, 0, 1},  // idx=0: polymorphic (ac=4)
+                {1, 1, 1, 1, 1, 1, 0, 0},  // idx=1 (focal): carriers={0..5}
+                {0, 0, 0, 0, 0, 0, 1, 1},  // idx=2: polymorphic (ac=2), all carriers have 0
         };
 
         HaplotypeMatrix m = buildMatrix(pos, hap);
@@ -110,7 +111,7 @@ class EHHComputerTest {
         double expectedUp = (1.0 + 0.4) / 2.0 * 100.0;
 
         // Downstream (idx=1 → idx=2, distance=200):
-        //   EHH at idx=2: no split → EHH=1.0
+        //   EHH at idx=2: all carriers have 0, no split → EHH=1.0
         //   ihh_down = (1.0 + 1.0)/2 * 200 = 200
         double expectedDown = (1.0 + 1.0) / 2.0 * 200.0;
 

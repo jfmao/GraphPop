@@ -54,6 +54,19 @@ public class IHSProcedure {
             @Name("pop") String pop,
             @Name(value = "options", defaultValue = "{}") Map<String, Object> options
     ) {
+        // Default to SNPs only — iHS EHH walk path must match reference tools
+        // (selscan, rehh, scikit-allel) which all receive pre-filtered SNP input.
+        // Indels in the walk path cause extra haplotype group splits that distort
+        // the EHH decay curve. Users can override with variant_type: 'ALL'.
+        if (options == null) {
+            options = Map.of("variant_type", "SNP");
+        } else if (!options.containsKey("variant_type")) {
+            options = new HashMap<>(options);
+            options.put("variant_type", "SNP");
+        } else if ("ALL".equals(options.get("variant_type"))) {
+            options = new HashMap<>(options);
+            options.remove("variant_type");  // no type filter
+        }
         VariantFilter filter = VariantFilter.fromOptions(options);
         double minAf = filter.minAf > 0 ? filter.minAf : DEFAULT_MIN_AF;
         Long regionStart = null;
@@ -67,14 +80,17 @@ public class IHSProcedure {
 
         List<String> sampleList = options != null ? (List<String>) options.get("samples") : null;
         boolean useSubset = sampleList != null && !sampleList.isEmpty();
+        String variantType = filter.variantType;
 
         // Phase 1: Load dense haplotype matrix (single-threaded)
+        // When variantType is set (default "SNP"), only matching variants are loaded
+        // so the EHH walk path only contains SNPs.
         HaplotypeMatrix matrix;
         if (useSubset) {
             Map<String, Integer> sampleIndex = GenotypeLoader.buildSampleIndex(tx, sampleList);
-            matrix = HaplotypeMatrix.load(tx, chr, sampleIndex, regionStart, regionEnd);
+            matrix = HaplotypeMatrix.load(tx, chr, sampleIndex, regionStart, regionEnd, variantType);
         } else {
-            matrix = HaplotypeMatrix.load(tx, chr, pop, regionStart, regionEnd);
+            matrix = HaplotypeMatrix.load(tx, chr, pop, regionStart, regionEnd, variantType);
         }
         if (matrix == null || matrix.nVariants == 0) return Stream.empty();
 
@@ -170,6 +186,7 @@ public class IHSProcedure {
 
     private static int[] identifyFocal(HaplotypeMatrix matrix, double minAf, VariantFilter filter) {
         List<Integer> focal = new ArrayList<>();
+        String variantType = filter.variantType;
         for (int i = 0; i < matrix.nVariants; i++) {
             int ac = matrix.acs[i];
             int an = matrix.ans[i];
@@ -179,6 +196,13 @@ public class IHSProcedure {
 
             if (filter.isActive()) {
                 if (af < filter.minAf || af > filter.maxAf) continue;
+            }
+
+            // Check variant_type from node property (defense-in-depth;
+            // matrix is already filtered at load time when variantType is set)
+            if (variantType != null && matrix.nodes != null) {
+                Object vt = matrix.nodes[i].getProperty("variant_type", null);
+                if (vt == null || !variantType.equals(vt)) continue;
             }
 
             focal.add(i);

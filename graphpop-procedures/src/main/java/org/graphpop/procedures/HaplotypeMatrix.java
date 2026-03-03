@@ -81,6 +81,64 @@ final class HaplotypeMatrix {
     }
 
     /**
+     * Filter two independently-loaded matrices to their shared polymorphic
+     * intersection. Both output matrices will contain exactly the same positions
+     * in the same order, with only variants that are polymorphic (0 < AC < AN)
+     * in both populations retained.
+     *
+     * <p>This matches scikit-allel/selscan XP-EHH behavior where input is the
+     * shared intersection of per-population polymorphic variants.</p>
+     */
+    static HaplotypeMatrix[] intersectPolymorphic(HaplotypeMatrix a, HaplotypeMatrix b) {
+        // Build position → index maps
+        Map<Long, Integer> posToIdxA = new HashMap<>();
+        for (int i = 0; i < a.nVariants; i++) {
+            if (a.acs[i] > 0 && a.acs[i] < a.ans[i]) {
+                posToIdxA.put(a.positions[i], i);
+            }
+        }
+
+        // Find shared polymorphic positions (in sorted order from b)
+        List<int[]> pairs = new ArrayList<>();  // [idxA, idxB]
+        for (int j = 0; j < b.nVariants; j++) {
+            if (b.acs[j] > 0 && b.acs[j] < b.ans[j]) {
+                Integer idxA = posToIdxA.get(b.positions[j]);
+                if (idxA != null) {
+                    pairs.add(new int[]{idxA, j});
+                }
+            }
+        }
+
+        int n = pairs.size();
+        String[] vidsA = new String[n], vidsB = new String[n];
+        long[] posArr = new long[n];
+        Node[] nodesA = a.nodes != null ? new Node[n] : null;
+        Node[] nodesB = b.nodes != null ? new Node[n] : null;
+        double[] afsA = new double[n], afsB = new double[n];
+        int[] acsA = new int[n], acsB = new int[n];
+        int[] ansA = new int[n], ansB = new int[n];
+        byte[][] hapA = new byte[n][], hapB = new byte[n][];
+
+        for (int k = 0; k < n; k++) {
+            int iA = pairs.get(k)[0], iB = pairs.get(k)[1];
+            vidsA[k] = a.variantIds[iA]; vidsB[k] = b.variantIds[iB];
+            posArr[k] = a.positions[iA];
+            if (nodesA != null) nodesA[k] = a.nodes[iA];
+            if (nodesB != null) nodesB[k] = b.nodes[iB];
+            afsA[k] = a.afs[iA]; afsB[k] = b.afs[iB];
+            acsA[k] = a.acs[iA]; acsB[k] = b.acs[iB];
+            ansA[k] = a.ans[iA]; ansB[k] = b.ans[iB];
+            hapA[k] = a.haplotypes[iA]; hapB[k] = b.haplotypes[iB];
+        }
+
+        HaplotypeMatrix mA = new HaplotypeMatrix(vidsA, posArr, nodesA,
+                afsA, acsA, ansA, hapA, a.nSamples, a.sampleIndex);
+        HaplotypeMatrix mB = new HaplotypeMatrix(vidsB, posArr, nodesB,
+                afsB, acsB, ansB, hapB, b.nSamples, b.sampleIndex);
+        return new HaplotypeMatrix[]{mA, mB};
+    }
+
+    /**
      * Get the dosage vector for a variant (0/1/2 per sample).
      * dosage[s] = haplotypes[v][2*s] + haplotypes[v][2*s+1].
      *
@@ -136,7 +194,18 @@ final class HaplotypeMatrix {
     static HaplotypeMatrix load(Transaction tx, String chr,
                                 Map<String, Integer> sampleIndex,
                                 Long start, Long end) {
-        return loadInternal(tx, chr, sampleIndex, start, end);
+        return loadInternal(tx, chr, sampleIndex, start, end, null);
+    }
+
+    /**
+     * Load a haplotype matrix filtered by variant type.
+     *
+     * @param variantType variant type filter (e.g. "SNP"), or null for all types
+     */
+    static HaplotypeMatrix load(Transaction tx, String chr,
+                                Map<String, Integer> sampleIndex,
+                                Long start, Long end, String variantType) {
+        return loadInternal(tx, chr, sampleIndex, start, end, variantType);
     }
 
     /**
@@ -151,29 +220,44 @@ final class HaplotypeMatrix {
      */
     static HaplotypeMatrix load(Transaction tx, String chr, String pop,
                                 Long start, Long end) {
-        // 1. Build sample index for the population
         Map<String, Integer> sampleIndex = GenotypeLoader.buildSampleIndex(tx, pop);
-        return loadInternal(tx, chr, sampleIndex, start, end);
+        return loadInternal(tx, chr, sampleIndex, start, end, null);
+    }
+
+    /**
+     * Load a haplotype matrix for a population, filtered by variant type.
+     *
+     * @param variantType variant type filter (e.g. "SNP"), or null for all types
+     */
+    static HaplotypeMatrix load(Transaction tx, String chr, String pop,
+                                Long start, Long end, String variantType) {
+        Map<String, Integer> sampleIndex = GenotypeLoader.buildSampleIndex(tx, pop);
+        return loadInternal(tx, chr, sampleIndex, start, end, variantType);
     }
 
     private static HaplotypeMatrix loadInternal(Transaction tx, String chr,
                                                 Map<String, Integer> sampleIndex,
-                                                Long start, Long end) {
+                                                Long start, Long end,
+                                                String variantType) {
         int nSamples = sampleIndex.size();
         if (nSamples == 0) return null;
         int nHaplotypes = nSamples * 2;
 
-        // 2. Query all variants in region sorted by position
-        String query;
-        Map<String, Object> params;
+        // 2. Query variants in region sorted by position, optionally filtered by type
+        StringBuilder qb = new StringBuilder("MATCH (v:Variant) WHERE v.chr = $chr");
+        Map<String, Object> params = new HashMap<>();
+        params.put("chr", chr);
         if (start != null && end != null) {
-            query = "MATCH (v:Variant) WHERE v.chr = $chr AND v.pos >= $start AND v.pos <= $end " +
-                    "RETURN v ORDER BY v.pos";
-            params = Map.of("chr", chr, "start", start, "end", end);
-        } else {
-            query = "MATCH (v:Variant) WHERE v.chr = $chr RETURN v ORDER BY v.pos";
-            params = Map.of("chr", chr);
+            qb.append(" AND v.pos >= $start AND v.pos <= $end");
+            params.put("start", start);
+            params.put("end", end);
         }
+        if (variantType != null) {
+            qb.append(" AND v.variant_type = $variantType");
+            params.put("variantType", variantType);
+        }
+        qb.append(" RETURN v ORDER BY v.pos");
+        String query = qb.toString();
 
         var result = tx.execute(query, params);
 
@@ -253,23 +337,54 @@ final class HaplotypeMatrix {
     static HaplotypeMatrix[] loadPair(Transaction tx, String chr,
                                       String pop1, String pop2,
                                       Long start, Long end) {
+        return loadPair(tx, chr, pop1, pop2, start, end, null);
+    }
+
+    /**
+     * Load two population matrices, optionally filtered by variant type.
+     *
+     * @param variantType variant type filter (e.g. "SNP"), or null for all types
+     */
+    static HaplotypeMatrix[] loadPair(Transaction tx, String chr,
+                                      String pop1, String pop2,
+                                      Long start, Long end,
+                                      String variantType) {
+        return loadPair(tx, chr, pop1, pop2, start, end, variantType, false);
+    }
+
+    /**
+     * Load paired haplotype matrices from a single variant pass.
+     *
+     * @param sharedPolyOnly if true, only include variants polymorphic in BOTH
+     *                       populations (matching scikit-allel/selscan XP-EHH behavior
+     *                       where input is the shared intersection)
+     */
+    static HaplotypeMatrix[] loadPair(Transaction tx, String chr,
+                                      String pop1, String pop2,
+                                      Long start, Long end,
+                                      String variantType,
+                                      boolean sharedPolyOnly) {
         Map<String, Integer> sampleIndex1 = GenotypeLoader.buildSampleIndex(tx, pop1);
         Map<String, Integer> sampleIndex2 = GenotypeLoader.buildSampleIndex(tx, pop2);
         int nSamples1 = sampleIndex1.size();
         int nSamples2 = sampleIndex2.size();
         if (nSamples1 == 0 || nSamples2 == 0) return null;
 
-        // Query variants once
-        String query;
-        Map<String, Object> params;
+        // Query variants once, optionally filtered by type
+        StringBuilder qb = new StringBuilder("MATCH (v:Variant) WHERE v.chr = $chr");
+        Map<String, Object> params = new HashMap<>();
+        params.put("chr", chr);
         if (start != null && end != null) {
-            query = "MATCH (v:Variant) WHERE v.chr = $chr AND v.pos >= $start AND v.pos <= $end " +
-                    "RETURN v ORDER BY v.pos";
-            params = Map.of("chr", chr, "start", start, "end", end);
-        } else {
-            query = "MATCH (v:Variant) WHERE v.chr = $chr RETURN v ORDER BY v.pos";
-            params = Map.of("chr", chr);
+            qb.append(" AND v.pos >= $start AND v.pos <= $end");
+            params.put("start", start);
+            params.put("end", end);
         }
+        if (variantType != null) {
+            qb.append(" AND v.variant_type = $variantType");
+            params.put("variantType", variantType);
+        }
+        qb.append(" RETURN v ORDER BY v.pos");
+        String query = qb.toString();
 
         var result = tx.execute(query, params);
 
@@ -291,6 +406,19 @@ final class HaplotypeMatrix {
                 if (ctx1 == null) {
                     ctx1 = PopulationContext.resolve(tx, node, pop1);
                     ctx2 = PopulationContext.resolve(tx, node, pop2);
+                }
+
+                // When sharedPolyOnly, skip variants not polymorphic in both pops.
+                // This matches scikit-allel/selscan XP-EHH which operates on the
+                // shared intersection of per-population polymorphic sites.
+                if (sharedPolyOnly) {
+                    int[] acArr = ArrayUtil.toIntArray(node.getProperty("ac"));
+                    int[] anArr = ArrayUtil.toIntArray(node.getProperty("an"));
+                    int ac1 = acArr[ctx1.index], an1 = anArr[ctx1.index];
+                    int ac2 = acArr[ctx2.index], an2 = anArr[ctx2.index];
+                    boolean poly1 = ac1 > 0 && ac1 < an1;
+                    boolean poly2 = ac2 > 0 && ac2 < an2;
+                    if (!poly1 || !poly2) continue;
                 }
 
                 vidList.add((String) node.getProperty("variantId"));
