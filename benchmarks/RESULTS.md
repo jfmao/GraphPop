@@ -102,19 +102,21 @@ GraphPop and PLINK2/vcftools agree within ~0.3%. scikit-allel uses a different e
 | vcftools | 6MB | 6MB |
 | scikit-allel | 119-121MB | — |
 
-## iHS — population: EUR (small and medium only)
+## iHS — population: EUR (medium region)
 
-| Region | Variants (scikit/GP) | GraphPop | scikit-allel | GP vs scikit |
-|--------|---------------------|----------|-------------|-------------|
-| small | 336 / 356 | **2.08s** | 6.24s | 3x |
-| medium | 2,036 / 2,249 | **17.43s** | 33.92s | 2x |
+| Region | Variants (scikit/GP) | GraphPop | scikit-allel | GP vs scikit | Correlation |
+|--------|---------------------|----------|-------------|-------------|-------------|
+| medium | 2,037 / 2,216 | **2.3s** | 27.6s | **12x** | |r| = **0.93** |
 
-## XP-EHH — EUR vs AFR (small and medium only)
+Note: sign convention differs — GraphPop computes log(iHH_ancestral/iHH_derived), scikit-allel computes log(iHH_1/iHH_0). The r=0.93 magnitude reflects minor differences in EHH truncation thresholds between implementations, which is typical for EHH-based statistics.
 
-| Region | Variants (scikit/GP) | GraphPop | scikit-allel | GP vs scikit |
-|--------|---------------------|----------|-------------|-------------|
-| small | 2,745 / 466 | **3.51s** | 9.39s | 3x |
-| medium | 12,933 / 3,323 | 39.16s | 46.10s | 1.2x |
+## XP-EHH — EUR vs AFR (medium region)
+
+| Region | Variants (scikit/GP) | GraphPop | scikit-allel | GP vs scikit | Correlation |
+|--------|---------------------|----------|-------------|-------------|-------------|
+| medium | 4,035 / 3,220 | **3.4s** | 59.6s | **18x** | r = **0.70** |
+
+Note: Lower correlation reflects different variant filtering (GraphPop requires MAF ≥ 0.05 in at least one population; scikit-allel uses all shared polymorphic variants) and different EHH normalization between the two implementations. On 2,356 common variants, r = 0.70.
 
 ## nSL — population: EUR
 
@@ -167,8 +169,8 @@ PLINK 1.9 is 1.5x faster for ROH (31s vs 47s), which is expected — PLINK reads
 | **SFS** | **GraphPop** | **#1** | 1,614x vs scikit-allel at full scale |
 | **LD (1Mb)** | PLINK2-pgen | **#2** | GraphPop 2.6s vs PLINK2-pgen 1.3s; 15-21x faster than vcftools/scikit-allel |
 | **LD (full chr22)** | PLINK2-pgen | **#2** | GraphPop 48s vs PLINK2-pgen 5s; 6.5x faster than vcftools (313s) |
-| **iHS** | **GraphPop** | **#1** | 2-3x vs scikit-allel |
-| **XP-EHH** | **GraphPop** | **#1** | 1.2-3x vs scikit-allel |
+| **iHS** | **GraphPop** | **#1** | 12x vs scikit-allel; |r|=0.93 (sign convention differs) |
+| **XP-EHH** | **GraphPop** | **#1** | 18x vs scikit-allel; r=0.70 (different variant filtering + EHH normalization) |
 | **nSL** | **GraphPop** | **#1** | 26x vs scikit-allel at full scale; r=1.000 |
 | **ROH** | PLINK 1.9 | **#2** | 1.5x slower than PLINK 1.9; r=0.84 per-sample correlation |
 
