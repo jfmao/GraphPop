@@ -22,10 +22,22 @@ import java.util.stream.Stream;
  * </ol>
  * </p>
  *
+ * <p>Supports two methods via the {@code method} option:</p>
+ * <ul>
+ *   <li>{@code "hmm"} (default) — 2-state Viterbi HMM (Narasimhan et al. 2016,
+ *       bcftools roh). Uses allele-frequency-weighted emissions and
+ *       recombination-scaled transitions.</li>
+ *   <li>{@code "sliding_window"} — PLINK-style sliding window with
+ *       configurable window_snps, max_het, density, and gap filters.</li>
+ * </ul>
+ *
  * <p>Usage:
  * <pre>
- * CALL graphpop.roh('chr22', 'EUR', {min_length: 1000000, min_snps: 50, max_het: 1, window_snps: 50})
+ * CALL graphpop.roh('chr22', 'EUR', {min_length: 1000000})
  * YIELD sampleId, n_roh, total_length, froh, mean_length, max_length
+ *
+ * CALL graphpop.roh('chr22', 'EUR', {method: 'hmm', az_length: 2000000})
+ * CALL graphpop.roh('chr22', 'EUR', {method: 'sliding_window', window_snps: 50})
  * </pre>
  * </p>
  */
@@ -74,17 +86,9 @@ public class ROHProcedure {
             options.remove("variant_type");  // no type filter
         }
 
-        int windowSnps = getInt(options, "window_snps", DEFAULT_WINDOW_SNPS);
-        int maxHet = getInt(options, "max_het", DEFAULT_MAX_HET);
         long minLength = getLong(options, "min_length", DEFAULT_MIN_LENGTH);
         int minSnps = getInt(options, "min_snps", DEFAULT_MIN_SNPS);
-        long maxGap = getLong(options, "max_gap", DEFAULT_MAX_GAP);
-        long densityKb = getLong(options, "density_kb", DEFAULT_DENSITY_KB);
-        // PLINK's --homozyg-window-threshold default is 0.05, but empirical
-        // benchmarking against PLINK 1.9 on WGS data shows best correlation
-        // (r≈0.85) with a threshold of 0.05 combined with our density/gap filters.
-        // Users can tune this parameter for their data density.
-        double windowThreshold = getDouble(options, "window_threshold", 0.05);
+        String method = getString(options, "method", "hmm");
 
         List<String> sampleList = options != null ? (List<String>) options.get("samples") : null;
         boolean useSubset = sampleList != null && !sampleList.isEmpty();
@@ -94,6 +98,11 @@ public class ROHProcedure {
         Object vtOpt = options.get("variant_type");
         if (vtOpt instanceof String) variantType = (String) vtOpt;
 
+        // Minimum variants required depends on method
+        int minVariants = "sliding_window".equals(method)
+                ? getInt(options, "window_snps", DEFAULT_WINDOW_SNPS)
+                : 2;
+
         // Phase 1: Load HaplotypeMatrix (SNP-only by default)
         HaplotypeMatrix matrix;
         if (useSubset) {
@@ -102,7 +111,7 @@ public class ROHProcedure {
         } else {
             matrix = HaplotypeMatrix.load(tx, chr, pop, null, null, variantType);
         }
-        if (matrix == null || matrix.nVariants < windowSnps) return Stream.empty();
+        if (matrix == null || matrix.nVariants < minVariants) return Stream.empty();
 
         int nSamples = matrix.nSamples;
         int nVariants = matrix.nVariants;
@@ -119,129 +128,169 @@ public class ROHProcedure {
             sampleIds[entry.getValue()] = entry.getKey();
         }
 
-        // Phase 2 + 3: Per-sample parallel ROH detection
         final long chrLenFinal = chrLength;
-        final long maxGapFinal = maxGap;
-        final long densityKbFinal = densityKb;
-        final double windowThresholdFinal = windowThreshold;
         ROHResult[] results = new ROHResult[nSamples];
 
-        IntStream.range(0, nSamples).parallel().forEach(s -> {
-            // Build heterozygosity flag array for this sample
-            boolean[] isHet = new boolean[nVariants];
-            for (int v = 0; v < nVariants; v++) {
-                int h0 = matrix.haplotypes[v][2 * s];
-                int h1 = matrix.haplotypes[v][2 * s + 1];
-                isHet[v] = (h0 != h1);
-            }
+        if ("hmm".equals(method)) {
+            // ---- HMM-based ROH (Narasimhan et al. 2016) ----
+            ROHHmm hmm = ROHHmm.fromOptions(options);
 
-            // Sliding window scan: count how many overlapping windows each SNP
-            // participates in, and how many of those are homozygous "hits".
-            // A SNP is in a ROH if its hit rate >= windowThreshold (PLINK default 0.05).
-            int[] hitCount = new int[nVariants];   // # homozygous windows containing this SNP
-            int[] totalCount = new int[nVariants]; // # total windows containing this SNP
-            int hetCount = 0;
-
-            // Initialize first window
-            for (int v = 0; v < windowSnps && v < nVariants; v++) {
-                if (isHet[v]) hetCount++;
-            }
-            boolean isHit = hetCount <= maxHet;
-            for (int v = 0; v < windowSnps && v < nVariants; v++) {
-                totalCount[v]++;
-                if (isHit) hitCount[v]++;
-            }
-
-            // Slide the window
-            for (int v = 1; v <= nVariants - windowSnps; v++) {
-                if (isHet[v - 1]) hetCount--;
-                if (isHet[v + windowSnps - 1]) hetCount++;
-
-                isHit = hetCount <= maxHet;
-                for (int w = v; w < v + windowSnps; w++) {
-                    totalCount[w]++;
-                    if (isHit) hitCount[w]++;
+            IntStream.range(0, nSamples).parallel().forEach(s -> {
+                // Extract diploid genotype for this sample
+                int[] genotypes = new int[nVariants];
+                for (int v = 0; v < nVariants; v++) {
+                    genotypes[v] = matrix.haplotypes[v][2 * s]
+                                 + matrix.haplotypes[v][2 * s + 1];
                 }
-            }
 
-            // A SNP is in a ROH if its window hit rate >= threshold
-            boolean[] homWindow = new boolean[nVariants];
-            for (int v = 0; v < nVariants; v++) {
-                if (totalCount[v] > 0) {
-                    double rate = (double) hitCount[v] / totalCount[v];
-                    homWindow[v] = rate >= windowThresholdFinal;
+                // Run Viterbi
+                List<long[]> segments = hmm.viterbi(
+                        matrix.positions, matrix.afs, genotypes, minLength, minSnps);
+
+                // Compute summary stats
+                long totalLen = 0, maxLen = 0;
+                for (long[] seg : segments) {
+                    long len = seg[1] - seg[0];
+                    totalLen += len;
+                    if (len > maxLen) maxLen = len;
                 }
-            }
 
-            // Phase 3: Merge contiguous homWindow=true segments into ROH segments
-            List<long[]> segments = new ArrayList<>();
-            int segStart = -1;
-            for (int v = 0; v < nVariants; v++) {
-                if (homWindow[v]) {
-                    if (segStart < 0) segStart = v;
-                } else {
-                    if (segStart >= 0) {
-                        segments.add(new long[]{segStart, v - 1});
-                        segStart = -1;
+                ROHResult r = new ROHResult();
+                r.sampleId = sampleIds[s];
+                r.n_roh = segments.size();
+                r.total_length = totalLen;
+                r.froh = (double) totalLen / chrLenFinal;
+                r.mean_length = segments.isEmpty() ? 0 : (double) totalLen / segments.size();
+                r.max_length = maxLen;
+                results[s] = r;
+            });
+        } else {
+            // ---- Sliding window ROH (PLINK-style) ----
+            int windowSnps = getInt(options, "window_snps", DEFAULT_WINDOW_SNPS);
+            int maxHet = getInt(options, "max_het", DEFAULT_MAX_HET);
+            long maxGap = getLong(options, "max_gap", DEFAULT_MAX_GAP);
+            long densityKb = getLong(options, "density_kb", DEFAULT_DENSITY_KB);
+            double windowThreshold = getDouble(options, "window_threshold", 0.05);
+
+            final long maxGapFinal = maxGap;
+            final long densityKbFinal = densityKb;
+            final double windowThresholdFinal = windowThreshold;
+
+            IntStream.range(0, nSamples).parallel().forEach(s -> {
+                // Build heterozygosity flag array for this sample
+                boolean[] isHet = new boolean[nVariants];
+                for (int v = 0; v < nVariants; v++) {
+                    int h0 = matrix.haplotypes[v][2 * s];
+                    int h1 = matrix.haplotypes[v][2 * s + 1];
+                    isHet[v] = (h0 != h1);
+                }
+
+                // Sliding window scan: count how many overlapping windows each SNP
+                // participates in, and how many of those are homozygous "hits".
+                int[] hitCount = new int[nVariants];
+                int[] totalCount = new int[nVariants];
+                int hetCount = 0;
+
+                // Initialize first window
+                for (int v = 0; v < windowSnps && v < nVariants; v++) {
+                    if (isHet[v]) hetCount++;
+                }
+                boolean isHit = hetCount <= maxHet;
+                for (int v = 0; v < windowSnps && v < nVariants; v++) {
+                    totalCount[v]++;
+                    if (isHit) hitCount[v]++;
+                }
+
+                // Slide the window
+                for (int v = 1; v <= nVariants - windowSnps; v++) {
+                    if (isHet[v - 1]) hetCount--;
+                    if (isHet[v + windowSnps - 1]) hetCount++;
+
+                    isHit = hetCount <= maxHet;
+                    for (int w = v; w < v + windowSnps; w++) {
+                        totalCount[w]++;
+                        if (isHit) hitCount[w]++;
                     }
                 }
-            }
-            if (segStart >= 0) {
-                segments.add(new long[]{segStart, nVariants - 1});
-            }
 
-            // Split segments at internal gaps > maxGap (PLINK --homozyg-gap)
-            List<long[]> splitSegments = new ArrayList<>();
-            for (long[] seg : segments) {
-                int sStart = (int) seg[0];
-                int sEnd = (int) seg[1];
-                int subStart = sStart;
-                for (int v = sStart + 1; v <= sEnd; v++) {
-                    long gap = matrix.positions[v] - matrix.positions[v - 1];
-                    if (gap > maxGapFinal) {
-                        if (v - 1 > subStart) {
-                            splitSegments.add(new long[]{subStart, v - 1});
+                // A SNP is in a ROH if its window hit rate >= threshold
+                boolean[] homWindow = new boolean[nVariants];
+                for (int v = 0; v < nVariants; v++) {
+                    if (totalCount[v] > 0) {
+                        double rate = (double) hitCount[v] / totalCount[v];
+                        homWindow[v] = rate >= windowThresholdFinal;
+                    }
+                }
+
+                // Merge contiguous homWindow=true segments into ROH segments
+                List<long[]> segments = new ArrayList<>();
+                int segStart = -1;
+                for (int v = 0; v < nVariants; v++) {
+                    if (homWindow[v]) {
+                        if (segStart < 0) segStart = v;
+                    } else {
+                        if (segStart >= 0) {
+                            segments.add(new long[]{segStart, v - 1});
+                            segStart = -1;
                         }
-                        subStart = v;
                     }
                 }
-                splitSegments.add(new long[]{subStart, sEnd});
-            }
-
-            // Filter segments by min_length, min_snps, and density
-            long totalLength = 0;
-            long maxLen = 0;
-            int nRoh = 0;
-
-            for (long[] seg : splitSegments) {
-                int startIdx = (int) seg[0];
-                int endIdx = (int) seg[1];
-                int nSnpsInSeg = endIdx - startIdx + 1;
-                long segLength = matrix.positions[endIdx] - matrix.positions[startIdx];
-
-                if (segLength < minLength || nSnpsInSeg < minSnps) continue;
-
-                // Density check: at least 1 SNP per densityKb kb
-                // (PLINK --homozyg-density, default 50 kb per SNP)
-                if (densityKbFinal > 0 && segLength > 0) {
-                    double kbPerSnp = (segLength / 1000.0) / nSnpsInSeg;
-                    if (kbPerSnp > densityKbFinal) continue;
+                if (segStart >= 0) {
+                    segments.add(new long[]{segStart, nVariants - 1});
                 }
 
-                nRoh++;
-                totalLength += segLength;
-                if (segLength > maxLen) maxLen = segLength;
-            }
+                // Split segments at internal gaps > maxGap
+                List<long[]> splitSegments = new ArrayList<>();
+                for (long[] seg : segments) {
+                    int sStart = (int) seg[0];
+                    int sEnd = (int) seg[1];
+                    int subStart = sStart;
+                    for (int v = sStart + 1; v <= sEnd; v++) {
+                        long gap = matrix.positions[v] - matrix.positions[v - 1];
+                        if (gap > maxGapFinal) {
+                            if (v - 1 > subStart) {
+                                splitSegments.add(new long[]{subStart, v - 1});
+                            }
+                            subStart = v;
+                        }
+                    }
+                    splitSegments.add(new long[]{subStart, sEnd});
+                }
 
-            ROHResult r = new ROHResult();
-            r.sampleId = sampleIds[s];
-            r.n_roh = nRoh;
-            r.total_length = totalLength;
-            r.froh = (double) totalLength / chrLenFinal;
-            r.mean_length = nRoh > 0 ? (double) totalLength / nRoh : 0.0;
-            r.max_length = maxLen;
-            results[s] = r;
-        });
+                // Filter segments by min_length, min_snps, and density
+                long totalLength = 0;
+                long maxLen = 0;
+                int nRoh = 0;
+
+                for (long[] seg : splitSegments) {
+                    int startIdx = (int) seg[0];
+                    int endIdx = (int) seg[1];
+                    int nSnpsInSeg = endIdx - startIdx + 1;
+                    long segLength = matrix.positions[endIdx] - matrix.positions[startIdx];
+
+                    if (segLength < minLength || nSnpsInSeg < minSnps) continue;
+
+                    // Density check
+                    if (densityKbFinal > 0 && segLength > 0) {
+                        double kbPerSnp = (segLength / 1000.0) / nSnpsInSeg;
+                        if (kbPerSnp > densityKbFinal) continue;
+                    }
+
+                    nRoh++;
+                    totalLength += segLength;
+                    if (segLength > maxLen) maxLen = segLength;
+                }
+
+                ROHResult r = new ROHResult();
+                r.sampleId = sampleIds[s];
+                r.n_roh = nRoh;
+                r.total_length = totalLength;
+                r.froh = (double) totalLength / chrLenFinal;
+                r.mean_length = nRoh > 0 ? (double) totalLength / nRoh : 0.0;
+                r.max_length = maxLen;
+                results[s] = r;
+            });
+        }
 
         return Arrays.stream(results)
                 .sorted(Comparator.comparing(r -> r.sampleId));
@@ -266,5 +315,12 @@ public class ROHProcedure {
         Object val = options.get(key);
         if (val == null) return defaultValue;
         return ((Number) val).doubleValue();
+    }
+
+    private static String getString(Map<String, Object> options, String key, String defaultValue) {
+        if (options == null) return defaultValue;
+        Object val = options.get(key);
+        if (val == null) return defaultValue;
+        return val.toString();
     }
 }
