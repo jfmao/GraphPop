@@ -126,6 +126,12 @@ public class DivergenceProcedure {
 
                 if (an1 < 2 || an2 < 2) continue;
 
+                // Apply variant_type filter (must check before AF filter)
+                if (filter.variantType != null) {
+                    Object vt = variant.getProperty("variant_type", null);
+                    if (vt == null || !filter.variantType.equals(vt)) continue;
+                }
+
                 // Apply filter to pop1 side (primary filter)
                 if (filter.isActive() && (af1 < filter.minAf || af1 > filter.maxAf)) continue;
 

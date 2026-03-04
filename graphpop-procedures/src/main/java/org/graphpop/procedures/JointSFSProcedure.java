@@ -109,6 +109,12 @@ public class JointSFSProcedure {
 
                 if (an1 < 2 || an2 < 2) continue;
 
+                // Apply variant_type filter
+                if (filter.variantType != null) {
+                    Object vt = variant.getProperty("variant_type", null);
+                    if (vt == null || !filter.variantType.equals(vt)) continue;
+                }
+
                 // Apply AF filter
                 double af1 = (double) ac1 / an1;
                 if (filter.isActive() && (af1 < filter.minAf || af1 > filter.maxAf)) continue;

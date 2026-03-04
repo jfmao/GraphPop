@@ -65,7 +65,9 @@ public class GarudHProcedure {
         Long end = options != null && options.containsKey("end")
                 ? ((Number) options.get("end")).longValue() : null;
         List<String> samples = options != null ? (List<String>) options.get("samples") : null;
-        String variantType = options != null ? (String) options.get("variant_type") : "SNP";
+        String variantType = options != null && options.containsKey("variant_type")
+                ? (String) options.get("variant_type") : "SNP";
+        if ("ALL".equals(variantType)) variantType = null;  // explicit override
 
         // Load haplotype matrix
         HaplotypeMatrix matrix;
