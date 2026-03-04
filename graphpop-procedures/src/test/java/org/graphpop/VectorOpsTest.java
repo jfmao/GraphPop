@@ -454,4 +454,75 @@ class VectorOpsTest {
         int[] h2 = {1, 1, 0, 0};
         assertEquals(1.0, VectorOps.dPrime(h1, h2, h1.length), EPS);
     }
+
+    // -----------------------------------------------------------------------
+    // wcFstComponents (Weir & Cockerham 1984)
+    // -----------------------------------------------------------------------
+
+    @Test
+    void wcFstEqualPops_noStructure() {
+        // Two pops with same AF and same sample size → Fst ≈ 0
+        // n1=50, n2=50 diploid individuals; af=0.3 in both
+        // ac1=30, an1=100, het1=42 (2pq=0.42 → 50*0.42=21 expected, use 21 hets)
+        // ac2=30, an2=100, het2=21
+        double[] abc = VectorOps.wcFstComponents(30, 100, 21, 30, 100, 21);
+        double fst = abc[0] / (abc[0] + abc[1] + abc[2]);
+        // With identical frequencies, a ≈ -small number (unbiased estimator can be negative)
+        assertTrue(fst < 0.01, "Same-frequency pops should have Fst near 0, got " + fst);
+    }
+
+    @Test
+    void wcFstFixedDifference() {
+        // Pop1: all ref (ac=0, an=100, het=0)
+        // Pop2: all alt (ac=100, an=100, het=0)
+        // → Fst should be 1.0
+        double[] abc = VectorOps.wcFstComponents(0, 100, 0, 100, 100, 0);
+        double denom = abc[0] + abc[1] + abc[2];
+        assertTrue(denom > 0, "Denominator should be positive");
+        double fst = abc[0] / denom;
+        assertEquals(1.0, fst, 0.001, "Fixed difference should give Fst ≈ 1.0");
+    }
+
+    @Test
+    void wcFstUnequal_sampleSizes() {
+        // Unequal sample sizes: n1=10, n2=100 diploid; same AF=0.3
+        // ac1=6, an1=20, het1=2 (observed ~HWE: 2*0.3*0.7*10=4.2, use 4)
+        // ac2=60, an2=200, het2=42
+        double[] abc = VectorOps.wcFstComponents(6, 20, 4, 60, 200, 42);
+        double denom = abc[0] + abc[1] + abc[2];
+        double fst = denom != 0 ? abc[0] / denom : 0;
+        // Same AF → Fst near 0 (possibly slightly negative with unbiased estimator)
+        assertTrue(fst < 0.05, "Same AF with unequal N should have Fst near 0, got " + fst);
+    }
+
+    @Test
+    void wcFstModerate_differentiation() {
+        // Pop1: af=0.1 (ac=10, an=100, het=18: ~HWE 2*0.1*0.9*50=9, use 9)
+        // Pop2: af=0.5 (ac=100, an=200, het=50: ~HWE 2*0.5*0.5*100=50)
+        double[] abc = VectorOps.wcFstComponents(10, 100, 9, 100, 200, 50);
+        double denom = abc[0] + abc[1] + abc[2];
+        assertTrue(denom > 0);
+        double fst = abc[0] / denom;
+        // Moderate differentiation: Fst should be positive and non-trivial
+        assertTrue(fst > 0.05 && fst < 0.5,
+                "Moderate differentiation expected, got Fst=" + fst);
+    }
+
+    @Test
+    void wcFstTooFewAlleles() {
+        double[] abc = VectorOps.wcFstComponents(1, 1, 0, 50, 100, 25);
+        assertEquals(0.0, abc[0], EPS);
+        assertEquals(0.0, abc[1], EPS);
+        assertEquals(0.0, abc[2], EPS);
+    }
+
+    @Test
+    void wcFstMonomorphic() {
+        // Both pops monomorphic for ref: ac=0, het=0
+        double[] abc = VectorOps.wcFstComponents(0, 100, 0, 0, 200, 0);
+        // p_bar=0, s2=0, h_bar=0 → a=0, b=0, c=0
+        assertEquals(0.0, abc[0], EPS);
+        assertEquals(0.0, abc[1], EPS);
+        assertEquals(0.0, abc[2], EPS);
+    }
 }

@@ -32,7 +32,7 @@ import java.util.stream.Stream;
 public class IHSProcedure {
 
     private static final double DEFAULT_MIN_AF = 0.05;
-    private static final int AF_BINS = 20;
+    private static final int DEFAULT_AF_BINS = 20;
 
     @Context
     public Transaction tx;
@@ -81,6 +81,9 @@ public class IHSProcedure {
         List<String> sampleList = options != null ? (List<String>) options.get("samples") : null;
         boolean useSubset = sampleList != null && !sampleList.isEmpty();
         String variantType = filter.variantType;
+        int afBins = options != null && options.containsKey("n_af_bins")
+                ? ((Number) options.get("n_af_bins")).intValue() : DEFAULT_AF_BINS;
+        EHHComputer ehhComputer = EHHComputer.fromOptions(options);
 
         // Phase 1: Load dense haplotype matrix (single-threaded)
         // When variantType is set (default "SNP"), only matching variants are loaded
@@ -127,8 +130,8 @@ public class IHSProcedure {
                 }
             }
 
-            double ihhDerived = EHHComputer.computeIHH(matrix, vidx, derivedIdx);
-            double ihhAncestral = EHHComputer.computeIHH(matrix, vidx, ancestralIdx);
+            double ihhDerived = ehhComputer.iHH(matrix, vidx, derivedIdx, true);
+            double ihhAncestral = ehhComputer.iHH(matrix, vidx, ancestralIdx, true);
 
             if (ihhDerived > 0 && ihhAncestral > 0) {
                 ihsUnstd[i] = Math.log(ihhAncestral / ihhDerived);
@@ -140,7 +143,7 @@ public class IHSProcedure {
         Map<Integer, List<Integer>> bins = new HashMap<>();
         for (int i = 0; i < focalIndices.length; i++) {
             if (!valid[i]) continue;
-            int bin = Math.min((int) (matrix.afs[focalIndices[i]] * AF_BINS), AF_BINS - 1);
+            int bin = Math.min((int) (matrix.afs[focalIndices[i]] * afBins), afBins - 1);
             bins.computeIfAbsent(bin, k -> new ArrayList<>()).add(i);
         }
 

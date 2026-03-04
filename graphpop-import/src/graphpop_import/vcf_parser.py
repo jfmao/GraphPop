@@ -186,10 +186,19 @@ class VCFParser:
         sample_to_pop = _load_panel(panel_path, stratify_by)
         self._pop_map = self._build_pop_map(sample_to_pop)
 
+        # Extract contig lengths from VCF ##contig headers (species-agnostic)
+        self._contig_lengths: dict[str, int] = {}
+        vcf_tmp = VCF(self._vcf_path, lazy=True)
+        for name, length in zip(vcf_tmp.seqnames, vcf_tmp.seqlens):
+            if length > 0:
+                self._contig_lengths[name] = length
+        vcf_tmp.close()
+
         logger.info(
-            "VCFParser initialised: %d samples, %d populations",
+            "VCFParser initialised: %d samples, %d populations, %d contigs",
             len(self._pop_map.sample_ids),
             len(self._pop_map.pop_ids),
+            len(self._contig_lengths),
         )
 
     # -- Public API ---------------------------------------------------------
@@ -197,6 +206,11 @@ class VCFParser:
     @property
     def pop_map(self) -> PopulationMap:
         return self._pop_map
+
+    @property
+    def contig_lengths(self) -> dict[str, int]:
+        """Chromosome lengths from VCF ##contig headers."""
+        return self._contig_lengths
 
     @property
     def n_variants_processed(self) -> int:

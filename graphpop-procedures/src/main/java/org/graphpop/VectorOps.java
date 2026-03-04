@@ -394,4 +394,67 @@ public final class VectorOps {
     public static double dxyPerSite(double p1, double p2) {
         return p1 * (1.0 - p2) + p2 * (1.0 - p1);
     }
+
+    /**
+     * Compute Weir &amp; Cockerham (1984) Fst variance components for a single
+     * biallelic locus between two populations.
+     *
+     * <p>Returns {a, b, c} where:
+     * <ul>
+     *   <li>a = between-population variance component</li>
+     *   <li>b = within-population, between-individual variance component</li>
+     *   <li>c = within-individual (gametic) variance component</li>
+     * </ul>
+     * Fst = a / (a + b + c), computed as ratio of sums across loci.</p>
+     *
+     * <p>Uses diploid sample counts (n_i = number of diploid individuals = an_i / 2).
+     * Formulas follow Weir &amp; Cockerham (1984) equations 2, 3, and 4 for r=2
+     * populations, matching scikit-allel's {@code weir_cockerham_fst}.</p>
+     *
+     * @param ac1  allele count in population 1
+     * @param an1  allele number in population 1 (2 × diploid count)
+     * @param het1 heterozygote count in population 1
+     * @param ac2  allele count in population 2
+     * @param an2  allele number in population 2
+     * @param het2 heterozygote count in population 2
+     * @return double[3] = {a, b, c}; all zeros if either population has fewer than 2 alleles
+     */
+    public static double[] wcFstComponents(int ac1, int an1, int het1,
+                                           int ac2, int an2, int het2) {
+        if (an1 < 2 || an2 < 2) return new double[]{0.0, 0.0, 0.0};
+
+        int r = 2; // number of populations
+        double n1 = an1 / 2.0; // diploid sample count
+        double n2 = an2 / 2.0;
+        double nTotal = n1 + n2;
+        double nBar = nTotal / r;
+
+        // n_c: sample size correction factor (Eq. in W&C 1984 section 3)
+        double nC = nTotal - (n1 * n1 + n2 * n2) / nTotal;
+
+        double p1 = (double) ac1 / an1;
+        double p2 = (double) ac2 / an2;
+
+        // Weighted average allele frequency
+        double pBar = (n1 * p1 + n2 * p2) / nTotal;
+
+        // Sample variance of allele frequencies
+        double s2 = (n1 * (p1 - pBar) * (p1 - pBar)
+                    + n2 * (p2 - pBar) * (p2 - pBar)) / ((r - 1) * nBar);
+
+        // Average observed heterozygote frequency
+        double hBar = (het1 / n1 + het2 / n2) / r;
+
+        // Variance components (W&C 1984 Eqs. 2-4)
+        double a = nBar / nC * (s2 - 1.0 / (nBar - 1.0)
+                * (pBar * (1.0 - pBar) - (r - 1.0) / r * s2 - hBar / 4.0));
+
+        double b = nBar / (nBar - 1.0)
+                * (pBar * (1.0 - pBar) - (r - 1.0) / r * s2
+                   - (2.0 * nBar - 1.0) / (4.0 * nBar) * hBar);
+
+        double c = hBar / 2.0;
+
+        return new double[]{a, b, c};
+    }
 }

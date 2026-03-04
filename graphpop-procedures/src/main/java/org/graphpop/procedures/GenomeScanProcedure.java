@@ -65,8 +65,10 @@ public class GenomeScanProcedure {
         public double fis;
         // Comparative (only set if pop2 provided)
         public double fst;
+        public double fst_wc;
         public double dxy;
         public double da;
+        public double pbs;
 
         public WindowResult() {}
     }
@@ -80,6 +82,7 @@ public class GenomeScanProcedure {
             @Name(value = "options", defaultValue = "{}") Map<String, Object> options
     ) {
         String pop2 = options != null ? (String) options.get("pop2") : null;
+        String pop3 = options != null ? (String) options.get("pop3") : null;
         String runIdOverride = options != null ? (String) options.get("run_id") : null;
         VariantFilter filter = VariantFilter.fromOptions(options);
 
@@ -104,6 +107,7 @@ public class GenomeScanProcedure {
         List<VariantData> variants = new ArrayList<>();
         PopulationContext ctx = null;
         PopulationContext ctx2 = null;
+        PopulationContext ctx3 = null;
 
         try {
             while (result.hasNext()) {
@@ -114,6 +118,9 @@ public class GenomeScanProcedure {
                     ctx = PopulationContext.resolve(tx, variant, pop);
                     if (pop2 != null) {
                         ctx2 = PopulationContext.resolve(tx, variant, pop2);
+                    }
+                    if (pop3 != null) {
+                        ctx3 = PopulationContext.resolve(tx, variant, pop3);
                     }
                 }
 
@@ -159,7 +166,11 @@ public class GenomeScanProcedure {
         // Comparative arrays (only allocated if pop2 provided)
         double[] fstNumArr = null, fstDenArr = null, dxyArr = null;
         double[] piW1Arr = null, piW2Arr = null;
+        double[] wcAArr = null, wcBArr = null, wcCArr = null;
         boolean[] validComp = null;
+        // PBS arrays (pop1-pop3 and pop2-pop3 W&C components)
+        double[] wcA13Arr = null, wcB13Arr = null, wcC13Arr = null;
+        double[] wcA23Arr = null, wcB23Arr = null, wcC23Arr = null;
 
         if (pop2 != null) {
             fstNumArr = new double[nVar];
@@ -167,7 +178,18 @@ public class GenomeScanProcedure {
             dxyArr = new double[nVar];
             piW1Arr = new double[nVar];
             piW2Arr = new double[nVar];
+            wcAArr = new double[nVar];
+            wcBArr = new double[nVar];
+            wcCArr = new double[nVar];
             validComp = new boolean[nVar];
+            if (pop3 != null) {
+                wcA13Arr = new double[nVar];
+                wcB13Arr = new double[nVar];
+                wcC13Arr = new double[nVar];
+                wcA23Arr = new double[nVar];
+                wcB23Arr = new double[nVar];
+                wcC23Arr = new double[nVar];
+            }
         }
 
         for (int i = 0; i < nVar; i++) {
@@ -211,7 +233,8 @@ public class GenomeScanProcedure {
             if (ctx2 != null) {
                 int an2 = v.an[ctx2.index];
                 double af2 = v.af[ctx2.index];
-                if (an2 >= 2) {
+                int an3valid = ctx3 != null ? v.an[ctx3.index] : 0;
+                if (an2 >= 2 && (ctx3 == null || an3valid >= 2)) {
                     validComp[i] = true;
                     double[] fstC = VectorOps.hudsonFstComponents(af, an, af2, an2);
                     fstNumArr[i] = fstC[0];
@@ -219,6 +242,21 @@ public class GenomeScanProcedure {
                     dxyArr[i] = VectorOps.dxyPerSite(af, af2);
                     piW1Arr[i] = piArr[i];
                     piW2Arr[i] = VectorOps.piPerSite(af2, an2);
+                    double[] wcComp12 = VectorOps.wcFstComponents(
+                            ac, an, het, v.ac[ctx2.index], an2, v.het[ctx2.index]);
+                    wcAArr[i] = wcComp12[0];
+                    wcBArr[i] = wcComp12[1];
+                    wcCArr[i] = wcComp12[2];
+
+                    if (ctx3 != null) {
+                        int ac3 = v.ac[ctx3.index];
+                        int het3 = v.het[ctx3.index];
+                        double[] wc13 = VectorOps.wcFstComponents(ac, an, het, ac3, an3valid, het3);
+                        wcA13Arr[i] = wc13[0]; wcB13Arr[i] = wc13[1]; wcC13Arr[i] = wc13[2];
+                        double[] wc23 = VectorOps.wcFstComponents(
+                                v.ac[ctx2.index], an2, v.het[ctx2.index], ac3, an3valid, het3);
+                        wcA23Arr[i] = wc23[0]; wcB23Arr[i] = wc23[1]; wcC23Arr[i] = wc23[2];
+                    }
                 }
             }
         }
@@ -237,8 +275,12 @@ public class GenomeScanProcedure {
         // Phase 2: Parallel window summation — pure array ops
         final PopulationContext ctxF = ctx;
         final PopulationContext ctx2F = ctx2;
+        final PopulationContext ctx3F = ctx3;
         final double[] fstNumF = fstNumArr, fstDenF = fstDenArr, dxyF = dxyArr;
         final double[] piW1F = piW1Arr, piW2F = piW2Arr;
+        final double[] wcAF = wcAArr, wcBF = wcBArr, wcCF = wcCArr;
+        final double[] wcA13F = wcA13Arr, wcB13F = wcB13Arr, wcC13F = wcC13Arr;
+        final double[] wcA23F = wcA23Arr, wcB23F = wcB23Arr, wcC23F = wcC23Arr;
         final boolean[] validCompF = validComp;
 
         WindowResult[] windowResults = new WindowResult[nWindows];
@@ -254,6 +296,9 @@ public class GenomeScanProcedure {
             long nVariants = 0, nSeg = 0;
             double fstNum = 0.0, fstDen = 0.0, dxySum = 0.0;
             double piW1Sum = 0.0, piW2Sum = 0.0;
+            double wcASum = 0.0, wcBSum = 0.0, wcCSum = 0.0;
+            double wcA13Sum = 0.0, wcB13Sum = 0.0, wcC13Sum = 0.0;
+            double wcA23Sum = 0.0, wcB23Sum = 0.0, wcC23Sum = 0.0;
             double thetaHSum = 0.0, piPolarSum = 0.0;
             long nPol = 0;
 
@@ -279,6 +324,13 @@ public class GenomeScanProcedure {
                     dxySum += dxyF[j];
                     piW1Sum += piW1F[j];
                     piW2Sum += piW2F[j];
+                    wcASum += wcAF[j];
+                    wcBSum += wcBF[j];
+                    wcCSum += wcCF[j];
+                    if (ctx3F != null) {
+                        wcA13Sum += wcA13F[j]; wcB13Sum += wcB13F[j]; wcC13Sum += wcC13F[j];
+                        wcA23Sum += wcA23F[j]; wcB23Sum += wcB23F[j]; wcC23Sum += wcC23F[j];
+                    }
                 }
             }
 
@@ -307,8 +359,22 @@ public class GenomeScanProcedure {
 
             if (ctx2F != null && fstDen > 0) {
                 wr.fst = fstNum / fstDen;
+                double wcDenom = wcASum + wcBSum + wcCSum;
+                wr.fst_wc = wcDenom > 0 ? wcASum / wcDenom : 0.0;
                 wr.dxy = dxySum / L;
                 wr.da = wr.dxy - (piW1Sum / L + piW2Sum / L) / 2.0;
+
+                if (ctx3F != null) {
+                    double fst12 = wr.fst_wc;
+                    double d13 = wcA13Sum + wcB13Sum + wcC13Sum;
+                    double fst13 = d13 > 0 ? wcA13Sum / d13 : 0.0;
+                    double d23 = wcA23Sum + wcB23Sum + wcC23Sum;
+                    double fst23 = d23 > 0 ? wcA23Sum / d23 : 0.0;
+                    double t12 = -Math.log(Math.max(1e-10, 1.0 - fst12));
+                    double t13 = -Math.log(Math.max(1e-10, 1.0 - fst13));
+                    double t23 = -Math.log(Math.max(1e-10, 1.0 - fst23));
+                    wr.pbs = (t12 + t13 - t23) / 2.0;
+                }
             }
 
             wr.window_id = chr + ":" + wStart + "-" + wEnd + ":" + pop + ":" + runId;
@@ -343,8 +409,13 @@ public class GenomeScanProcedure {
             if (pop2 != null) {
                 gwNode.setProperty("pop2", pop2);
                 gwNode.setProperty("fst", wr.fst);
+                gwNode.setProperty("fst_wc", wr.fst_wc);
                 gwNode.setProperty("dxy", wr.dxy);
                 gwNode.setProperty("da", wr.da);
+                if (pop3 != null) {
+                    gwNode.setProperty("pop3", pop3);
+                    gwNode.setProperty("pbs", wr.pbs);
+                }
             }
 
             if (chrNode != null) {

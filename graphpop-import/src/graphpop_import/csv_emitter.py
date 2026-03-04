@@ -107,10 +107,13 @@ class CSVEmitter:
         pop_map: PopulationMap,
         *,
         array_delimiter: str = ";",
+        contig_lengths: dict[str, int] | None = None,
     ) -> None:
         self._out_dir = Path(out_dir)
         self._pop_map = pop_map
         self._delim = array_delimiter
+        # Use VCF contig lengths first, fall back to hardcoded GRCh38
+        self._contig_lengths = contig_lengths or {}
 
         # Streaming file handles (opened in _open_streaming_files)
         self._variant_fh: TextIO | None = None
@@ -266,13 +269,14 @@ class CSVEmitter:
 
     def finalize(self) -> None:
         """Write Chromosome nodes, close streaming file handles, log summary."""
-        # Write chromosome nodes
+        # Write chromosome nodes — prefer VCF contig lengths, fall back to GRCh38
         path = self._out_dir / "chromosome_nodes.csv"
         with open(path, "w", newline="") as f:
             w = csv.writer(f)
             w.writerow(CHROMOSOME_HEADER)
             for chrom in sorted(self._chromosomes_seen):
-                length = CHR_LENGTHS.get(chrom, 0)
+                length = self._contig_lengths.get(chrom,
+                         CHR_LENGTHS.get(chrom, 0))
                 w.writerow([chrom, "Chromosome", length])
 
         # Close streaming handles
@@ -311,7 +315,8 @@ class CSVEmitter:
             emitter = CSVEmitter.run(parser, Path("output/csv"))
         """
         out_dir = Path(out_dir)
-        emitter = CSVEmitter(out_dir, parser.pop_map)
+        emitter = CSVEmitter(out_dir, parser.pop_map,
+                             contig_lengths=parser.contig_lengths)
 
         emitter.write_static_nodes()
 

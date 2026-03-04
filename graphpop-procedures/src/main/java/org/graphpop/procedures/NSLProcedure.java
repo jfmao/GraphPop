@@ -37,7 +37,7 @@ import java.util.stream.Stream;
 public class NSLProcedure {
 
     private static final double DEFAULT_MIN_AF = 0.05;
-    private static final int AF_BINS = 20;
+    private static final int DEFAULT_AF_BINS = 20;
 
     @Context
     public Transaction tx;
@@ -84,6 +84,8 @@ public class NSLProcedure {
 
         List<String> sampleList = options != null ? (List<String>) options.get("samples") : null;
         boolean useSubset = sampleList != null && !sampleList.isEmpty();
+        int afBins = options != null && options.containsKey("n_af_bins")
+                ? ((Number) options.get("n_af_bins")).intValue() : DEFAULT_AF_BINS;
 
         // Phase 1: Load dense haplotype matrix (single-threaded)
         HaplotypeMatrix matrix;
@@ -141,7 +143,7 @@ public class NSLProcedure {
         Map<Integer, List<Integer>> bins = new HashMap<>();
         for (int i = 0; i < nFocal; i++) {
             if (!valid[i]) continue;
-            int bin = Math.min((int) (matrix.afs[focalIndices[i]] * AF_BINS), AF_BINS - 1);
+            int bin = Math.min((int) (matrix.afs[focalIndices[i]] * afBins), afBins - 1);
             bins.computeIfAbsent(bin, k -> new ArrayList<>()).add(i);
         }
 

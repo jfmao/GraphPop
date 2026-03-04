@@ -17,13 +17,62 @@ package org.graphpop.procedures;
  */
 final class EHHComputer {
 
-    private static final double DEFAULT_MIN_EHH = 0.05;
+    static final double DEFAULT_MIN_EHH = 0.05;
     /** Maximum physical gap (bp) before walk is aborted. Matches selscan/scikit-allel default. */
-    private static final long DEFAULT_MAX_GAP = 200_000;
+    static final long DEFAULT_MAX_GAP = 200_000;
     /** Gap scaling threshold (bp). Gaps larger than this are down-weighted. Matches selscan/scikit-allel. */
-    private static final long DEFAULT_GAP_SCALE = 20_000;
+    static final long DEFAULT_GAP_SCALE = 20_000;
 
-    private EHHComputer() {}
+    /** Configurable EHH walk parameters. */
+    final double minEHH;
+    final long maxGap;
+    final long gapScale;
+
+    EHHComputer() {
+        this(DEFAULT_MIN_EHH, DEFAULT_MAX_GAP, DEFAULT_GAP_SCALE);
+    }
+
+    EHHComputer(double minEHH, long maxGap, long gapScale) {
+        this.minEHH = minEHH;
+        this.maxGap = maxGap;
+        this.gapScale = gapScale;
+    }
+
+    /** Create from options map. */
+    static EHHComputer fromOptions(java.util.Map<String, Object> options) {
+        double minEHH = DEFAULT_MIN_EHH;
+        long maxGap = DEFAULT_MAX_GAP;
+        long gapScale = DEFAULT_GAP_SCALE;
+        if (options != null) {
+            if (options.containsKey("min_ehh"))
+                minEHH = ((Number) options.get("min_ehh")).doubleValue();
+            if (options.containsKey("max_gap"))
+                maxGap = ((Number) options.get("max_gap")).longValue();
+            if (options.containsKey("gap_scale"))
+                gapScale = ((Number) options.get("gap_scale")).longValue();
+        }
+        return new EHHComputer(minEHH, maxGap, gapScale);
+    }
+
+    /**
+     * Instance method: compute iHH using this computer's configured parameters.
+     */
+    double iHH(HaplotypeMatrix matrix, int focalIdx,
+               int[] carrierHapIdxs, boolean skipMonomorphic) {
+        if (carrierHapIdxs.length < 2) return 0.0;
+
+        long focalPos = matrix.positions[focalIdx];
+
+        double ihhUp = walkDirection(matrix, focalIdx, carrierHapIdxs,
+                focalPos, minEHH, -1, skipMonomorphic, maxGap, gapScale);
+        if (ihhUp < 0) return -1;
+
+        double ihhDown = walkDirection(matrix, focalIdx, carrierHapIdxs,
+                focalPos, minEHH, +1, skipMonomorphic, maxGap, gapScale);
+        if (ihhDown < 0) return -1;
+
+        return ihhUp + ihhDown;
+    }
 
     /**
      * Compute integrated EHH (iHH) by walking both directions from a focal variant
@@ -54,11 +103,11 @@ final class EHHComputer {
         long focalPos = matrix.positions[focalIdx];
 
         double ihhUp = walkDirection(matrix, focalIdx, carrierHapIdxs,
-                focalPos, minEHH, -1, skipMonomorphic);
+                focalPos, minEHH, -1, skipMonomorphic, DEFAULT_MAX_GAP, DEFAULT_GAP_SCALE);
         if (ihhUp < 0) return -1;  // max_gap hit — mark locus invalid
 
         double ihhDown = walkDirection(matrix, focalIdx, carrierHapIdxs,
-                focalPos, minEHH, +1, skipMonomorphic);
+                focalPos, minEHH, +1, skipMonomorphic, DEFAULT_MAX_GAP, DEFAULT_GAP_SCALE);
         if (ihhDown < 0) return -1;
 
         return ihhUp + ihhDown;
@@ -131,7 +180,8 @@ final class EHHComputer {
     private static double walkDirection(HaplotypeMatrix matrix, int focalIdx,
                                         int[] carrierHapIdxs,
                                         long focalPos, double minEHH, int step,
-                                        boolean skipMonomorphic) {
+                                        boolean skipMonomorphic,
+                                        long maxGap, long gapScale) {
         int nHaps = carrierHapIdxs.length;
         if (nHaps < 2) return 0.0;
 
@@ -183,7 +233,7 @@ final class EHHComputer {
 
             // max_gap: abort entire locus if gap exceeds threshold
             // (matches selscan skipLocus behavior)
-            if (physGap > DEFAULT_MAX_GAP) {
+            if (physGap > maxGap) {
                 return -1;
             }
 
@@ -251,8 +301,8 @@ final class EHHComputer {
             // gap_scale: down-weight integration distance for large gaps
             // effective_dist = physGap * min(1, gapScale / physGap)
             double dist = physGap;
-            if (physGap > DEFAULT_GAP_SCALE) {
-                dist = DEFAULT_GAP_SCALE;
+            if (physGap > gapScale) {
+                dist = gapScale;
             }
 
             // Integrate using trapezoidal rule

@@ -115,6 +115,7 @@ public class XPEHHProcedure {
         }
         final HaplotypeMatrix m1 = matPair[0];
         final HaplotypeMatrix m2 = matPair[1];
+        EHHComputer ehhComputer = EHHComputer.fromOptions(options);
 
         // Identify focal variants (polymorphic in at least one population)
         int[] focalIndices = identifyFocal(m1, m2, minAf, filter);
@@ -130,11 +131,8 @@ public class XPEHHProcedure {
             int[] allHaps1 = allHaplotypeIndices(m1.nHaplotypes);
             int[] allHaps2 = allHaplotypeIndices(m2.nHaplotypes);
 
-            // Both populations skip variants monomorphic within that population.
-            // scikit-allel's input is pre-filtered to shared polymorphic variants,
-            // so monomorphic-in-pop sites never appear in the walk path.
-            double iHH1 = EHHComputer.computeIHH(m1, vidx, allHaps1);
-            double iHH2 = EHHComputer.computeIHH(m2, vidx, allHaps2);
+            double iHH1 = ehhComputer.iHH(m1, vidx, allHaps1, true);
+            double iHH2 = ehhComputer.iHH(m2, vidx, allHaps2, true);
 
             if (iHH1 > 0 && iHH2 > 0) {
                 xpehhUnstd[i] = Math.log(iHH1 / iHH2);
