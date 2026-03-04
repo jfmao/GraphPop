@@ -12,11 +12,12 @@ import static org.junit.jupiter.api.Assertions.*;
  */
 class ROHHmmTest {
 
+    // Use bcftools defaults: transition rates + het_error_rate matching -G30
     private static final ROHHmm DEFAULT_HMM = new ROHHmm(
-            500_000,    // azLength = 500 kb
-            0.01,       // azFraction = 1%
-            1e-5,       // hetErrorRate
-            0.0         // minAf (skip only AF=0)
+            ROHHmm.DEFAULT_HW_TO_AZ,  // 6.7e-8 per bp (bcftools default)
+            ROHHmm.DEFAULT_AZ_TO_HW,  // 5e-9 per bp (bcftools default)
+            1e-3,                      // hetErrorRate (bcftools -G30 → 10^(-3))
+            0.0                        // minAf (skip only AF=0)
     );
 
     /**
@@ -153,7 +154,8 @@ class ROHHmmTest {
     }
 
     @Test
-    void fromOptions_parsesParameters() {
+    void fromOptions_parsesLegacyParameters() {
+        // Legacy az_length/az_fraction parameterization
         Map<String, Object> options = Map.of(
                 "az_length", 2_000_000.0,
                 "az_fraction", 0.005,
@@ -169,5 +171,24 @@ class ROHHmmTest {
 
         List<long[]> segments = hmm.viterbi(pos, afs, genotypes, 100_000, 10);
         assertNotNull(segments);
+    }
+
+    @Test
+    void fromOptions_parsesPerBpRates() {
+        // Per-bp rate parameterization (bcftools style)
+        Map<String, Object> options = Map.of(
+                "hw_to_az", 6.7e-8,
+                "az_to_hw", 5e-9,
+                "het_error_rate", 1e-5
+        );
+        ROHHmm hmm = ROHHmm.fromOptions(options);
+
+        int n = 200;
+        long[] pos = uniformPositions(n, 1_000_000, 10_000);
+        double[] afs = uniformAFs(n, 0.3);
+        int[] genotypes = new int[n]; // all hom-ref
+
+        List<long[]> segments = hmm.viterbi(pos, afs, genotypes, 500_000, 50);
+        assertFalse(segments.isEmpty(), "Per-bp rate parameterization should detect ROH");
     }
 }

@@ -12,33 +12,44 @@ import java.util.Map;
  * Two hidden states:</p>
  * <ul>
  *   <li><b>AZ</b> (autozygous) — both chromosomes identical-by-descent</li>
- *   <li><b>HW</b> (Hardy–Weinberg) — normal outbred state</li>
+ *   <li><b>HW</b> (Hardy-Weinberg) — normal outbred state</li>
  * </ul>
  *
- * <p>Emission probabilities are weighted by population allele frequency:
- * a rare-allele homozygote is strong evidence for AZ (P_AZ = p vs P_HW = p²).
- * Transitions are scaled by physical distance between variants.</p>
+ * <p>Transition probabilities use the exact 2-state continuous-time Markov chain
+ * (CTMC) formula, matching bcftools roh's matrix power approach. For two
+ * consecutive variants separated by physical distance d (bp):</p>
+ * <pre>
+ *   decay = (1 - hwToAz - azToHw)^d
+ *   P(HW-&gt;AZ | d) = hwToAz/(hwToAz+azToHw) * (1 - decay)
+ *   P(AZ-&gt;HW | d) = azToHw/(hwToAz+azToHw) * (1 - decay)
+ * </pre>
  *
- * <p>All computation in log-space to avoid underflow over long chromosomes.</p>
+ * <p>Emission probabilities are weighted by population allele frequency:
+ * a rare-allele homozygote is strong evidence for AZ (P_AZ = p vs P_HW = p^2).
+ * All computation in log-space to avoid underflow over long chromosomes.</p>
  */
 final class ROHHmm {
 
     private static final int STATE_HW = 0;
     private static final int STATE_AZ = 1;
 
-    /** Expected ROH length in bp. Controls transition AZ→HW rate. Default: 500 kb. */
-    private final double azLength;
+    /** Per-bp transition rate from HW to AZ state. bcftools default: 6.7e-8. */
+    private final double hwToAz;
 
-    /** Expected fraction of genome in ROH. Controls transition HW→AZ rate. Default: 1%. */
-    private final double azFraction;
+    /** Per-bp transition rate from AZ to HW state. bcftools default: 5e-9. */
+    private final double azToHw;
 
-    /** P(het | AZ) — genotyping error rate. Default: 1e-5. */
+    /**
+     * P(het | AZ) — genotyping error rate. Default: 0.001 (matches bcftools
+     * -G30, where PL=30 → error probability = 10^(-30/10) = 0.001).
+     * Lower values (e.g. 1e-5) make ROH calls more conservative (closer to
+     * PLINK); higher values are more liberal (closer to bcftools).
+     */
     private final double hetErrorRate;
 
     /**
      * Minimum population AF to include a variant. Monomorphic and very rare
-     * variants provide near-zero information for ROH detection. bcftools roh
-     * defaults to AF > 0 and suggests AF ≥ 0.05 for WGS data. Default: 0.0
+     * variants provide near-zero information for ROH detection. Default: 0.0
      * (skip only AF=0 monomorphic sites).
      */
     private final double minAf;
@@ -47,22 +58,64 @@ final class ROHHmm {
     private static final double AF_FLOOR = 0.001;
     private static final double AF_CEIL = 0.999;
 
-    ROHHmm(double azLength, double azFraction, double hetErrorRate, double minAf) {
-        this.azLength = azLength;
-        this.azFraction = azFraction;
+    /** bcftools default transition rates (per bp). */
+    static final double DEFAULT_HW_TO_AZ = 6.7e-8;
+    static final double DEFAULT_AZ_TO_HW = 5.0e-9;
+
+    ROHHmm(double hwToAz, double azToHw, double hetErrorRate, double minAf) {
+        this.hwToAz = hwToAz;
+        this.azToHw = azToHw;
         this.hetErrorRate = hetErrorRate;
         this.minAf = minAf;
     }
 
     /**
      * Create from procedure options map.
+     *
+     * <p>Accepts two parameterization styles:</p>
+     * <ul>
+     *   <li><b>Per-bp rates</b> (preferred, matches bcftools):
+     *       {@code hw_to_az} and {@code az_to_hw}</li>
+     *   <li><b>Length/fraction</b> (legacy):
+     *       {@code az_length} (expected ROH length in bp) and
+     *       {@code az_fraction} (expected genome fraction in ROH).
+     *       Converted to per-bp rates: azToHw = 1/az_length,
+     *       hwToAz = az_fraction / ((1-az_fraction) * az_length).</li>
+     * </ul>
+     *
+     * <p>If neither is specified, bcftools defaults are used:
+     * hw_to_az=6.7e-8, az_to_hw=5e-9.</p>
      */
     static ROHHmm fromOptions(Map<String, Object> options) {
-        double azLen = getDouble(options, "az_length", 500_000.0);
-        double azFrac = getDouble(options, "az_fraction", 0.01);
-        double hetErr = getDouble(options, "het_error_rate", 1e-5);
+        double hetErr = getDouble(options, "het_error_rate", 1e-3);
         double maf = getDouble(options, "hmm_min_af", 0.0);
-        return new ROHHmm(azLen, azFrac, hetErr, maf);
+
+        // Check for per-bp rate parameterization first
+        Double hwToAzOpt = getDoubleOrNull(options, "hw_to_az");
+        Double azToHwOpt = getDoubleOrNull(options, "az_to_hw");
+
+        if (hwToAzOpt != null || azToHwOpt != null) {
+            // Per-bp rates specified directly
+            double hwAz = hwToAzOpt != null ? hwToAzOpt : DEFAULT_HW_TO_AZ;
+            double azHw = azToHwOpt != null ? azToHwOpt : DEFAULT_AZ_TO_HW;
+            return new ROHHmm(hwAz, azHw, hetErr, maf);
+        }
+
+        // Check for legacy az_length/az_fraction parameterization
+        Double azLenOpt = getDoubleOrNull(options, "az_length");
+        Double azFracOpt = getDoubleOrNull(options, "az_fraction");
+
+        if (azLenOpt != null || azFracOpt != null) {
+            double azLen = azLenOpt != null ? azLenOpt : 500_000.0;
+            double azFrac = azFracOpt != null ? azFracOpt : 0.01;
+            // Convert to per-bp rates
+            double azHw = 1.0 / azLen;
+            double hwAz = azFrac / ((1.0 - azFrac) * azLen);
+            return new ROHHmm(hwAz, azHw, hetErr, maf);
+        }
+
+        // Default: bcftools rates
+        return new ROHHmm(DEFAULT_HW_TO_AZ, DEFAULT_AZ_TO_HW, hetErr, maf);
     }
 
     /**
@@ -113,9 +166,12 @@ final class ROHHmm {
         int n = idx.length;
         if (n == 0) return List.of();
 
-        // Initial state probabilities (log-space)
-        double logPiHW = Math.log(1.0 - azFraction);
-        double logPiAZ = Math.log(azFraction);
+        // Initial state probabilities from stationary distribution (log-space)
+        double sumRate = hwToAz + azToHw;
+        double piAZ = hwToAz / sumRate;  // stationary probability of AZ
+        double piHW = azToHw / sumRate;   // stationary probability of HW
+        double logPiHW = Math.log(piHW);
+        double logPiAZ = Math.log(piAZ);
 
         // Viterbi arrays
         double[] prevLogProb = new double[2]; // [HW, AZ]
@@ -131,13 +187,18 @@ final class ROHHmm {
             double d = positions[idx[i]] - positions[idx[i - 1]];
             p = clampAF(afs[idx[i]]);
 
-            // Transition probabilities (log-space)
-            double pAZtoHW = 1.0 - Math.exp(-d / azLength);
-            double pHWtoAZ = 1.0 - Math.exp(-d / ((1.0 / azFraction - 1.0) * azLength));
+            // Transition probabilities — exact 2-state CTMC (matrix power T^d).
+            // For per-bp base matrix T = [[1-hwToAz, hwToAz], [azToHw, 1-azToHw]]:
+            //   eigenvalues: 1 and (1-hwToAz-azToHw)
+            //   T^d element [i][j] computed via eigendecomposition
+            double decay = Math.pow(1.0 - sumRate, d);
+
+            double pHWtoAZ = piAZ * (1.0 - decay);
+            double pAZtoHW = piHW * (1.0 - decay);
 
             // Clamp transition probabilities away from 0 and 1
-            pAZtoHW = clampProb(pAZtoHW);
             pHWtoAZ = clampProb(pHWtoAZ);
+            pAZtoHW = clampProb(pAZtoHW);
 
             double logAZtoHW = Math.log(pAZtoHW);
             double logAZtoAZ = Math.log(1.0 - pAZtoHW);
@@ -257,6 +318,13 @@ final class ROHHmm {
         if (options == null) return defaultValue;
         Object val = options.get(key);
         if (val == null) return defaultValue;
+        return ((Number) val).doubleValue();
+    }
+
+    private static Double getDoubleOrNull(Map<String, Object> options, String key) {
+        if (options == null) return null;
+        Object val = options.get(key);
+        if (val == null) return null;
         return ((Number) val).doubleValue();
     }
 }
