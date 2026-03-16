@@ -34,7 +34,6 @@ REQUIRED_FILES=(
     sample_nodes.csv
     population_nodes.csv
     chromosome_nodes.csv
-    carries_edges.csv
     next_edges.csv
     on_chromosome_edges.csv
     in_population_edges.csv
@@ -46,7 +45,15 @@ for f in "${REQUIRED_FILES[@]}"; do
         exit 1
     fi
 done
-echo "==> All 8 CSV files found"
+echo "==> All 7 core CSV files found"
+
+# Optional annotation files (VEP/SnpEff)
+GENE_ARGS=()
+if [[ -f "$CSV_DIR/gene_nodes.csv" && -f "$CSV_DIR/has_consequence_edges.csv" ]]; then
+    GENE_ARGS+=(--nodes=Gene="$CSV_DIR/gene_nodes.csv")
+    GENE_ARGS+=(--relationships=HAS_CONSEQUENCE="$CSV_DIR/has_consequence_edges.csv")
+    echo "==> Gene annotation CSVs found (gene_nodes.csv + has_consequence_edges.csv)"
+fi
 
 # Print file sizes for reference
 echo ""
@@ -84,7 +91,7 @@ neo4j-admin database import full \
     --nodes=Sample="$CSV_DIR/sample_nodes.csv" \
     --nodes=Population="$CSV_DIR/population_nodes.csv" \
     --nodes=Chromosome="$CSV_DIR/chromosome_nodes.csv" \
-    --relationships=CARRIES="$CSV_DIR/carries_edges.csv" \
+    "${GENE_ARGS[@]}" \
     --relationships=NEXT="$CSV_DIR/next_edges.csv" \
     --relationships=ON_CHROMOSOME="$CSV_DIR/on_chromosome_edges.csv" \
     --relationships=IN_POPULATION="$CSV_DIR/in_population_edges.csv" \
@@ -115,6 +122,10 @@ CREATE CONSTRAINT chromosome_id IF NOT EXISTS FOR (c:Chromosome) REQUIRE c.`chro
 CREATE INDEX variant_chr_pos IF NOT EXISTS FOR (v:Variant) ON (v.chr, v.`pos`);
 CREATE INDEX variant_type IF NOT EXISTS FOR (v:Variant) ON (v.variant_type);
 CREATE INDEX variant_af_total IF NOT EXISTS FOR (v:Variant) ON (v.af_total);
+
+// Gene annotation indexes (VEP/SnpEff)
+CREATE CONSTRAINT gene_id IF NOT EXISTS FOR (g:Gene) REQUIRE g.`geneId` IS UNIQUE;
+CREATE INDEX gene_symbol IF NOT EXISTS FOR (g:Gene) ON (g.symbol);
 CYPHER
 
 echo "    Index script written to: $INDEX_SCRIPT"

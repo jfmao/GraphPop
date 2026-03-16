@@ -42,6 +42,20 @@ venv/
 # Neo4j data
 data/neo4j/
 
+# Large raw data (genomic files, EPO alignments, etc.)
+data/raw/1000g/
+data/raw/3kRG_data/
+data/raw/ensembl_ancestor/
+data/raw/rice_epo/
+*.pgen
+*.psam
+*.pvar.zst
+*.emf.gz
+*.tar.gz
+*.xlsx
+*.zip
+*.pdf
+
 # Generated CSVs and cache
 data/raw/*/csv_out/
 data/raw/*/*.panel

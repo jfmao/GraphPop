@@ -8,7 +8,7 @@ from io import TextIOWrapper
 from pathlib import Path
 from typing import TextIO
 
-from .vcf_parser import CarriesRecord, PopulationMap, VCFParser, VariantRecord
+from .vcf_parser import PopulationMap, VCFParser, VariantRecord
 
 logger = logging.getLogger(__name__)
 
@@ -34,6 +34,10 @@ CHR_LENGTHS: dict[str, int] = {
     "16": 90338345, "17": 83257441, "18": 80373285,
     "19": 58617616, "20": 64444167, "21": 46709983,
     "22": 50818468, "X": 156040895, "Y": 57227415,
+    # Rice (IRGSP-1.0)
+    "Chr1": 43270923, "Chr2": 35937250, "Chr3": 36413819, "Chr4": 35502694,
+    "Chr5": 29958434, "Chr6": 31248787, "Chr7": 29697621, "Chr8": 28443022,
+    "Chr9": 23012720, "Chr10": 23207287, "Chr11": 29021106, "Chr12": 27531856,
 }
 
 # ---------------------------------------------------------------------------
@@ -69,9 +73,10 @@ VARIANT_HEADER = [
     "ac_total:int", "an_total:int", "af_total:float", "call_rate:float",
     "het_exp:float[]",
     "ancestral_allele", "is_polarized:boolean",
+    "gt_packed:byte[]", "phase_packed:byte[]", "ploidy_packed:byte[]",
 ]
 
-SAMPLE_HEADER = ["sampleId:ID(Sample)", ":LABEL", "population"]
+SAMPLE_HEADER = ["sampleId:ID(Sample)", ":LABEL", "population", "packed_index:int", "sex:int"]
 
 POPULATION_HEADER = [
     "populationId:ID(Population)", ":LABEL",
@@ -79,8 +84,6 @@ POPULATION_HEADER = [
 ]
 
 CHROMOSOME_HEADER = ["chromosomeId:ID(Chromosome)", ":LABEL", "length:long"]
-
-CARRIES_HEADER = [":START_ID(Sample)", ":END_ID(Variant)", ":TYPE", "gt:int", "phase:int"]
 
 NEXT_HEADER = [":START_ID(Variant)", ":END_ID(Variant)", ":TYPE", "distance_bp:long"]
 
@@ -117,12 +120,10 @@ class CSVEmitter:
 
         # Streaming file handles (opened in _open_streaming_files)
         self._variant_fh: TextIO | None = None
-        self._carries_fh: TextIO | None = None
         self._next_fh: TextIO | None = None
         self._on_chrom_fh: TextIO | None = None
 
         self._variant_writer: csv.writer | None = None
-        self._carries_writer: csv.writer | None = None
         self._next_writer: csv.writer | None = None
         self._on_chrom_writer: csv.writer | None = None
 
@@ -134,7 +135,6 @@ class CSVEmitter:
 
         # Counters
         self._n_variants = 0
-        self._n_carries = 0
         self._n_next = 0
         self._n_on_chrom = 0
 
@@ -158,7 +158,9 @@ class CSVEmitter:
             w = csv.writer(f)
             w.writerow(SAMPLE_HEADER)
             for sid in self._pop_map.sample_ids:
-                w.writerow([sid, "Sample", self._pop_map.sample_to_pop[sid]])
+                packed_idx = self._pop_map.sample_packed_index.get(sid, -1)
+                sex = self._pop_map.sample_to_sex.get(sid, 0)
+                w.writerow([sid, "Sample", self._pop_map.sample_to_pop[sid], packed_idx, sex])
 
     def _write_population_nodes(self) -> None:
         path = self._out_dir / "population_nodes.csv"
@@ -184,20 +186,17 @@ class CSVEmitter:
     # -- Streaming files ----------------------------------------------------
 
     def _open_streaming_files(self) -> None:
-        """Open file handles for variant/carries/next/on_chromosome CSVs."""
+        """Open file handles for variant/next/on_chromosome CSVs."""
         self._variant_fh = open(self._out_dir / "variant_nodes.csv", "w", newline="")
-        self._carries_fh = open(self._out_dir / "carries_edges.csv", "w", newline="")
         self._next_fh = open(self._out_dir / "next_edges.csv", "w", newline="")
         self._on_chrom_fh = open(self._out_dir / "on_chromosome_edges.csv", "w", newline="")
 
         self._variant_writer = csv.writer(self._variant_fh)
-        self._carries_writer = csv.writer(self._carries_fh)
         self._next_writer = csv.writer(self._next_fh)
         self._on_chrom_writer = csv.writer(self._on_chrom_fh)
 
         # Write headers
         self._variant_writer.writerow(VARIANT_HEADER)
-        self._carries_writer.writerow(CARRIES_HEADER)
         self._next_writer.writerow(NEXT_HEADER)
         self._on_chrom_writer.writerow(ON_CHROMOSOME_HEADER)
 
@@ -213,7 +212,6 @@ class CSVEmitter:
         pop_ids_str = delim.join(pop_ids)
 
         vw = self._variant_writer
-        cw = self._carries_writer
         nw = self._next_writer
         ow = self._on_chrom_writer
 
@@ -221,6 +219,18 @@ class CSVEmitter:
             # -- Variant node --
             ancestral = getattr(rec, "ancestral_allele", None) or ""
             is_pol = getattr(rec, "is_polarized", False)
+
+            # Pack byte arrays as semicolon-separated signed Java bytes
+            gt_packed_str = delim.join(
+                str(b if b < 128 else b - 256) for b in rec.gt_packed
+            ) if rec.gt_packed else ""
+            phase_packed_str = delim.join(
+                str(b if b < 128 else b - 256) for b in rec.phase_packed
+            ) if rec.phase_packed else ""
+            ploidy_packed_str = delim.join(
+                str(b if b < 128 else b - 256) for b in rec.ploidy_packed
+            ) if rec.ploidy_packed else ""
+
             vw.writerow([
                 rec.id,
                 "Variant",
@@ -242,13 +252,11 @@ class CSVEmitter:
                 delim.join(_fmt_float(x) for x in rec.het_exp),
                 ancestral,
                 str(is_pol).lower(),
+                gt_packed_str,
+                phase_packed_str,
+                ploidy_packed_str,
             ])
             self._n_variants += 1
-
-            # -- CARRIES edges --
-            for c in rec.carries:
-                cw.writerow([c.sample_id, c.variant_id, "CARRIES", c.gt, c.phase])
-                self._n_carries += 1
 
             # -- ON_CHROMOSOME edge --
             chrom = rec.chr
@@ -280,20 +288,18 @@ class CSVEmitter:
                 w.writerow([chrom, "Chromosome", length])
 
         # Close streaming handles
-        for fh in (self._variant_fh, self._carries_fh, self._next_fh, self._on_chrom_fh):
+        for fh in (self._variant_fh, self._next_fh, self._on_chrom_fh):
             if fh is not None:
                 fh.close()
 
         self._variant_fh = None
-        self._carries_fh = None
         self._next_fh = None
         self._on_chrom_fh = None
 
         logger.info(
-            "CSV emission complete: %d variants, %d carries edges, "
+            "CSV emission complete: %d variants, "
             "%d next edges, %d on_chromosome edges, %d chromosomes",
             self._n_variants,
-            self._n_carries,
             self._n_next,
             self._n_on_chrom,
             len(self._chromosomes_seen),
@@ -331,10 +337,6 @@ class CSVEmitter:
     @property
     def n_variants(self) -> int:
         return self._n_variants
-
-    @property
-    def n_carries(self) -> int:
-        return self._n_carries
 
     @property
     def n_next(self) -> int:

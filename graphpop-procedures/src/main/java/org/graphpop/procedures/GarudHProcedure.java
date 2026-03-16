@@ -40,6 +40,7 @@ public class GarudHProcedure {
         public String chr;
         public long start;
         public long end;
+        public String population;
         public double h1;
         public double h12;
         public double h2_h1;
@@ -59,15 +60,26 @@ public class GarudHProcedure {
             @Name(value = "step", defaultValue = "50000") long stepSize,
             @Name(value = "options", defaultValue = "{}") Map<String, Object> options
     ) {
+        // Default to SNP-only (same pattern as iHS/XP-EHH/nSL/ROH)
+        if (options == null) {
+            options = Map.of("variant_type", "SNP");
+        } else if (!options.containsKey("variant_type")) {
+            options = new HashMap<>(options);
+            options.put("variant_type", "SNP");
+        } else if ("ALL".equals(options.get("variant_type"))) {
+            options = new HashMap<>(options);
+            options.remove("variant_type");
+        }
+
+        VariantFilter filter = VariantFilter.fromOptions(options);
+
         // Parse options
-        Long start = options != null && options.containsKey("start")
+        Long start = options.containsKey("start")
                 ? ((Number) options.get("start")).longValue() : null;
-        Long end = options != null && options.containsKey("end")
+        Long end = options.containsKey("end")
                 ? ((Number) options.get("end")).longValue() : null;
-        List<String> samples = options != null ? (List<String>) options.get("samples") : null;
-        String variantType = options != null && options.containsKey("variant_type")
-                ? (String) options.get("variant_type") : "SNP";
-        if ("ALL".equals(variantType)) variantType = null;  // explicit override
+        List<String> samples = (List<String>) options.get("samples");
+        String variantType = filter.variantType;
 
         // Load haplotype matrix
         HaplotypeMatrix matrix;
@@ -120,6 +132,7 @@ public class GarudHProcedure {
             r.chr = chr;
             r.start = wStart;
             r.end = wEnd;
+            r.population = pop;
             r.h1 = hr.h1;
             r.h12 = hr.h12;
             r.h2_h1 = hr.h2_h1;

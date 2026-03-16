@@ -318,8 +318,6 @@ public final class VectorOps {
                 if (hap2[i] == 1) n01++;
             }
         }
-        int n00 = n - n11 - n10 - n01;
-
         double pA = (double) (n11 + n10) / n; // freq of alt at variant 1
         double pB = (double) (n11 + n01) / n; // freq of alt at variant 2
         double pAB = (double) n11 / n;
@@ -363,11 +361,63 @@ public final class VectorOps {
             n10 += a & (b ^ 1);
             n01 += (a ^ 1) & b;
         }
-        int n00 = n - n11 - n10 - n01;
 
         double pA = (double) (n11 + n10) / n;
         double pB = (double) (n11 + n01) / n;
         double pAB = (double) n11 / n;
+
+        if (pA == 0.0 || pA == 1.0 || pB == 0.0 || pB == 1.0) return 0.0;
+
+        double D = pAB - pA * pB;
+
+        double Dmax;
+        if (D >= 0) {
+            Dmax = Math.min(pA * (1.0 - pB), (1.0 - pA) * pB);
+        } else {
+            Dmax = Math.min(pA * pB, (1.0 - pA) * (1.0 - pB));
+        }
+
+        if (Dmax == 0.0) return 0.0;
+        return Math.abs(D) / Dmax;
+    }
+
+    /**
+     * Compute D' from bit-packed haplotype byte arrays.
+     *
+     * <p>Each byte stores 8 haplotypes (bit 0 = haplotype 0, bit 7 = haplotype 7).
+     * Uses {@link Integer#bitCount} for efficient bulk counting.</p>
+     *
+     * @param packed1     bit-packed haplotype row for variant 1
+     * @param packed2     bit-packed haplotype row for variant 2
+     * @param nHaplotypes total number of haplotypes
+     * @return |D'| in [0, 1], or 0 if either variant is monomorphic
+     */
+    public static double dPrimePacked(byte[] packed1, byte[] packed2, int nHaplotypes) {
+        if (nHaplotypes == 0) return 0.0;
+
+        int fullBytes = nHaplotypes >> 3;
+        int remainBits = nHaplotypes & 7;
+
+        int n11 = 0, nA = 0, nB = 0;
+        for (int i = 0; i < fullBytes; i++) {
+            int a = packed1[i] & 0xFF;
+            int b = packed2[i] & 0xFF;
+            n11 += Integer.bitCount(a & b);
+            nA += Integer.bitCount(a);
+            nB += Integer.bitCount(b);
+        }
+        if (remainBits > 0) {
+            int mask = (1 << remainBits) - 1;
+            int a = packed1[fullBytes] & mask;
+            int b = packed2[fullBytes] & mask;
+            n11 += Integer.bitCount(a & b);
+            nA += Integer.bitCount(a);
+            nB += Integer.bitCount(b);
+        }
+
+        double pA = (double) nA / nHaplotypes;
+        double pB = (double) nB / nHaplotypes;
+        double pAB = (double) n11 / nHaplotypes;
 
         if (pA == 0.0 || pA == 1.0 || pB == 0.0 || pB == 1.0) return 0.0;
 
@@ -428,6 +478,10 @@ public final class VectorOps {
         double n2 = an2 / 2.0;
         double nTotal = n1 + n2;
         double nBar = nTotal / r;
+
+        // Guard: nBar <= 1 causes division by zero in 1/(nBar-1) below.
+        // W&C Fst is undefined with fewer than 2 diploid individuals per pop on average.
+        if (nBar <= 1.0) return new double[]{0.0, 0.0, 0.0};
 
         // n_c: sample size correction factor (Eq. in W&C 1984 section 3)
         double nC = nTotal - (n1 * n1 + n2 * n2) / nTotal;

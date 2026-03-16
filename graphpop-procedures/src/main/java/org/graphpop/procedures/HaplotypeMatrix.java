@@ -1,23 +1,24 @@
 package org.graphpop.procedures;
 
-import org.neo4j.graphdb.*;
+import org.neo4j.graphdb.Node;
+import org.neo4j.graphdb.Transaction;
 
 import java.util.*;
 
 /**
  * Dense in-memory haplotype matrix for a genomic region and population.
  *
- * <p>Loads all variant × haplotype data in a single pass via the graph API,
- * enabling parallel computation with zero DB access. The matrix layout is:
- * {@code haplotypes[variantIndex][haplotypeIndex]} where
- * {@code haplotypeIndex = 2 * sampleIndex + phase} (0=ref, 1=alt).</p>
+ * <p>Loads all variant &times; haplotype data in a single pass via the graph API,
+ * enabling parallel computation with zero DB access. The matrix layout is
+ * bit-packed: {@code haplotypes[variantIndex][byteIndex]} where each bit
+ * represents one haplotype (0=ref, 1=alt). Haplotype index
+ * {@code h = 2 * sampleIndex + phase}; the bit is at
+ * {@code haplotypes[v][h >> 3] & (1 << (h & 7))}.</p>
  *
- * <p>Memory usage: nVariants × 2 × nSamples bytes. For EUR on chr22:
- * ~1M × 1006 ≈ 1 GB (fits in 4 GB heap).</p>
+ * <p>Memory usage: nVariants &times; ceil(2 &times; nSamples / 8) bytes.
+ * For EUR on chr22: ~1M &times; 252 bytes &asymp; 252 MB (vs 2 GB unpacked).</p>
  */
 final class HaplotypeMatrix {
-
-    private static final RelationshipType CARRIES_REL = RelationshipType.withName("CARRIES");
 
     /** Variant IDs in position order. */
     final String[] variantIds;
@@ -38,8 +39,9 @@ final class HaplotypeMatrix {
     final int[] ans;
 
     /**
-     * Dense haplotype matrix: {@code haplotypes[variantIdx][hapIdx]}.
-     * hapIdx = 2 * sampleIdx + phase. Values: 0 (ref) or 1 (alt).
+     * Bit-packed haplotype matrix: {@code haplotypes[variantIdx][byteIdx]}.
+     * Bit {@code h & 7} of byte {@code h >> 3} stores haplotype h.
+     * h = 2 * sampleIdx + phase. Values: 0 (ref) or 1 (alt).
      */
     final byte[][] haplotypes;
 
@@ -47,7 +49,7 @@ final class HaplotypeMatrix {
     final int nHaplotypes;
     final int nSamples;
 
-    /** Sample index used during loading (sampleId → array position). */
+    /** Sample index used during loading (sampleId &rarr; array position). */
     final Map<String, Integer> sampleIndex;
 
     /** Lazy dosage cache: populated on first dosage(variantIdx) call. */
@@ -71,19 +73,53 @@ final class HaplotypeMatrix {
     }
 
     /**
-     * Build a HaplotypeMatrix from raw arrays for unit testing (no DB required).
+     * Set a single bit in a packed byte array.
+     */
+    private static void setBit(byte[] packed, int idx) {
+        packed[idx >> 3] |= (byte)(1 << (idx & 7));
+    }
+
+    /**
+     * Pack an unpacked byte[] row (one byte per haplotype, values 0/1)
+     * into a bit-packed byte[] row.
+     */
+    static byte[] packRow(byte[] unpacked) {
+        int packedLen = (unpacked.length + 7) >> 3;
+        byte[] packed = new byte[packedLen];
+        for (int i = 0; i < unpacked.length; i++) {
+            if (unpacked[i] == 1) {
+                setBit(packed, i);
+            }
+        }
+        return packed;
+    }
+
+    /**
+     * Get a single haplotype value (0 or 1) from the bit-packed matrix.
+     */
+    int hap(int variantIdx, int hapIdx) {
+        return (haplotypes[variantIdx][hapIdx >> 3] >> (hapIdx & 7)) & 1;
+    }
+
+    /**
+     * Build a HaplotypeMatrix from raw unpacked arrays for unit testing (no DB required).
+     * The unpacked byte[][] (one byte per haplotype) is auto-packed to bit format.
      */
     static HaplotypeMatrix forTest(String[] variantIds, long[] positions,
                                    double[] afs, int[] acs, int[] ans,
-                                   byte[][] haplotypes, int nSamples) {
+                                   byte[][] unpackedHaplotypes, int nSamples) {
+        byte[][] packed = new byte[unpackedHaplotypes.length][];
+        for (int v = 0; v < unpackedHaplotypes.length; v++) {
+            packed[v] = packRow(unpackedHaplotypes[v]);
+        }
         return new HaplotypeMatrix(variantIds, positions, null, afs, acs, ans,
-                haplotypes, nSamples, Map.of());
+                packed, nSamples, Map.of());
     }
 
     /**
      * Filter two independently-loaded matrices to their shared polymorphic
      * intersection. Both output matrices will contain exactly the same positions
-     * in the same order, with only variants that are polymorphic (0 < AC < AN)
+     * in the same order, with only variants that are polymorphic (0 &lt; AC &lt; AN)
      * in both populations retained.
      *
      * <p>This matches scikit-allel/selscan XP-EHH behavior where input is the
@@ -140,7 +176,7 @@ final class HaplotypeMatrix {
 
     /**
      * Get the dosage vector for a variant (0/1/2 per sample).
-     * dosage[s] = haplotypes[v][2*s] + haplotypes[v][2*s+1].
+     * dosage[s] = hap(v, 2*s) + hap(v, 2*s+1).
      *
      * <p>Uses a lazy cache: first call computes and stores the result,
      * subsequent calls return the cached array.</p>
@@ -165,18 +201,17 @@ final class HaplotypeMatrix {
 
     private double[] computeDosage(int variantIdx) {
         double[] dos = new double[nSamples];
-        byte[] h = haplotypes[variantIdx];
         for (int s = 0; s < nSamples; s++) {
-            dos[s] = h[2 * s] + h[2 * s + 1];
+            dos[s] = hap(variantIdx, 2 * s) + hap(variantIdx, 2 * s + 1);
         }
         return dos;
     }
 
     /**
-     * Get a single haplotype value.
+     * Get a single haplotype value (legacy accessor).
      */
     int haplotype(int variantIdx, int sampleIdx, int phase) {
-        return haplotypes[variantIdx][2 * sampleIdx + phase];
+        return hap(variantIdx, 2 * sampleIdx + phase);
     }
 
     /**
@@ -186,7 +221,7 @@ final class HaplotypeMatrix {
      *
      * @param tx          active transaction
      * @param chr         chromosome
-     * @param sampleIndex pre-built sample index (sampleId → array position)
+     * @param sampleIndex pre-built sample index (sampleId &rarr; array position)
      * @param start       region start (use {@code null} for whole chromosome)
      * @param end         region end (use {@code null} for whole chromosome)
      * @return loaded matrix, or null if no variants/samples found
@@ -242,6 +277,10 @@ final class HaplotypeMatrix {
         int nSamples = sampleIndex.size();
         if (nSamples == 0) return null;
         int nHaplotypes = nSamples * 2;
+        int packedRowLen = (nHaplotypes + 7) >> 3;
+
+        // 1. Build packed_index lookup: matrixPos → VCF column index
+        int[] packedIndices = GenotypeLoader.buildPackedIndices(tx, sampleIndex);
 
         // 2. Query variants in region sorted by position, optionally filtered by type
         StringBuilder qb = new StringBuilder("MATCH (v:Variant) WHERE v.chr = $chr");
@@ -290,40 +329,54 @@ final class HaplotypeMatrix {
             positions[i] = posList.get(i);
         }
 
-        // 5. Load haplotype data via graph API (one pass over CARRIES edges)
-        //    Compute ac/an/af from the loaded haplotypes
-        byte[][] haplotypes = new byte[nVariants][nHaplotypes];
+        // 5. Load haplotype data from packed arrays on Variant nodes
+        //    Compute ac/an/af from packed genotypes (ploidy-aware)
+        //    Bit-packed: one bit per haplotype
+        byte[][] haplotypes = new byte[nVariants][packedRowLen];
         int[] acs = new int[nVariants];
         int[] ans = new int[nVariants];
         double[] afs = new double[nVariants];
+
+        // Read ploidy_packed once from first variant (constant per chromosome)
+        byte[] ploidyPacked = null;
+        {
+            Object obj = nodes[0].getProperty("ploidy_packed", null);
+            if (obj instanceof byte[] pb && pb.length > 0) ploidyPacked = pb;
+        }
 
         for (int v = 0; v < nVariants; v++) {
             Node varNode = nodes[v];
             byte[] hapRow = haplotypes[v];
 
-            for (Relationship rel : varNode.getRelationships(Direction.INCOMING, CARRIES_REL)) {
-                Node sampleNode = rel.getStartNode();
-                String sid = (String) sampleNode.getProperty("sampleId");
-                Integer sIdx = sampleIndex.get(sid);
-                if (sIdx == null) continue; // not in target sample set
+            byte[] gtPacked = (byte[]) varNode.getProperty("gt_packed");
+            byte[] phasePacked = (byte[]) varNode.getProperty("phase_packed");
 
-                int gt = ((Number) rel.getProperty("gt")).intValue();
-                if (gt == 2) {
-                    hapRow[2 * sIdx] = 1;
-                    hapRow[2 * sIdx + 1] = 1;
-                } else if (gt == 1) {
-                    Object phaseObj = rel.getProperty("phase", null);
-                    int phase = phaseObj != null ? ((Number) phaseObj).intValue() : 0;
-                    hapRow[2 * sIdx + phase] = 1;
+            int ac = 0, an = 0;
+            for (int s = 0; s < nSamples; s++) {
+                int pi = packedIndices[s];
+                if (pi < 0) continue;
+                int gt = PackedGenotypeReader.genotype(gtPacked, pi);
+
+                if (gt == PackedGenotypeReader.GT_HOM_ALT) {
+                    setBit(hapRow, 2 * s);
+                    setBit(hapRow, 2 * s + 1);
+                } else if (gt == PackedGenotypeReader.GT_HET) {
+                    int phase = PackedGenotypeReader.phase(phasePacked, pi);
+                    setBit(hapRow, 2 * s + phase);
                 }
+                // GT_HOM_REF → both 0 (already zero-initialized)
+
+                if (gt == PackedGenotypeReader.GT_MISSING) continue;
+                boolean isHaploid = PackedGenotypeReader.ploidy(ploidyPacked, pi) == 1;
+                int ploidy = isHaploid ? 1 : 2;
+                an += ploidy;
+                if (gt == PackedGenotypeReader.GT_HOM_ALT) ac += ploidy;
+                else if (gt == PackedGenotypeReader.GT_HET) ac += 1;
             }
 
-            // Compute AC from haplotypes
-            int ac = 0;
-            for (int h = 0; h < nHaplotypes; h++) ac += hapRow[h];
             acs[v] = ac;
-            ans[v] = nHaplotypes;
-            afs[v] = (double) ac / nHaplotypes;
+            ans[v] = an;
+            afs[v] = an > 0 ? (double) ac / an : 0.0;
         }
 
         return new HaplotypeMatrix(variantIds, positions, nodes, afs, acs, ans,
@@ -370,6 +423,15 @@ final class HaplotypeMatrix {
         int nSamples2 = sampleIndex2.size();
         if (nSamples1 == 0 || nSamples2 == 0) return null;
 
+        int nHaplotypes1 = nSamples1 * 2;
+        int nHaplotypes2 = nSamples2 * 2;
+        int packedRowLen1 = (nHaplotypes1 + 7) >> 3;
+        int packedRowLen2 = (nHaplotypes2 + 7) >> 3;
+
+        // Build packed_index lookups for both populations
+        int[] packedIndices1 = GenotypeLoader.buildPackedIndices(tx, sampleIndex1);
+        int[] packedIndices2 = GenotypeLoader.buildPackedIndices(tx, sampleIndex2);
+
         // Query variants once, optionally filtered by type
         StringBuilder qb = new StringBuilder("MATCH (v:Variant) WHERE v.chr = $chr");
         Map<String, Object> params = new HashMap<>();
@@ -409,8 +471,6 @@ final class HaplotypeMatrix {
                 }
 
                 // When sharedPolyOnly, skip variants not polymorphic in both pops.
-                // This matches scikit-allel/selscan XP-EHH which operates on the
-                // shared intersection of per-population polymorphic sites.
                 if (sharedPolyOnly) {
                     int[] acArr = ArrayUtil.toIntArray(node.getProperty("ac"));
                     int[] anArr = ArrayUtil.toIntArray(node.getProperty("an"));
@@ -452,38 +512,40 @@ final class HaplotypeMatrix {
             ans1[i] = anArr[ctx1.index]; ans2[i] = anArr[ctx2.index];
         }
 
-        // Load haplotypes for both populations from the same variant nodes
-        byte[][] hap1 = new byte[nVariants][nSamples1 * 2];
-        byte[][] hap2 = new byte[nVariants][nSamples2 * 2];
+        // Load haplotypes for both populations from packed arrays (bit-packed)
+        byte[][] hap1 = new byte[nVariants][packedRowLen1];
+        byte[][] hap2 = new byte[nVariants][packedRowLen2];
 
         for (int v = 0; v < nVariants; v++) {
             Node varNode = nodes[v];
-            for (Relationship rel : varNode.getRelationships(Direction.INCOMING, CARRIES_REL)) {
-                Node sampleNode = rel.getStartNode();
-                String sid = (String) sampleNode.getProperty("sampleId");
+            byte[] gtPacked = (byte[]) varNode.getProperty("gt_packed");
+            byte[] phasePacked = (byte[]) varNode.getProperty("phase_packed");
 
-                int gt = ((Number) rel.getProperty("gt")).intValue();
-                Object phaseObj = rel.getProperty("phase", null);
-                int phase = phaseObj != null ? ((Number) phaseObj).intValue() : 0;
-
-                Integer sIdx1 = sampleIndex1.get(sid);
-                if (sIdx1 != null) {
-                    if (gt == 2) {
-                        hap1[v][2 * sIdx1] = 1;
-                        hap1[v][2 * sIdx1 + 1] = 1;
-                    } else if (gt == 1) {
-                        hap1[v][2 * sIdx1 + phase] = 1;
-                    }
+            // Population 1
+            for (int s = 0; s < nSamples1; s++) {
+                int pi = packedIndices1[s];
+                if (pi < 0) continue;
+                int gt = PackedGenotypeReader.genotype(gtPacked, pi);
+                if (gt == PackedGenotypeReader.GT_HOM_ALT) {
+                    setBit(hap1[v], 2 * s);
+                    setBit(hap1[v], 2 * s + 1);
+                } else if (gt == PackedGenotypeReader.GT_HET) {
+                    int phase = PackedGenotypeReader.phase(phasePacked, pi);
+                    setBit(hap1[v], 2 * s + phase);
                 }
+            }
 
-                Integer sIdx2 = sampleIndex2.get(sid);
-                if (sIdx2 != null) {
-                    if (gt == 2) {
-                        hap2[v][2 * sIdx2] = 1;
-                        hap2[v][2 * sIdx2 + 1] = 1;
-                    } else if (gt == 1) {
-                        hap2[v][2 * sIdx2 + phase] = 1;
-                    }
+            // Population 2
+            for (int s = 0; s < nSamples2; s++) {
+                int pi = packedIndices2[s];
+                if (pi < 0) continue;
+                int gt = PackedGenotypeReader.genotype(gtPacked, pi);
+                if (gt == PackedGenotypeReader.GT_HOM_ALT) {
+                    setBit(hap2[v], 2 * s);
+                    setBit(hap2[v], 2 * s + 1);
+                } else if (gt == PackedGenotypeReader.GT_HET) {
+                    int phase = PackedGenotypeReader.phase(phasePacked, pi);
+                    setBit(hap2[v], 2 * s + phase);
                 }
             }
         }

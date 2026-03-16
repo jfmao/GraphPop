@@ -18,7 +18,7 @@ import java.util.stream.Stream;
  * <p>FAST PATH: uses only the allele-count arrays stored on Variant nodes,
  * so complexity is O(V x K) independent of sample size.</p>
  *
- * <p>When {@code samples} option is provided, switches to CARRIES-edge traversal
+ * <p>When {@code samples} option is provided, reads packed genotype arrays
  * for on-the-fly recomputation (slower but fully flexible).</p>
  *
  * <p>Usage:
@@ -63,8 +63,10 @@ public class DiversityProcedure {
         boolean useSubset = sampleList != null && !sampleList.isEmpty();
 
         Map<String, Integer> subsetIndex = null;
+        int[] packedIndices = null;
         if (useSubset) {
             subsetIndex = GenotypeLoader.buildSampleIndex(tx, sampleList);
+            packedIndices = GenotypeLoader.buildPackedIndices(tx, subsetIndex);
         }
 
         PopulationContext ctx = null;
@@ -77,10 +79,11 @@ public class DiversityProcedure {
         long nVariants = 0;
         long nSegregating = 0;
         long nPolarized = 0;
+        int firstAN = -1; // track first observed AN for ploidy-aware n derivation
 
         var result = tx.execute(
                 VariantQuery.build(options),
-                Map.of("chr", chr, "start", start, "end", end)
+                VariantQuery.params(options, Map.of("chr", chr, "start", start, "end", end))
         );
 
         try {
@@ -93,7 +96,7 @@ public class DiversityProcedure {
 
                 if (useSubset) {
                     SampleSubsetComputer.SubsetStats ss =
-                            SampleSubsetComputer.compute(variant, subsetIndex);
+                            SampleSubsetComputer.compute(variant, subsetIndex, packedIndices);
                     ac = ss.ac; an = ss.an; af = ss.af;
                     hetCount = ss.hetCount; homAltCount = ss.homAltCount;
                 } else {
@@ -116,12 +119,17 @@ public class DiversityProcedure {
                     continue;
                 }
 
+                if (firstAN < 0) firstAN = an;
+
                 nVariants++;
                 piSum += VectorOps.piPerSite(af, an);
                 heSum += 2.0 * af * (1.0 - af);
 
+                // H_obs: hetCount / nDiploid (approximate for mixed ploidy)
                 int nDiploid = an / 2;
-                hoSum += (double) hetCount / nDiploid;
+                if (nDiploid > 0) {
+                    hoSum += (double) hetCount / nDiploid;
+                }
 
                 if (ac > 0 && ac < an) {
                     nSegregating++;
@@ -157,19 +165,20 @@ public class DiversityProcedure {
             return Stream.of(out);
         }
 
-        // For custom subsets, derive harmonic numbers from the subset size
+        // Derive n from actual AN (ploidy-aware: works for haploid/mixed chromosomes)
         int n;
         double a_n, a_n2;
         if (useSubset) {
-            int nSamples = subsetIndex.size();
-            n = 2 * nSamples;
+            // For custom subsets, use first observed AN (accounts for ploidy)
+            n = firstAN > 0 ? firstAN : 2 * subsetIndex.size();
             a_n = harmonicNumber(n - 1);
             a_n2 = harmonicNumber2(n - 1);
         } else {
             if (ctx == null) return Stream.of(out);
-            n = 2 * ctx.nSamples;
-            a_n = ctx.a_n;
-            a_n2 = ctx.a_n2;
+            // Use first observed AN instead of assuming 2*nSamples (handles non-diploid chr)
+            n = firstAN > 0 ? firstAN : 2 * ctx.nSamples;
+            a_n = harmonicNumber(n - 1);
+            a_n2 = harmonicNumber2(n - 1);
         }
 
         double L = nVariants;
@@ -179,11 +188,7 @@ public class DiversityProcedure {
         out.fis = out.het_exp > 0 ? 1.0 - out.het_obs / out.het_exp : 0.0;
         out.theta_w = a_n > 0 ? (nSegregating / a_n) / L : 0.0;
 
-        if (useSubset) {
-            out.tajima_d = TajimaD.compute(piSum, nSegregating, n, a_n, a_n2);
-        } else {
-            out.tajima_d = TajimaD.compute(piSum, nSegregating, ctx);
-        }
+        out.tajima_d = TajimaD.compute(piSum, nSegregating, n, a_n, a_n2);
 
         // Fay & Wu's H (only if we have polarized sites)
         if (nPolarized > 0) {

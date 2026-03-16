@@ -60,8 +60,10 @@ public class PopSummaryProcedure {
         boolean useSubset = sampleList != null && !sampleList.isEmpty();
 
         Map<String, Integer> subsetIndex = null;
+        int[] packedIndices = null;
         if (useSubset) {
             subsetIndex = GenotypeLoader.buildSampleIndex(tx, sampleList);
+            packedIndices = GenotypeLoader.buildPackedIndices(tx, subsetIndex);
         }
 
         PopulationContext ctx = null;
@@ -74,11 +76,12 @@ public class PopSummaryProcedure {
         long nVariants = 0;
         long nSegregating = 0;
         long nPolarized = 0;
+        int firstAN = -1; // track first observed AN for ploidy-aware n derivation
 
         // Query all variants on the chromosome
         var result = tx.execute(
                 VariantQuery.buildChromosome(options),
-                Map.of("chr", chr)
+                VariantQuery.params(options, Map.of("chr", chr))
         );
 
         try {
@@ -91,7 +94,7 @@ public class PopSummaryProcedure {
 
                 if (useSubset) {
                     SampleSubsetComputer.SubsetStats ss =
-                            SampleSubsetComputer.compute(variant, subsetIndex);
+                            SampleSubsetComputer.compute(variant, subsetIndex, packedIndices);
                     ac = ss.ac; an = ss.an; af = ss.af;
                     hetCount = ss.hetCount; homAltCount = ss.homAltCount;
                 } else {
@@ -114,12 +117,17 @@ public class PopSummaryProcedure {
                     continue;
                 }
 
+                if (firstAN < 0) firstAN = an;
+
                 nVariants++;
                 piSum += VectorOps.piPerSite(af, an);
                 heSum += 2.0 * af * (1.0 - af);
 
+                // H_obs: hetCount / nDiploid (approximate for mixed ploidy)
                 int nDiploid = an / 2;
-                hoSum += (double) hetCount / nDiploid;
+                if (nDiploid > 0) {
+                    hoSum += (double) hetCount / nDiploid;
+                }
 
                 if (ac > 0 && ac < an) {
                     nSegregating++;
@@ -155,18 +163,18 @@ public class PopSummaryProcedure {
             return Stream.of(out);
         }
 
+        // Derive n from actual AN (ploidy-aware: works for haploid/mixed chromosomes)
         int n;
         double a_n, a_n2;
         if (useSubset) {
-            int nSamples = subsetIndex.size();
-            n = 2 * nSamples;
+            n = firstAN > 0 ? firstAN : 2 * subsetIndex.size();
             a_n = harmonicNumber(n - 1);
             a_n2 = harmonicNumber2(n - 1);
         } else {
             if (ctx == null) return Stream.of(out);
-            n = 2 * ctx.nSamples;
-            a_n = ctx.a_n;
-            a_n2 = ctx.a_n2;
+            n = firstAN > 0 ? firstAN : 2 * ctx.nSamples;
+            a_n = harmonicNumber(n - 1);
+            a_n2 = harmonicNumber2(n - 1);
         }
 
         double L = nVariants;
@@ -176,11 +184,7 @@ public class PopSummaryProcedure {
         out.mean_fis = out.mean_he > 0 ? 1.0 - out.mean_ho / out.mean_he : 0.0;
         out.theta_w = a_n > 0 ? (nSegregating / a_n) / L : 0.0;
 
-        if (useSubset) {
-            out.tajima_d = TajimaD.compute(piSum, nSegregating, n, a_n, a_n2);
-        } else {
-            out.tajima_d = TajimaD.compute(piSum, nSegregating, ctx);
-        }
+        out.tajima_d = TajimaD.compute(piSum, nSegregating, n, a_n, a_n2);
 
         if (nPolarized > 0) {
             out.fay_wu_h = FayWuH.compute(piPolarizedSum, thetaHSum) / nPolarized;

@@ -136,11 +136,10 @@ public class ROHProcedure {
             ROHHmm hmm = ROHHmm.fromOptions(options);
 
             IntStream.range(0, nSamples).parallel().forEach(s -> {
-                // Extract diploid genotype for this sample
+                // Extract diploid genotype for this sample (bit-packed access)
                 int[] genotypes = new int[nVariants];
                 for (int v = 0; v < nVariants; v++) {
-                    genotypes[v] = matrix.haplotypes[v][2 * s]
-                                 + matrix.haplotypes[v][2 * s + 1];
+                    genotypes[v] = matrix.hap(v, 2 * s) + matrix.hap(v, 2 * s + 1);
                 }
 
                 // Run Viterbi
@@ -177,11 +176,11 @@ public class ROHProcedure {
             final double windowThresholdFinal = windowThreshold;
 
             IntStream.range(0, nSamples).parallel().forEach(s -> {
-                // Build heterozygosity flag array for this sample
+                // Build heterozygosity flag array for this sample (bit-packed)
                 boolean[] isHet = new boolean[nVariants];
                 for (int v = 0; v < nVariants; v++) {
-                    int h0 = matrix.haplotypes[v][2 * s];
-                    int h1 = matrix.haplotypes[v][2 * s + 1];
+                    int h0 = matrix.hap(v, 2 * s);
+                    int h1 = matrix.hap(v, 2 * s + 1);
                     isHet[v] = (h0 != h1);
                 }
 

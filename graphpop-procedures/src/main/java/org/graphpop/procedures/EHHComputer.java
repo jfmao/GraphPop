@@ -239,7 +239,7 @@ final class EHHComputer {
 
             byte[] hapRow = matrix.haplotypes[idx];
 
-            // Count alleles per group at this site
+            // Count alleles per group at this site (bit-packed access)
             nSeen = 0;
             for (int h = 0; h < nHaps; h++) {
                 int grp = groupOf[h];
@@ -247,7 +247,8 @@ final class EHHComputer {
                 if (count0[grp] == 0 && count1[grp] == 0) {
                     seenGroups[nSeen++] = grp;
                 }
-                if (hapRow[carrierHapIdxs[h]] == 1) {
+                int ci = carrierHapIdxs[h];
+                if (((hapRow[ci >> 3] >> (ci & 7)) & 1) == 1) {
                     count1[grp]++;
                 } else {
                     count0[grp]++;
@@ -278,8 +279,11 @@ final class EHHComputer {
 
                     // Reassign haplotypes with allele=1 to new group
                     for (int h = 0; h < nHaps; h++) {
-                        if (groupOf[h] == grp && hapRow[carrierHapIdxs[h]] == 1) {
-                            groupOf[h] = newGrp;
+                        if (groupOf[h] == grp) {
+                            int ci = carrierHapIdxs[h];
+                            if (((hapRow[ci >> 3] >> (ci & 7)) & 1) == 1) {
+                                groupOf[h] = newGrp;
+                            }
                         }
                     }
                 }
@@ -356,7 +360,8 @@ final class EHHComputer {
                 if (count0[grp] == 0 && count1[grp] == 0) {
                     seenGroups[nSeen++] = grp;
                 }
-                if (hapRow[carrierHapIdxs[h]] == 1) {
+                int ci = carrierHapIdxs[h];
+                if (((hapRow[ci >> 3] >> (ci & 7)) & 1) == 1) {
                     count1[grp]++;
                 } else {
                     count0[grp]++;
@@ -380,8 +385,11 @@ final class EHHComputer {
                     sumPairs += (double) c1 * (c1 - 1) / 2.0;
 
                     for (int h = 0; h < nHaps; h++) {
-                        if (groupOf[h] == grp && hapRow[carrierHapIdxs[h]] == 1) {
-                            groupOf[h] = newGrp;
+                        if (groupOf[h] == grp) {
+                            int ci = carrierHapIdxs[h];
+                            if (((hapRow[ci >> 3] >> (ci & 7)) & 1) == 1) {
+                                groupOf[h] = newGrp;
+                            }
                         }
                     }
                 }

@@ -59,6 +59,8 @@ public class DivergenceProcedure {
 
         Map<String, Integer> subsetIndex1 = useSubset1 ? GenotypeLoader.buildSampleIndex(tx, samples1) : null;
         Map<String, Integer> subsetIndex2 = useSubset2 ? GenotypeLoader.buildSampleIndex(tx, samples2) : null;
+        int[] packedIndices1 = useSubset1 ? GenotypeLoader.buildPackedIndices(tx, subsetIndex1) : null;
+        int[] packedIndices2 = useSubset2 ? GenotypeLoader.buildPackedIndices(tx, subsetIndex2) : null;
 
         int popIndex1 = -1;
         int popIndex2 = -1;
@@ -78,7 +80,7 @@ public class DivergenceProcedure {
 
         var result = tx.execute(
                 VariantQuery.build(options),
-                Map.of("chr", chr, "start", start, "end", end)
+                VariantQuery.params(options, Map.of("chr", chr, "start", start, "end", end))
         );
 
         try {
@@ -86,12 +88,12 @@ public class DivergenceProcedure {
                 Map<String, Object> row = result.next();
                 Node variant = (Node) row.get("v");
 
-                int ac1, an1, ac2, an2, het1, het2;
+                int ac1, an1, ac2, an2, het1, het2, homAlt1;
                 double af1, af2;
 
                 if (useSubset1) {
-                    SampleSubsetComputer.SubsetStats ss = SampleSubsetComputer.compute(variant, subsetIndex1);
-                    ac1 = ss.ac; an1 = ss.an; af1 = ss.af; het1 = ss.hetCount;
+                    SampleSubsetComputer.SubsetStats ss = SampleSubsetComputer.compute(variant, subsetIndex1, packedIndices1);
+                    ac1 = ss.ac; an1 = ss.an; af1 = ss.af; het1 = ss.hetCount; homAlt1 = ss.homAltCount;
                 } else {
                     if (popIndex1 < 0) {
                         String[] popIds = ArrayUtil.toStringArray(variant.getProperty("pop_ids"));
@@ -108,12 +110,13 @@ public class DivergenceProcedure {
                     int[] anArr = ArrayUtil.toIntArray(variant.getProperty("an"));
                     double[] afArr = ArrayUtil.toDoubleArray(variant.getProperty("af"));
                     int[] hetArr = ArrayUtil.toIntArray(variant.getProperty("het_count"));
+                    int[] homAltArr = ArrayUtil.toIntArray(variant.getProperty("hom_alt_count"));
                     ac1 = acArr[popIndex1]; an1 = anArr[popIndex1]; af1 = afArr[popIndex1];
-                    het1 = hetArr[popIndex1];
+                    het1 = hetArr[popIndex1]; homAlt1 = homAltArr[popIndex1];
                 }
 
                 if (useSubset2) {
-                    SampleSubsetComputer.SubsetStats ss = SampleSubsetComputer.compute(variant, subsetIndex2);
+                    SampleSubsetComputer.SubsetStats ss = SampleSubsetComputer.compute(variant, subsetIndex2, packedIndices2);
                     ac2 = ss.ac; an2 = ss.an; af2 = ss.af; het2 = ss.hetCount;
                 } else {
                     int[] acArr = ArrayUtil.toIntArray(variant.getProperty("ac"));
@@ -126,14 +129,7 @@ public class DivergenceProcedure {
 
                 if (an1 < 2 || an2 < 2) continue;
 
-                // Apply variant_type filter (must check before AF filter)
-                if (filter.variantType != null) {
-                    Object vt = variant.getProperty("variant_type", null);
-                    if (vt == null || !filter.variantType.equals(vt)) continue;
-                }
-
-                // Apply filter to pop1 side (primary filter)
-                if (filter.isActive() && (af1 < filter.minAf || af1 > filter.maxAf)) continue;
+                if (filter.isActive() && !filter.passes(ac1, an1, af1, het1, homAlt1, variant)) continue;
 
                 // Pop3 data (only when PBS requested)
                 int ac3 = 0, an3 = 0, het3 = 0;

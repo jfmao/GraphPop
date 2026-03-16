@@ -22,7 +22,6 @@ neo4j-admin database import full \
     --nodes=Sample="$CSV_DIR/sample_nodes.csv" \
     --nodes=Population="$CSV_DIR/population_nodes.csv" \
     --nodes=Chromosome="$CSV_DIR/chromosome_nodes.csv" \
-    --relationships=CARRIES="$CSV_DIR/carries_edges.csv" \
     --relationships=NEXT="$CSV_DIR/next_edges.csv" \
     --relationships=ON_CHROMOSOME="$CSV_DIR/on_chromosome_edges.csv" \
     --relationships=IN_POPULATION="$CSV_DIR/in_population_edges.csv" \
@@ -75,8 +74,6 @@ CYPHER
 echo ""
 cypher-shell -d graphpop << 'CYPHER'
 // Relationship counts
-MATCH ()-[r:CARRIES]->() RETURN 'CARRIES' AS type, count(r) AS count
-UNION ALL
 MATCH ()-[r:NEXT]->() RETURN 'NEXT' AS type, count(r) AS count
 UNION ALL
 MATCH ()-[r:ON_CHROMOSOME]->() RETURN 'ON_CHROMOSOME' AS type, count(r) AS count

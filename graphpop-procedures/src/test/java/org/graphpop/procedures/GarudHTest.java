@@ -11,6 +11,15 @@ class GarudHTest {
 
     private static final double EPS = 1e-10;
 
+    /** Pack unpacked byte[][] (1 byte/haplotype) to bit-packed format. */
+    private static byte[][] pack(byte[][] unpacked) {
+        byte[][] packed = new byte[unpacked.length][];
+        for (int v = 0; v < unpacked.length; v++) {
+            packed[v] = HaplotypeMatrix.packRow(unpacked[v]);
+        }
+        return packed;
+    }
+
     @Test
     void allIdenticalHaplotypes() {
         // 10 haplotypes, 5 variants, all ref → 1 unique haplotype
@@ -18,7 +27,7 @@ class GarudHTest {
         int nVar = 5;
         byte[][] hap = new byte[nVar][nHap]; // all zeros
 
-        GarudH.Result r = GarudH.compute(hap, 0, nVar - 1, nHap);
+        GarudH.Result r = GarudH.compute(pack(hap), 0, nVar - 1, nHap);
 
         assertNotNull(r);
         assertEquals(1.0, r.h1, EPS, "All identical → H1 = 1.0");
@@ -41,7 +50,7 @@ class GarudHTest {
             }
         }
 
-        GarudH.Result r = GarudH.compute(hap, 0, nVar - 1, nHap);
+        GarudH.Result r = GarudH.compute(pack(hap), 0, nVar - 1, nHap);
 
         assertNotNull(r);
         assertEquals(8, r.n_haplotypes);
@@ -68,7 +77,7 @@ class GarudHTest {
         // Haplotype 9: 0100
         hap[1][9] = 1;
 
-        GarudH.Result r = GarudH.compute(hap, 0, nVar - 1, nHap);
+        GarudH.Result r = GarudH.compute(pack(hap), 0, nVar - 1, nHap);
 
         assertNotNull(r);
         assertEquals(3, r.n_haplotypes);
@@ -97,7 +106,7 @@ class GarudHTest {
         // Haplotype 9: 010
         hap[1][9] = 1;
 
-        GarudH.Result r = GarudH.compute(hap, 0, nVar - 1, nHap);
+        GarudH.Result r = GarudH.compute(pack(hap), 0, nVar - 1, nHap);
 
         assertNotNull(r);
         assertEquals(4, r.n_haplotypes);
@@ -127,8 +136,8 @@ class GarudHTest {
         }
 
         // Full range vs sub-range should give different results
-        GarudH.Result rFull = GarudH.compute(hap, 0, nVar - 1, nHap);
-        GarudH.Result rSub = GarudH.compute(hap, 2, 4, nHap);
+        GarudH.Result rFull = GarudH.compute(pack(hap), 0, nVar - 1, nHap);
+        GarudH.Result rSub = GarudH.compute(pack(hap), 2, 4, nHap);
 
         assertNotNull(rFull);
         assertNotNull(rSub);

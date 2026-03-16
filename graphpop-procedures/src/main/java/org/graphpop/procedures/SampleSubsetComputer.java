@@ -1,8 +1,6 @@
 package org.graphpop.procedures;
 
-import org.neo4j.graphdb.Direction;
 import org.neo4j.graphdb.Node;
-import org.neo4j.graphdb.RelationshipType;
 
 import java.util.Map;
 
@@ -11,47 +9,56 @@ import java.util.Map;
  *
  * <p>When a user provides a {@code samples} option, FAST PATH procedures
  * cannot use the pre-computed per-population arrays (ac, an, af, het_count, etc.)
- * because those are for the full population. This class traverses CARRIES edges
- * for the specified samples and recomputes AC/AN/AF/het per variant.</p>
- *
- * <p>This is inherently slower than FAST PATH (O(V × S_subset) rather than O(V × K)),
- * but gives full flexibility for user-defined sample subsets.</p>
+ * because those are for the full population. This class reads packed genotype
+ * arrays for the specified samples and recomputes AC/AN/AF/het per variant.</p>
  */
 final class SampleSubsetComputer {
-
-    private static final RelationshipType CARRIES_REL = RelationshipType.withName("CARRIES");
 
     private SampleSubsetComputer() {}
 
     /**
-     * Recompute allele statistics for a single variant from CARRIES edges.
+     * Recompute allele statistics for a single variant from packed genotype arrays.
      *
-     * @param variant     the Variant node
-     * @param sampleIndex mapping from sampleId to array position (only samples in this map are counted)
+     * <p>Ploidy-aware: reads optional {@code ploidy_packed} from the variant node.
+     * Haploid samples (bit=1) contribute 1 allele to AN per called sample and 1 to AC
+     * per ALT call. Diploid samples contribute 2 alleles as before.</p>
+     *
+     * @param variant       the Variant node (must have gt_packed; ploidy_packed optional)
+     * @param sampleIndex   mapping from sampleId to array position (only samples in this map are counted)
+     * @param packedIndices array where packedIndices[matrixPos] = VCF column index (packed_index)
      * @return computed statistics for the variant
      */
-    static SubsetStats compute(Node variant, Map<String, Integer> sampleIndex) {
+    static SubsetStats compute(Node variant, Map<String, Integer> sampleIndex, int[] packedIndices) {
         int nSamples = sampleIndex.size();
         int ac = 0;
+        int an = 0;
         int hetCount = 0;
         int homAltCount = 0;
 
-        for (var rel : variant.getRelationships(Direction.INCOMING, CARRIES_REL)) {
-            Node sampleNode = rel.getStartNode();
-            String sid = (String) sampleNode.getProperty("sampleId");
-            if (!sampleIndex.containsKey(sid)) continue;
+        byte[] gtPacked = (byte[]) variant.getProperty("gt_packed");
+        Object ploidyObj = variant.getProperty("ploidy_packed", null);
+        byte[] ploidyPacked = (ploidyObj instanceof byte[]) ? (byte[]) ploidyObj : null;
 
-            int gt = ((Number) rel.getProperty("gt")).intValue();
-            if (gt == 1) {
+        for (int s = 0; s < nSamples; s++) {
+            int pi = packedIndices[s];
+            if (pi < 0) continue;
+            int gt = PackedGenotypeReader.genotype(gtPacked, pi);
+            if (gt == PackedGenotypeReader.GT_MISSING) continue;
+
+            boolean isHaploid = PackedGenotypeReader.ploidy(ploidyPacked, pi) == 1;
+            int ploidy = isHaploid ? 1 : 2;
+            an += ploidy;
+
+            if (gt == PackedGenotypeReader.GT_HET && !isHaploid) {
                 ac += 1;
                 hetCount++;
-            } else if (gt == 2) {
-                ac += 2;
+            } else if (gt == PackedGenotypeReader.GT_HOM_ALT) {
+                ac += ploidy;
                 homAltCount++;
             }
+            // GT_HOM_REF → 0 alleles
         }
 
-        int an = nSamples * 2;
         double af = an > 0 ? (double) ac / an : 0.0;
 
         return new SubsetStats(ac, an, af, hetCount, homAltCount);

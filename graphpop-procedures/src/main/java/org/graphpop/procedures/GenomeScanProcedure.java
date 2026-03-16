@@ -60,6 +60,8 @@ public class GenomeScanProcedure {
         public double theta_w;
         public double tajima_d;
         public double fay_wu_h;
+        public double fay_wu_h_norm;
+        public long n_polarized;
         public double het_exp;
         public double het_obs;
         public double fis;
@@ -100,7 +102,7 @@ public class GenomeScanProcedure {
         // Fetch all variants on this chromosome, sorted by position.
         var result = tx.execute(
                 VariantQuery.buildChromosome(options),
-                Map.of("chr", chr)
+                VariantQuery.params(options, Map.of("chr", chr))
         );
 
         // Load variants into memory
@@ -192,6 +194,8 @@ public class GenomeScanProcedure {
             }
         }
 
+        int firstAN = -1; // track first observed AN for ploidy-aware n derivation
+
         for (int i = 0; i < nVar; i++) {
             VariantData v = variants.get(i);
             int ac = v.ac[ctx.index];
@@ -207,11 +211,14 @@ public class GenomeScanProcedure {
                 continue;
             }
 
+            if (firstAN < 0) firstAN = an;
+
             valid[i] = true;
 
             piArr[i] = VectorOps.piPerSite(af, an);
             heArr[i] = 2.0 * af * (1.0 - af);
-            hoArr[i] = (double) het / (an / 2);
+            int nDiploid = an / 2;
+            hoArr[i] = nDiploid > 0 ? (double) het / nDiploid : 0.0;
             segregating[i] = ac > 0 && ac < an;
 
             // Fay & Wu's H
@@ -272,8 +279,12 @@ public class GenomeScanProcedure {
         int nWindows = windowBounds.size();
         if (nWindows == 0) return Stream.empty();
 
+        // Derive n from actual AN (ploidy-aware)
+        final int n = firstAN > 0 ? firstAN : 2 * ctx.nSamples;
+        final double a_n = harmonicNumber(n - 1);
+        final double a_n2 = harmonicNumber2(n - 1);
+
         // Phase 2: Parallel window summation — pure array ops
-        final PopulationContext ctxF = ctx;
         final PopulationContext ctx2F = ctx2;
         final PopulationContext ctx3F = ctx3;
         final double[] fstNumF = fstNumArr, fstDenF = fstDenArr, dxyF = dxyArr;
@@ -347,14 +358,16 @@ public class GenomeScanProcedure {
             wr.n_variants = nVariants;
             wr.n_segregating = nSeg;
             wr.pi = piSum / L;
-            wr.theta_w = ctxF.a_n > 0 ? (nSeg / ctxF.a_n) / L : 0.0;
-            wr.tajima_d = TajimaD.compute(piSum, nSeg, ctxF);
+            wr.theta_w = a_n > 0 ? (nSeg / a_n) / L : 0.0;
+            wr.tajima_d = TajimaD.compute(piSum, nSeg, n, a_n, a_n2);
             wr.het_exp = heSum / L;
             wr.het_obs = hoSum / L;
             wr.fis = wr.het_exp > 0 ? 1.0 - wr.het_obs / wr.het_exp : 0.0;
 
             if (nPol > 0) {
                 wr.fay_wu_h = FayWuH.compute(piPolarSum, thetaHSum) / nPol;
+                wr.fay_wu_h_norm = FayWuH.normalizedH(piPolarSum, thetaHSum, nPol, n, a_n);
+                wr.n_polarized = nPol;
             }
 
             if (ctx2F != null && fstDen > 0) {
@@ -402,6 +415,10 @@ public class GenomeScanProcedure {
             gwNode.setProperty("theta_w", wr.theta_w);
             gwNode.setProperty("tajima_d", wr.tajima_d);
             gwNode.setProperty("fay_wu_h", wr.fay_wu_h);
+            if (wr.n_polarized > 0) {
+                gwNode.setProperty("fay_wu_h_norm", wr.fay_wu_h_norm);
+                gwNode.setProperty("n_polarized", wr.n_polarized);
+            }
             gwNode.setProperty("het_exp", wr.het_exp);
             gwNode.setProperty("het_obs", wr.het_obs);
             gwNode.setProperty("fis", wr.fis);
@@ -452,5 +469,17 @@ public class GenomeScanProcedure {
             this.ancestralAllele = ancestralAllele;
             this.node = node;
         }
+    }
+
+    private static double harmonicNumber(int m) {
+        double h = 0.0;
+        for (int i = 1; i <= m; i++) h += 1.0 / i;
+        return h;
+    }
+
+    private static double harmonicNumber2(int m) {
+        double h = 0.0;
+        for (int i = 1; i <= m; i++) h += 1.0 / ((double) i * i);
+        return h;
     }
 }

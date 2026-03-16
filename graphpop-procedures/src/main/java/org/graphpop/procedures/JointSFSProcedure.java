@@ -60,6 +60,8 @@ public class JointSFSProcedure {
 
         Map<String, Integer> subsetIndex1 = useSubset1 ? GenotypeLoader.buildSampleIndex(tx, samples1) : null;
         Map<String, Integer> subsetIndex2 = useSubset2 ? GenotypeLoader.buildSampleIndex(tx, samples2) : null;
+        int[] packedIndices1 = useSubset1 ? GenotypeLoader.buildPackedIndices(tx, subsetIndex1) : null;
+        int[] packedIndices2 = useSubset2 ? GenotypeLoader.buildPackedIndices(tx, subsetIndex2) : null;
 
         int popIndex1 = -1;
         int popIndex2 = -1;
@@ -70,7 +72,7 @@ public class JointSFSProcedure {
 
         var result = tx.execute(
                 VariantQuery.build(options),
-                Map.of("chr", chr, "start", start, "end", end)
+                VariantQuery.params(options, Map.of("chr", chr, "start", start, "end", end))
         );
 
         try {
@@ -78,11 +80,11 @@ public class JointSFSProcedure {
                 Map<String, Object> row = result.next();
                 Node variant = (Node) row.get("v");
 
-                int ac1, an1, ac2, an2;
+                int ac1, an1, ac2, an2, het1, homAlt1;
 
                 if (useSubset1) {
-                    SampleSubsetComputer.SubsetStats ss = SampleSubsetComputer.compute(variant, subsetIndex1);
-                    ac1 = ss.ac; an1 = ss.an;
+                    SampleSubsetComputer.SubsetStats ss = SampleSubsetComputer.compute(variant, subsetIndex1, packedIndices1);
+                    ac1 = ss.ac; an1 = ss.an; het1 = ss.hetCount; homAlt1 = ss.homAltCount;
                 } else {
                     if (popIndex1 < 0) {
                         String[] popIds = ArrayUtil.toStringArray(variant.getProperty("pop_ids"));
@@ -95,11 +97,14 @@ public class JointSFSProcedure {
                     }
                     int[] acArr = ArrayUtil.toIntArray(variant.getProperty("ac"));
                     int[] anArr = ArrayUtil.toIntArray(variant.getProperty("an"));
+                    int[] hetArr = ArrayUtil.toIntArray(variant.getProperty("het_count"));
+                    int[] homAltArr = ArrayUtil.toIntArray(variant.getProperty("hom_alt_count"));
                     ac1 = acArr[popIndex1]; an1 = anArr[popIndex1];
+                    het1 = hetArr[popIndex1]; homAlt1 = homAltArr[popIndex1];
                 }
 
                 if (useSubset2) {
-                    SampleSubsetComputer.SubsetStats ss = SampleSubsetComputer.compute(variant, subsetIndex2);
+                    SampleSubsetComputer.SubsetStats ss = SampleSubsetComputer.compute(variant, subsetIndex2, packedIndices2);
                     ac2 = ss.ac; an2 = ss.an;
                 } else {
                     int[] acArr = ArrayUtil.toIntArray(variant.getProperty("ac"));
@@ -109,15 +114,8 @@ public class JointSFSProcedure {
 
                 if (an1 < 2 || an2 < 2) continue;
 
-                // Apply variant_type filter
-                if (filter.variantType != null) {
-                    Object vt = variant.getProperty("variant_type", null);
-                    if (vt == null || !filter.variantType.equals(vt)) continue;
-                }
-
-                // Apply AF filter
                 double af1 = (double) ac1 / an1;
-                if (filter.isActive() && (af1 < filter.minAf || af1 > filter.maxAf)) continue;
+                if (filter.isActive() && !filter.passes(ac1, an1, af1, het1, homAlt1, variant)) continue;
 
                 if (an1 > maxAn1) maxAn1 = an1;
                 if (an2 > maxAn2) maxAn2 = an2;

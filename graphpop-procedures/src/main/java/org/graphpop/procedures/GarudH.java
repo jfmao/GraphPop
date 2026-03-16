@@ -65,7 +65,8 @@ final class GarudH {
         for (int h = 0; h < nHaplotypes; h++) {
             byte[] hapPattern = new byte[nVars];
             for (int v = 0; v < nVars; v++) {
-                hapPattern[v] = haplotypes[varStart + v][h];
+                byte[] row = haplotypes[varStart + v];
+                hapPattern[v] = (byte)((row[h >> 3] >> (h & 7)) & 1);
             }
             HaplotypeKey key = new HaplotypeKey(hapPattern);
             counts.computeIfAbsent(key, k -> new int[]{0})[0]++;

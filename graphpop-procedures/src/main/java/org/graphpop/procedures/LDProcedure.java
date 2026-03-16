@@ -61,9 +61,10 @@ public class LDProcedure {
             @Name(value = "options", defaultValue = "{}") Map<String, Object> options
     ) {
         VariantFilter filter = VariantFilter.fromOptions(options);
+        String variantType = filter.variantType;
         boolean writeEdges = true;
         if (options != null && options.containsKey("write_edges")) {
-            writeEdges = (Boolean) options.get("write_edges");
+            writeEdges = Boolean.TRUE.equals(options.get("write_edges"));
         }
 
         List<String> sampleList = options != null ? (List<String>) options.get("samples") : null;
@@ -73,9 +74,9 @@ public class LDProcedure {
         HaplotypeMatrix matrix;
         if (useSubset) {
             Map<String, Integer> sampleIndex = GenotypeLoader.buildSampleIndex(tx, sampleList);
-            matrix = HaplotypeMatrix.load(tx, chr, sampleIndex, start, end);
+            matrix = HaplotypeMatrix.load(tx, chr, sampleIndex, start, end, variantType);
         } else {
-            matrix = HaplotypeMatrix.load(tx, chr, pop, start, end);
+            matrix = HaplotypeMatrix.load(tx, chr, pop, start, end, variantType);
         }
         if (matrix == null || matrix.nVariants < 2) return Stream.empty();
 
@@ -107,7 +108,7 @@ public class LDProcedure {
 
                         double r2 = VectorOps.pearsonR2(dosages[i], dosages[j]);
                         if (r2 >= r2Threshold) {
-                            double dprime = VectorOps.dPrime(hapI, matrix.haplotypes[vj], nHaps);
+                            double dprime = VectorOps.dPrimePacked(hapI, matrix.haplotypes[vj], nHaps);
                             local.add(new LDHit(i, j, vi, vj, r2, dprime, dist));
                         }
                     }

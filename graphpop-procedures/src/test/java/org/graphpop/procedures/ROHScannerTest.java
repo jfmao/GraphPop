@@ -44,7 +44,7 @@ class ROHScannerTest {
         int nVariants = matrix.nVariants;
         boolean[] isHet = new boolean[nVariants];
         for (int v = 0; v < nVariants; v++) {
-            isHet[v] = matrix.haplotypes[v][2 * sampleIdx] != matrix.haplotypes[v][2 * sampleIdx + 1];
+            isHet[v] = matrix.hap(v, 2 * sampleIdx) != matrix.hap(v, 2 * sampleIdx + 1);
         }
 
         boolean[] homWindow = new boolean[nVariants];

@@ -69,6 +69,9 @@ final class VariantFilter {
         return active;
     }
 
+    /** Expected AN for call rate computation (set once from first variant's AN). */
+    private int expectedAN = -1;
+
     /**
      * FAST PATH: check a variant against all filter criteria using pre-computed
      * per-population arrays.
@@ -86,31 +89,40 @@ final class VariantFilter {
         // AF filter (checks both alleles — minor allele frequency semantics)
         if (af < minAf || af > maxAf) return false;
 
-        // Call rate: an / max_an. We approximate using the node-level an_total if available,
-        // otherwise skip. For population-level call rate, an should be close to 2*n_samples.
-        if (minCallRate > 0.0 && variant != null) {
-            Object anTotalObj = variant.getProperty("an_total", null);
-            if (anTotalObj != null) {
-                int anTotal = ((Number) anTotalObj).intValue();
-                if (anTotal > 0) {
-                    double callRate = (double) an / anTotal;
-                    if (callRate < minCallRate) return false;
-                }
+        // Call rate: an / expected_an. The expected AN is derived from the first
+        // variant's AN (which typically has full coverage). This handles both
+        // diploid (AN=2*nSamples) and haploid (AN=nSamples) chromosomes.
+        if (minCallRate > 0.0 && an > 0) {
+            if (expectedAN < 0) {
+                expectedAN = an;  // calibrate from first variant seen
+            }
+            if (expectedAN > 0) {
+                double callRate = (double) an / expectedAN;
+                if (callRate < minCallRate) return false;
             }
         }
 
-        // HWE exact test
+        // HWE exact test (skip on non-diploid chromosomes where ploidy_packed is present)
         if (hweThreshold > 0.0) {
-            int nTotal = an / 2;  // diploid sample count
-            int nHomMinor;
-            if (af <= 0.5) {
-                nHomMinor = homAltCount;
-            } else {
-                // For af > 0.5, minor allele is ref
-                nHomMinor = nTotal - hetCount - homAltCount;
+            boolean skipHwe = false;
+            if (variant != null) {
+                Object ploidyObj = variant.getProperty("ploidy_packed", null);
+                if (ploidyObj instanceof byte[] pb && pb.length > 0) {
+                    skipHwe = true; // non-diploid chromosome — HWE not applicable
+                }
             }
-            double hwePval = HWEExact.hweExactMidP(hetCount, nHomMinor, nTotal);
-            if (hwePval < hweThreshold) return false;
+            if (!skipHwe) {
+                int nTotal = an / 2;  // diploid sample count
+                int nHomMinor;
+                if (af <= 0.5) {
+                    nHomMinor = homAltCount;
+                } else {
+                    // For af > 0.5, minor allele is ref
+                    nHomMinor = nTotal - hetCount - homAltCount;
+                }
+                double hwePval = HWEExact.hweExactMidP(hetCount, nHomMinor, nTotal);
+                if (hwePval < hweThreshold) return false;
+            }
         }
 
         // Variant type filter

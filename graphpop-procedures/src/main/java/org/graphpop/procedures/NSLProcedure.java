@@ -73,6 +73,7 @@ public class NSLProcedure {
         }
         VariantFilter filter = VariantFilter.fromOptions(options);
         double minAf = filter.minAf > 0 ? filter.minAf : DEFAULT_MIN_AF;
+        String variantType = filter.variantType;
         Long regionStart = null;
         Long regionEnd = null;
         if (options != null) {
@@ -91,9 +92,9 @@ public class NSLProcedure {
         HaplotypeMatrix matrix;
         if (useSubset) {
             Map<String, Integer> sampleIndex = GenotypeLoader.buildSampleIndex(tx, sampleList);
-            matrix = HaplotypeMatrix.load(tx, chr, sampleIndex, regionStart, regionEnd);
+            matrix = HaplotypeMatrix.load(tx, chr, sampleIndex, regionStart, regionEnd, variantType);
         } else {
-            matrix = HaplotypeMatrix.load(tx, chr, pop, regionStart, regionEnd);
+            matrix = HaplotypeMatrix.load(tx, chr, pop, regionStart, regionEnd, variantType);
         }
         if (matrix == null || matrix.nVariants == 0) return Stream.empty();
 
@@ -240,9 +241,9 @@ public class NSLProcedure {
             int u = 0;
 
             for (int j = 0; j < nHaps; j++) {
-                byte a1 = haps[j];
+                int a1 = (haps[j >> 3] >> (j & 7)) & 1;
                 for (int k = j + 1; k < nHaps; k++) {
-                    byte a2 = haps[k];
+                    int a2 = (haps[k >> 3] >> (k & 7)) & 1;
                     if (a1 == a2) {
                         int l = ssl[u] + 1;
                         ssl[u] = l;

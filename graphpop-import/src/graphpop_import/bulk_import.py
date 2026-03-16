@@ -40,9 +40,9 @@ def run_bulk_import(
         )
         emitter = CSVEmitter.run(parser, out_dir, chunk_size=chunk_size)
         logger.info(
-            "CSV generation complete: %d variants, %d carries edges",
+            "CSV generation complete: %d variants, %d chromosomes",
             emitter.n_variants,
-            emitter.n_carries,
+            len(emitter.chromosomes_seen),
         )
     else:
         logger.info("Skipping CSV generation (--skip-csv)")
@@ -76,7 +76,7 @@ def main() -> None:
     parser.add_argument("vcf", type=Path, help="Path to VCF/BCF file")
     parser.add_argument("panel", type=Path, help="Path to panel/PED file")
     parser.add_argument(
-        "-o", "--out-dir", type=Path, default=Path("csv_out"),
+        "out_dir", type=Path, nargs="?", default=Path("csv_out"),
         help="Output directory for CSV files (default: csv_out)",
     )
     parser.add_argument(

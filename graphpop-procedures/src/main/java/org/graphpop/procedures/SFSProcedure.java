@@ -56,8 +56,10 @@ public class SFSProcedure {
         boolean useSubset = sampleList != null && !sampleList.isEmpty();
 
         Map<String, Integer> subsetIndex = null;
+        int[] packedIndices = null;
         if (useSubset) {
             subsetIndex = GenotypeLoader.buildSampleIndex(tx, sampleList);
+            packedIndices = GenotypeLoader.buildPackedIndices(tx, subsetIndex);
         }
 
         int popIndex = -1;
@@ -68,7 +70,7 @@ public class SFSProcedure {
 
         var result = tx.execute(
                 VariantQuery.build(options),
-                Map.of("chr", chr, "start", start, "end", end)
+                VariantQuery.params(options, Map.of("chr", chr, "start", start, "end", end))
         );
 
         try {
@@ -81,7 +83,7 @@ public class SFSProcedure {
 
                 if (useSubset) {
                     SampleSubsetComputer.SubsetStats ss =
-                            SampleSubsetComputer.compute(variant, subsetIndex);
+                            SampleSubsetComputer.compute(variant, subsetIndex, packedIndices);
                     ac = ss.ac; an = ss.an; af = ss.af;
                     hetCount = ss.hetCount; homAltCount = ss.homAltCount;
                 } else {
