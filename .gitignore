@@ -56,6 +56,12 @@ data/raw/rice_epo/
 *.zip
 *.pdf
 
+# Large result JSONs (keep local, too big for git)
+human_full_results.json
+results/human/human_full_results.json
+results/rice/rice_full_results.json
+results/rice/rice_interpretation_results.json
+
 # Generated CSVs and cache
 data/raw/*/csv_out/
 data/raw/*/*.panel

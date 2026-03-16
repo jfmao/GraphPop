@@ -1,154 +1,140 @@
-# GraphPop — Phase 1: Data Foundation + Summary Statistics
+# GraphPop — Task Tracker
 
-## Status: In Progress
-## Target: Months 1–8
-
----
-
-## Milestone 1.1 — Import Pipeline (Month 1–2)
-
-### Setup
-- [x] Initialize project structure (pyproject.toml, pom.xml, packages)
-- [~] Install and configure Neo4j 5.x in WSL2 (neo4j 2026.01.4 installed; run `sudo bash scripts/configure-neo4j.sh` to apply config)
-- [x] Verify Java 21+ with Vector API support
-- [x] Download benchmark datasets (1000 Genomes NYGC 30x chr22 — 496 MB; Rice 3K deferred, SNP-Seek offline)
-
-### VCF Parser (graphpop-import)
-- [x] Implement VCF reader using cyvcf2
-- [x] Compute per-population allele counts (ac, an, af, het_count, hom_alt_count)
-- [x] Handle missing genotypes correctly
-- [x] Emit Variant node CSV (with allele count arrays)
-- [x] Emit CARRIES relationship CSV (sparse: only non-ref genotypes)
-- [x] Emit Sample node CSV from VCF header + metadata file
-- [x] Emit Population node CSV
-- [x] Emit Chromosome node CSV
-
-### Annotation Lift
-- [x] Parse VEP CSQ field → Gene nodes + HAS_CONSEQUENCE edges
-- [x] Pathway/GOTerm import from external files
-
-### NEXT Edge Builder
-- [x] Sort variants by (chr, pos) → emit NEXT relationship CSV
-- [~] Include distance_cM from genetic map if available (deferred — requires genetic map file)
-
-### Bulk Import
-- [x] Write neo4j-admin import script with all CSVs
-- [x] Chunking: per-chromosome, 100K variant blocks
-- [x] Test: Import 1000G chr22 into Neo4j and validate
-- [x] Post-import validation: orphaned nodes, NEXT chain completeness, AF consistency
-
-### Milestone 1.1 — Complete ✓
+## Status: Memory Management Complete, Ready for Re-run
+## Updated: 2026-03-16
 
 ---
 
-## Milestone 1.2 — VectorOps + Core Statistics (Month 2–4)
+## Phase 1 — Data Foundation + Summary Statistics: COMPLETE
 
-### VectorOps SIMD Core (graphpop-procedures)
-- [x] Implement `VectorOps.dotProduct` — SIMD dot product via jdk.incubator.vector
-- [x] `VectorOps.cosineSimilarity` — cosine similarity between AF vectors
-- [x] `VectorOps.euclideanDistance` — Euclidean distance between AF vectors
-- [x] `VectorOps.sum`, `sumOfSquares`, `subtract`, `expectedHeterozygosity`
-- [x] `VectorOps.piPerSite`, `hudsonFstComponents`, `dxyPerSite`
-- [x] Unit tests for all VectorOps methods (31 tests, JUnit 5)
-- [x] Maven build verified: `mvnw package` produces graphpop-procedures.jar (22 KB)
+### Milestone 1.1 — Import Pipeline: COMPLETE
+- [x] VCF parser (cyvcf2), per-population allele counts
+- [x] CSV emitter (Variant, Sample, Population, Chromosome, NEXT)
+- [x] VEP annotation lift (Gene + HAS_CONSEQUENCE)
+- [x] Pathway/GOTerm import (Reactome + BioMart)
+- [x] neo4j-admin bulk import script + validation
 
-### Stored Procedure: `graphpop.diversity(chr, start, end, pop, [options])`
-- [x] Register as @Procedure, query Variant nodes in [start, end] range by chr
-- [x] Compute π, θ_W, Tajima's D, H_e, H_o, F_IS
-- [x] Support conditioned queries: filter by consequence, pathway
-- [x] Return results as Stream<DiversityResult>
+### Milestone 1.2 — VectorOps + Core Statistics: COMPLETE
+- [x] VectorOps SIMD core (11 methods, 31 tests)
+- [x] 5 stored procedures: diversity, divergence, sfs, joint_sfs, genome_scan
+- [x] Validated against scikit-allel (<0.000001% error)
+- [x] Conditioned query benchmark: 9x warm-cache speedup
 
-### Stored Procedure: `graphpop.sfs(chr, start, end, pop, [folded])`
-- [x] Compute site frequency spectrum: histogram of derived allele counts
-- [x] Support folded SFS (fold symmetrically)
+### Milestone 1.3 — LD + Haplotype Statistics: COMPLETE
+- [x] VectorOps: pearsonR2, dPrime (14 new tests)
+- [x] 3 new procedures: graphpop.ld, graphpop.ihs, graphpop.xpehh (8 total)
+- [x] HaplotypeMatrix: dense bit-packed matrix from packed arrays
+- [x] EHHComputer: position-sorted walks, trapezoidal iHH
+- [x] LD validated: r=0.996 vs scikit-allel
 
-### Stored Procedure: `graphpop.divergence(chr, start, end, pop1, pop2)`
-- [x] Compute Hudson's F_ST, D_xy, D_a from allele count arrays
-
-### Stored Procedure: `graphpop.joint_sfs(chr, start, end, pop1, pop2, [folded])`
-- [x] Compute 2D joint site frequency spectrum
-
-### Stored Procedure: `graphpop.genome_scan(chr, pop, window, step, [options])`
-- [x] Sliding window (default: 100 kb window, 50 kb step)
-- [x] Materialize GenomicWindow nodes with computed stats (π, θ_W, D, H_e, H_o, F_IS)
-- [x] Link GenomicWindow → Chromosome via ON_CHROMOSOME
-- [x] Analysis versioning: each run tagged with run_id
-- [x] Comparative mode: include F_ST, D_xy, D_a if pop2 provided
-
-### Deployment
-- [x] Deploy script: `sudo bash scripts/deploy-procedures.sh`
-- [x] Verify procedures registered in Neo4j (all 5 confirmed)
-- [x] Create composite index on (Variant.chr, Variant.pos) for range queries
-- [x] Full-text index on GOTerm.name for enrichment filtering
-- [x] GenomicWindow constraint + indexes
-
-### Validation
-- [x] Reproduce scikit-allel π for 1000G chr22 to <0.01% error (0.000000% achieved)
-- [x] Reproduce Tajima's D to <0.01% error (0.000001% achieved)
-- [x] Reproduce Hudson's F_ST to <0.01% error (0.000000% achieved)
-- [x] Benchmark: conditioned Tajima's D (missense in pathway) vs classical — 0.000000% error, 9x warm-cache speedup
-
-### Milestone 1.2 — Complete ✓
+### Milestone 1.4 — Performance Optimization & Benchmark: COMPLETE
+- [x] EHHComputer: flat array tracking + incremental sumPairs
+- [x] VectorOps: dPrime(byte[]) branchless overload + dPrimePacked (bitCount-based)
+- [x] GenomeScanProcedure: pre-computed per-variant stat arrays
+- [x] Benchmark suite: scripts/benchmark-all.py, benchmark-compare.py
 
 ---
 
-## Milestone 1.3 — LD + Haplotype Statistics (Month 4–6)
+## Phase 2 — Extended Statistics Toolkit: COMPLETE
 
-### VectorOps LD Primitives
-- [x] `VectorOps.pearsonR2` — SIMD-accelerated r² from dosage vectors
-- [x] `VectorOps.dPrime` — D' from haplotype vectors (2×2 table)
-- [x] Unit tests: perfect/inverse/zero correlation, monomorphic, known values, large arrays (14 new tests)
+### Milestone 2.1 — Filtering + Ancestral + FayWuH + nSL + ROH: COMPLETE
+- [x] VariantFilter: shared per-variant QC (AF, call rate, HWE, variant_type)
+- [x] VariantQuery: shared Cypher builder (consequence/pathway joins)
+- [x] HWEExact: Wigginton 2005 mid-p exact test
+- [x] SampleSubsetComputer: on-the-fly stats from packed arrays
+- [x] FayWuH: Fay & Wu's H + normalized H (Zeng 2006)
+- [x] NSLProcedure: nSL (Ferrer-Admetlla 2014), r=1.000 vs scikit-allel
+- [x] ROHProcedure: HMM (Narasimhan 2016) + sliding-window, r=0.96 vs bcftools
+- [x] PopSummaryProcedure: whole-chromosome summary → Population nodes
+- [x] Ancestral allele annotation (EPO FASTA)
+- [x] All 8 existing procedures updated with filter + samples support
 
-### GenotypeLoader Helper
-- [x] `buildSampleIndex` — population-filtered sample→index mapping
-- [x] `loadDosage` — single variant CARRIES→dosage array
-- [x] `loadDosageBatch` — batch multi-variant dosage load (single Cypher query)
-- [x] `loadHaplotypes` — phased haplotype loading (hap0/hap1 per sample)
-
-### Stored Procedure: `graphpop.ld(chr, start, end, pop, max_dist, r2_threshold)`
-- [x] Pairwise r² and D' computation within genomic window
-- [x] Sub-window processing (200 variants) to bound memory
-- [x] Batch dosage loading for efficiency
-- [x] Allele frequency pre-filter (skip monomorphic sites)
-- [x] Write LD edges: `(:Variant)-[:LD {r2, dprime, population}]->(:Variant)`
-
-### EHHComputer Shared Helper
-- [x] Bidirectional NEXT chain walk with haplotype group splitting
-- [x] EHH computation: nCr(k_i,2) / nCr(n,2) per group
-- [x] Trapezoidal integration (iHH) over physical distance
-- [x] Configurable EHH cutoff (default 0.05)
-
-### Stored Procedure: `graphpop.ihs(chr, pop, [options])`
-- [x] Ancestral/derived haplotype partitioning from phased CARRIES data
-- [x] iHH_ancestral and iHH_derived via EHHComputer
-- [x] Unstandardized iHS = ln(iHH_A / iHH_D)
-- [x] Frequency-bin standardization (20 bins, z-score)
-- [x] Write ihs_{pop} and ihs_unstd_{pop} properties on Variant nodes
-- [x] Configurable min_af filter (default 0.05)
-
-### Stored Procedure: `graphpop.xpehh(chr, pop1, pop2, [options])`
-- [x] Cross-population EHH comparison
-- [x] Whole-population iHH computation per population
-- [x] XP-EHH = ln(iHH_pop1 / iHH_pop2), genome-wide standardization
-- [x] Write xpehh_{pop1}_{pop2} properties on Variant nodes
-
-### Deployment
-- [x] LD relationship index: `CREATE INDEX ld_pop FOR ()-[r:LD]-() ON (r.population)`
-- [x] Smoke test for graphpop.ld in post-deploy-setup.sh
-- [x] Build: `mvnw package` — 45 tests pass, JAR produced
-
-### Validation
-- [x] validate-ld.py: compare r² against scikit-allel rogers_huff_r
-- [ ] Deploy and run smoke tests on live Neo4j instance
-- [ ] Run validate-ld.py against live database
-
-## Milestone 1.4 — Genome Scan + Benchmark (Month 6–7)
-- [ ] ... (to be expanded)
-
-## Milestone 1.5 — Scaling Validation (Month 7–8)
-- [ ] ... (to be expanded)
+### Milestone 2.2 — Complete Statistics Toolkit: COMPLETE
+- [x] VectorOps: wcFstComponents (Weir & Cockerham 1984)
+- [x] DivergenceProcedure: +fst_wc, +pbs (3-population branch statistic)
+- [x] GenomeScanProcedure: +fst_wc, +pbs per window
+- [x] GarudH + GarudHProcedure: H1/H12/H2_H1/hap_diversity (sliding-window)
+- [x] EHHComputer: instance-configurable (min_ehh, max_gap, gap_scale)
+- [x] IHS/NSL: configurable n_af_bins
+- [x] Import pipeline: species-agnostic chr lengths from VCF ##contig headers
+- [x] 12 procedures, 120 tests
 
 ---
 
-## Review
-(To be filled after milestone completion)
+## Phase 3 — Storage Optimization + Ploidy + Memory Management: COMPLETE
+
+### Milestone 3.1 — Packed Genotypes (Strategy 4): COMPLETE
+- [x] Replaced ~6.3B CARRIES edges with packed byte arrays on Variant nodes
+- [x] gt_packed (2 bits/sample), phase_packed (1 bit/sample)
+- [x] PackedGenotypeReader: bit-extraction + encoding constants (16 tests)
+- [x] All 12 procedures updated for packed arrays
+- [x] Python: vcf_parser/csv_emitter updated, CarriesRecord removed
+- [x] DB size: ~200 GB → ~46 GB
+
+### Milestone 3.2 — Ploidy-Aware Import: COMPLETE
+- [x] VCFParser: ploidy auto-detection (diploid/haploid/mixed)
+- [x] ploidy_packed byte[] on Variant nodes
+- [x] Sample.sex from panel PED
+- [x] Ploidy-aware allele counting (AN/AC)
+
+### Milestone 3.3 — Memory Management Improvements: COMPLETE
+- [x] IHS chunking: 5 Mb core + 2 Mb EHH margin (same pattern as XP-EHH)
+- [x] IHS unstd_only mode: write only ihs_unstd_{pop}, return SUMMARY row
+- [x] HaplotypeMatrix bit-packing: 87% memory reduction (1 bit/haplotype vs 1 byte)
+- [x] VectorOps.dPrimePacked: D' from bit-packed arrays using Integer.bitCount
+- [x] Python auto-retry: exponential backoff (5s/10s/20s) for transient errors
+- [x] Python iHS per-region: 50 Mb regions + AF-bin standardization in Python
+- [x] 147 tests passing
+
+---
+
+## Full-Genome Analysis — 1000 Genomes (22 autosomes, 26 populations)
+
+### Phase 1 (per-pop stats): COMPLETE
+- [x] 26 populations × 22 chromosomes: diversity, SFS, genome scan, iHS, nSL, ROH
+
+### Phase 2 (pairwise stats): COMPLETE
+- [x] 18 key population pairs × 22 chromosomes = 396 XP-EHH tasks (all OK)
+- [x] 325 population pairs × 22 chromosomes = 7150 divergence tasks (all OK)
+
+### Phase 3 (ancestral allele analyses): COMPLETE
+- [x] Fay & Wu's H, polarized SFS, genome scan
+
+### Phase 4 (population-specific analyses): COMPLETE
+- [x] PBS genome scans, Garud's H scans
+
+### Results
+- `human_full_results.json` — accumulated results across all phases
+
+---
+
+## Immediate Next Steps
+
+- All 4 analysis phases complete. New JAR (M3.3 memory improvements) deployed 2026-03-16.
+- Next: commit all uncommitted changes, then proceed to Phase 4 (kinship/IBS/IBD) or paper writing.
+
+---
+
+## Next Phases (from design doc)
+
+| Phase | Topic | Status |
+|-------|-------|--------|
+| 4 | Pairwise sample statistics (kinship, IBS/IBD) | Not started |
+| 5 | Structure & dimensionality reduction (PCA, community detection) | Not started |
+| 6 | Selection inference (composite likelihood, ML classifiers) | Not started |
+| 7 | Demographic inference (dadi/moments, ABC) | Not started |
+| 8 | Simulation integration (msprime/SLiM) | Not started |
+| 9 | AI-augmented inference (GraphRAG, agentic loops) | Not started |
+
+---
+
+## Summary Stats
+
+| Metric | Count |
+|--------|-------|
+| Stored procedures | 12 |
+| Java source files | 31 |
+| Java test files | 11 |
+| Tests passing | 147 |
+| VectorOps methods | 12+ |
+| Benchmark datasets | 2 (human 1000G, rice 3K) |
