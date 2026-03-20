@@ -17,6 +17,7 @@ Usage:
     python scripts/human_interpret.py roh_hmm        # ROH HMM
     python scripts/human_interpret.py daf_enrichment # DAF at peaks
     python scripts/human_interpret.py report         # Generate Markdown report
+    python scripts/human_interpret.py hap_stats      # Joint nSL+iHS+XP-EHH from hap cache
 """
 
 import argparse
@@ -31,6 +32,9 @@ from itertools import combinations
 from threading import Lock
 
 from neo4j import GraphDatabase
+
+import numpy as np
+import genome_scan_numpy
 
 # ── Constants ─────────────────────────────────────────────────────────
 
@@ -411,86 +415,60 @@ def _build_diversity_table(results):
 
 
 def cmd_pinsps(args):
-    """Compute pi_N/pi_S per population."""
-    output = load_output()
+    """Compute pi_N/pi_S per population — numpy bypass (same .npz cache as gscan)."""
+    output   = load_output()
     existing = output.get("pinsps", {})
-    driver = get_driver()
-    lock = Lock()
-    n_done = 0
+
     n_total = len(POPULATIONS) * len(CHROMOSOMES) * 2
+    n_done  = sum(1 for k in existing if "error" not in existing.get(k, {}))
+    log.info("=== Computing pi_N/pi_S: %d calls (%d cached) ===", n_total, n_done)
 
-    with driver.session(database=NEO4J_DB) as session:
-        chr_lens = get_chr_lengths(session)
+    with open(os.path.join(GSCAN_CACHE_DIR, "pop_meta.json")) as f:
+        pop_ids = json.load(f)["pop_ids"]
+    pop_idx_map = {p: pop_ids.index(p) for p in POPULATIONS}
 
-    def run_one(pop, chrom, consequence):
-        key = f"{pop}|{chrom}|{consequence}"
-        if key in existing:
-            return key, existing[key]
-        t0 = time.time()
-        cypher = (
-            f"CALL graphpop.diversity('{chrom}', 1, {chr_lens[chrom]}, '{pop}', "
-            f"{{consequence: '{consequence}'}})"
-        )
-        try:
-            with driver.session(database=NEO4J_DB) as s:
-                rec = s.run(cypher).single()
-                result = {k: _serialize(rec[k]) for k in rec.keys()} if rec else {}
-            return key, {"result": result, "wall_sec": time.time() - t0}
-        except Exception as e:
-            return key, {"error": str(e), "wall_sec": time.time() - t0}
-
-    log.info("=== Computing pi_N/pi_S: %d calls ===", n_total)
-
-    for pop in POPULATIONS:
-        tasks = []
-        for chrom in CHROMOSOMES:
-            for csq in ("missense_variant", "synonymous_variant"):
-                key = f"{pop}|{chrom}|{csq}"
-                if key in existing:
-                    n_done += 1
-                    continue
-                tasks.append((pop, chrom, csq))
-
-        if not tasks:
-            log.info("  %s: all cached", pop)
+    for csq in ("missense_variant", "synonymous_variant"):
+        chroms_needed = sorted({
+            c for pop in POPULATIONS for c in CHROMOSOMES
+            if f"{pop}|{c}|{csq}" not in existing
+            or "error" in existing.get(f"{pop}|{c}|{csq}", {})
+        })
+        if not chroms_needed:
+            log.info("  %s: all cached", csq)
             continue
 
-        with ThreadPoolExecutor(max_workers=4) as pool:
-            futures = {pool.submit(run_one, *t): t for t in tasks}
-            for fut in as_completed(futures):
-                key, val = fut.result()
-                with lock:
-                    existing[key] = val
-                    n_done += 1
-                    if n_done % 44 == 0:
-                        log.info("  progress: %d/%d", n_done, n_total)
-                        output["pinsps"] = existing
-                        save_output(output)
-
-        log.info("  %s: done", pop)
+        _ensure_variant_cache(chroms_needed, GSCAN_CACHE_DIR)
+        for chrom in chroms_needed:
+            t0 = time.time()
+            new = _compute_diversity_chrom(chrom, pop_idx_map, csq, GSCAN_CACHE_DIR)
+            existing.update(new)
+            n_done += len(POPULATIONS)
+            log.info("  %s %s: %d pops (%.1fs)", csq[:3], chrom,
+                     len(POPULATIONS), time.time() - t0)
+        output["pinsps"] = existing
+        save_output(output)
 
     # Compute ratios
     ratios = {}
     for pop in POPULATIONS:
         pop_ratios = {}
         for chrom in CHROMOSOMES:
-            mis = existing.get(f"{pop}|{chrom}|missense_variant", {}).get("result", {})
+            mis = existing.get(f"{pop}|{chrom}|missense_variant",  {}).get("result", {})
             syn = existing.get(f"{pop}|{chrom}|synonymous_variant", {}).get("result", {})
             pi_n = mis.get("pi")
             pi_s = syn.get("pi")
             pop_ratios[chrom] = {
                 "pi_n": pi_n, "pi_s": pi_s,
                 "pi_n_pi_s": pi_n / pi_s if pi_n is not None and pi_s and pi_s > 0 else None,
-                "n_missense": mis.get("n_segregating"),
+                "n_missense":   mis.get("n_segregating"),
                 "n_synonymous": syn.get("n_segregating"),
             }
         vals = [v["pi_n_pi_s"] for v in pop_ratios.values() if v["pi_n_pi_s"] is not None]
         ratios[pop] = {
-            "per_chr": pop_ratios,
+            "per_chr":        pop_ratios,
             "mean_pi_n_pi_s": sum(vals) / len(vals) if vals else None,
         }
 
-    driver.close()
     output["pinsps"] = existing
     output["pinsps_ratios"] = ratios
     save_output(output)
@@ -500,82 +478,123 @@ def cmd_pinsps(args):
 # ── Subcommand: divergence ────────────────────────────────────────────
 
 
-def cmd_divergence(args):
-    """Compute full pairwise Fst/Dxy matrix."""
-    output = load_output()
-    existing = output.get("divergence", {})
-    driver = get_driver()
-    lock = Lock()
+def _divergence_one_chrom(chrom, all_pairs, pop_idx, cache_dir):
+    """Compute divergence stats for all population pairs on one chromosome.
 
-    with driver.session(database=NEO4J_DB) as session:
-        chr_lens = get_chr_lengths(session)
+    Loads the .npz cache once, then computes fst_hudson, fst_wc, dxy, da,
+    n_variants for every pair using the same formulas as DivergenceProcedure.java.
+    Returns dict {key: {"result": {...}, "wall_sec": float}}.
+    """
+    t0 = time.time()
+    with np.load(os.path.join(cache_dir, f"{chrom}.npz")) as data:
+        # Load once — slice per-pair below (float64 for precision)
+        ac_all  = data["ac"].astype(np.float64)    # (M, 26)
+        an_all  = data["an"].astype(np.float64)
+        af_all  = data["af"].astype(np.float64)
+        het_all = data["het_count"].astype(np.float64)
 
-    all_pairs = list(combinations(POPULATIONS, 2))
-    n_total = len(all_pairs) * len(CHROMOSOMES)
-    n_done = sum(1 for p in all_pairs for c in CHROMOSOMES
-                 if f"{p[0]}|{p[1]}|{c}" in existing)
-    log.info("=== Pairwise divergence: %d calls (%d cached) ===", n_total, n_done)
+    results = {}
+    for pop1, pop2 in all_pairs:
+        i1, i2 = pop_idx[pop1], pop_idx[pop2]
+        ac1, an1, af1, het1 = ac_all[:, i1], an_all[:, i1], af_all[:, i1], het_all[:, i1]
+        ac2, an2, af2, het2 = ac_all[:, i2], an_all[:, i2], af_all[:, i2], het_all[:, i2]
 
-    def run_one(pop1, pop2, chrom):
+        valid = (an1 >= 2) & (an2 >= 2)
+        n_var = int(valid.sum())
         key = f"{pop1}|{pop2}|{chrom}"
-        if key in existing:
-            return key, existing[key]
-        t0 = time.time()
-        chr_len = chr_lens.get(chrom, 250_000_000)
-        cypher = (
-            f"CALL graphpop.divergence('{chrom}', 1, {chr_len}, "
-            f"'{pop1}', '{pop2}')"
-        )
-        try:
-            with driver.session(database=NEO4J_DB) as s:
-                rec = s.run(cypher).single()
-                result = {k: _serialize(rec[k]) for k in rec.keys()} if rec else {}
-            return key, {"result": result, "wall_sec": time.time() - t0}
-        except Exception as e:
-            return key, {"error": str(e), "wall_sec": time.time() - t0}
 
-    for i, (pop1, pop2) in enumerate(all_pairs):
-        tasks = [(pop1, pop2, c) for c in CHROMOSOMES
-                 if f"{pop1}|{pop2}|{c}" not in existing]
-        if not tasks:
+        if n_var == 0:
+            results[key] = {"result": {
+                "fst_hudson": 0.0, "fst_wc": 0.0,
+                "dxy": 0.0, "da": 0.0, "n_variants": 0,
+            }, "wall_sec": 0.0}
             continue
 
-        with ThreadPoolExecutor(max_workers=6) as pool:
-            futures = {pool.submit(run_one, *t): t for t in tasks}
-            for fut in as_completed(futures):
-                key, val = fut.result()
-                with lock:
-                    existing[key] = val
-                    n_done += 1
+        with np.errstate(invalid="ignore", divide="ignore"):
+            # Hudson Fst (ratio-of-sums estimator)
+            hw1 = 2.0 * af1 * (1.0 - af1) * an1 / (an1 - 1.0)
+            hw2 = 2.0 * af2 * (1.0 - af2) * an2 / (an2 - 1.0)
+            hb  = (af1 - af2)**2 - hw1 / (2.0 * an1) - hw2 / (2.0 * an2)
+            fst_num = float(np.where(valid, hb, 0.0).sum())
+            fst_den = float(np.where(valid, hb + (hw1 + hw2) / 2.0, 0.0).sum())
 
-        if (i + 1) % 25 == 0 or i == len(all_pairs) - 1:
-            log.info("  [%d/%d] %s vs %s: done (%d/%d)",
-                     i + 1, len(all_pairs), pop1, pop2, n_done, n_total)
+            # Dxy and pi-within
+            dxy_sum = float(np.where(valid,
+                af1 * (1.0 - af2) + af2 * (1.0 - af1), 0.0).sum())
+            pi1_sum = float(np.where(valid & (an1 > 1),
+                2.0 * af1 * (1.0 - af1) * an1 / (an1 - 1.0), 0.0).sum())
+            pi2_sum = float(np.where(valid & (an2 > 1),
+                2.0 * af2 * (1.0 - af2) * an2 / (an2 - 1.0), 0.0).sum())
+
+        # W&C Fst (reuse _wc_components from genome_scan_numpy)
+        a, b, c = genome_scan_numpy._wc_components(
+            ac1, an1, het1, ac2, an2, het2, valid)
+        wc_denom = float(a.sum() + b.sum() + c.sum())
+
+        dxy = dxy_sum / n_var
+        results[key] = {"result": {
+            "fst_hudson": fst_num / fst_den if fst_den > 0 else 0.0,
+            "fst_wc":     float(a.sum()) / wc_denom if wc_denom > 0 else 0.0,
+            "dxy":        dxy,
+            "da":         dxy - (pi1_sum + pi2_sum) / (2.0 * n_var),
+            "n_variants": n_var,
+        }, "wall_sec": time.time() - t0}
+
+    return results
+
+
+def cmd_divergence(args):
+    """Compute full pairwise Fst/Dxy matrix — numpy bypass (same .npz cache as gscan)."""
+    output   = load_output()
+    existing = output.get("divergence", {})
+
+    all_pairs = list(combinations(POPULATIONS, 2))
+    n_total   = len(all_pairs) * len(CHROMOSOMES)
+    n_cached  = sum(1 for p1, p2 in all_pairs for c in CHROMOSOMES
+                    if f"{p1}|{p2}|{c}" in existing
+                    and "error" not in existing.get(f"{p1}|{p2}|{c}", {}))
+    log.info("=== Pairwise divergence: %d pairs × %d chroms (%d cached) ===",
+             len(all_pairs), len(CHROMOSOMES), n_cached)
+
+    # Find chromosomes that have at least one missing pair
+    chroms_needed = sorted({
+        c for p1, p2 in all_pairs for c in CHROMOSOMES
+        if f"{p1}|{p2}|{c}" not in existing
+        or "error" in existing.get(f"{p1}|{p2}|{c}", {})
+    })
+
+    if chroms_needed:
+        _ensure_variant_cache(chroms_needed, GSCAN_CACHE_DIR)
+
+        with open(os.path.join(GSCAN_CACHE_DIR, "pop_meta.json")) as f:
+            pop_ids = json.load(f)["pop_ids"]
+        pop_idx = {p: i for i, p in enumerate(pop_ids)}
+
+        for chrom in chroms_needed:
+            t0 = time.time()
+            new = _divergence_one_chrom(chrom, all_pairs, pop_idx, GSCAN_CACHE_DIR)
+            existing.update(new)
+            log.info("  %s: %d pairs (%.1fs)", chrom, len(all_pairs), time.time() - t0)
             output["divergence"] = existing
             save_output(output)
+    else:
+        log.info("  all cached")
 
-    # Build Fst matrix
+    # Build Fst / Dxy matrices
     fst_matrix = {}
     dxy_matrix = {}
     for pop1, pop2 in all_pairs:
         pk = f"{pop1}_vs_{pop2}"
-        fst_vals = []
-        dxy_vals = []
+        fst_vals, dxy_vals = [], []
         for chrom in CHROMOSOMES:
-            key = f"{pop1}|{pop2}|{chrom}"
-            r = existing.get(key, {}).get("result", {})
+            r = existing.get(f"{pop1}|{pop2}|{chrom}", {}).get("result", {})
             if r.get("fst_wc") is not None:
                 fst_vals.append(r["fst_wc"])
             if r.get("dxy") is not None:
                 dxy_vals.append(r["dxy"])
-        fst_matrix[pk] = {
-            "mean_fst": sum(fst_vals) / len(fst_vals) if fst_vals else None,
-        }
-        dxy_matrix[pk] = {
-            "mean_dxy": sum(dxy_vals) / len(dxy_vals) if dxy_vals else None,
-        }
+        fst_matrix[pk] = {"mean_fst": sum(fst_vals) / len(fst_vals) if fst_vals else None}
+        dxy_matrix[pk] = {"mean_dxy": sum(dxy_vals) / len(dxy_vals) if dxy_vals else None}
 
-    driver.close()
     output["divergence"] = existing
     output["fst_matrix"] = fst_matrix
     output["dxy_matrix"] = dxy_matrix
@@ -585,16 +604,44 @@ def cmd_divergence(args):
 
 # ── Subcommand: gscan ─────────────────────────────────────────────────
 
+GSCAN_CACHE_DIR = "data/variants_cache"
+GSCAN_WORKERS   = 8   # parallel chromosomes; each uses ~1.2 GB RAM peak
+
+
+def _ensure_variant_cache(chromosomes, cache_dir=GSCAN_CACHE_DIR):
+    """Build any missing .npz cache files before the parallel scan starts."""
+    missing = [
+        c for c in chromosomes
+        if not os.path.exists(os.path.join(cache_dir, f"{c}.npz"))
+    ]
+    meta_missing = not os.path.exists(os.path.join(cache_dir, "pop_meta.json"))
+
+    if not missing and not meta_missing:
+        return
+
+    log.info("Variant cache incomplete — exporting %d chromosome(s) + meta...",
+             len(missing) + int(meta_missing))
+    import subprocess, sys as _sys
+    script = os.path.join(os.path.dirname(__file__), "export_variant_cache.py")
+    cmd = [_sys.executable, script,
+           "--cache-dir", cache_dir,
+           "--workers", "4"]
+    if missing:
+        cmd += ["--chr"] + missing
+    ret = subprocess.run(cmd, check=False)
+    if ret.returncode != 0:
+        raise RuntimeError(
+            "export_variant_cache.py failed — check export_variant_cache.log"
+        )
+
 
 def cmd_gscan(args):
-    """Run genome scans: divergence + annotation-conditioned."""
-    output = load_output()
+    """Run genome scans: XPEHH pairs + annotation-conditioned, via numpy cache."""
+    output   = load_output()
     existing = output.get("gscan", {})
-    driver = get_driver()
+    lock     = Lock()
 
-    with driver.session(database=NEO4J_DB) as session:
-        chr_lens = get_chr_lengths(session)
-
+    # Build task list (resume: skip already-completed keys)
     tasks_all = []
     for pop1, pop2 in XPEHH_PAIRS:
         for chrom in CHROMOSOMES:
@@ -609,42 +656,53 @@ def cmd_gscan(args):
                     tasks_all.append((pop1, pop2, chrom, csq, key))
 
     n_total = (len(XPEHH_PAIRS) + len(GSCAN_PAIRS) * 2) * len(CHROMOSOMES)
-    n_done = n_total - len(tasks_all)
-    log.info("=== Genome scans: %d calls (%d cached, %d remaining) ===",
+    n_done  = n_total - len(tasks_all)
+    log.info("=== Genome scans (numpy): %d calls (%d cached, %d remaining) ===",
              n_total, n_done, len(tasks_all))
 
-    # genome_scan is WRITE mode — sequential
-    for i, (pop1, pop2, chrom, consequence, key) in enumerate(tasks_all):
+    if not tasks_all:
+        log.info("All gscan calls cached — nothing to do.")
+        return
+
+    # Ensure .npz cache exists for every chromosome we'll scan
+    chroms_needed = sorted({t[2] for t in tasks_all})
+    _ensure_variant_cache(chroms_needed, GSCAN_CACHE_DIR)
+
+    def run_one(pop1, pop2, chrom, consequence, key):
         t0 = time.time()
-        opts = f"pop2: '{pop2}'"
-        if consequence:
-            opts += f", consequence: '{consequence}'"
-        cypher = (
-            f"CALL graphpop.genome_scan('{chrom}', '{pop1}', "
-            f"{WINDOW_SIZE}, {WINDOW_STEP}, {{{opts}}})"
-        )
         try:
-            with driver.session(database=NEO4J_DB) as s:
-                records = []
-                for rec in s.run(cypher):
-                    records.append({k: _serialize(rec[k]) for k in rec.keys()})
-            existing[key] = {
-                "n_windows": len(records), "wall_sec": time.time() - t0,
-                "result": records,
+            windows = genome_scan_numpy.scan(
+                chrom, pop1, pop2,
+                consequence=consequence,
+                window_size=WINDOW_SIZE,
+                step_size=WINDOW_STEP,
+                cache_dir=GSCAN_CACHE_DIR,
+            )
+            return key, {
+                "n_windows": len(windows),
+                "wall_sec":  time.time() - t0,
+                "result":    windows,
             }
         except Exception as e:
-            existing[key] = {"error": str(e), "wall_sec": time.time() - t0}
-        n_done += 1
-        label = consequence or "all"
-        log.info("  [%d/%d] %s vs %s %s (%s): %d windows, %.1fs",
-                 n_done, n_total, pop1, pop2, chrom, label,
-                 existing[key].get("n_windows", 0),
-                 existing[key].get("wall_sec", 0))
-        if n_done % 22 == 0:
-            output["gscan"] = existing
-            save_output(output)
+            return key, {"error": str(e), "wall_sec": time.time() - t0}
 
-    driver.close()
+    # Parallel execution — no DB WRITE locks, safe to run all chromosomes at once
+    with ThreadPoolExecutor(max_workers=GSCAN_WORKERS) as pool:
+        futures = {pool.submit(run_one, *t): t for t in tasks_all}
+        for fut in as_completed(futures):
+            pop1, pop2, chrom, consequence, key = futures[fut]
+            val = fut.result()[1]
+            label = consequence or "all"
+            with lock:
+                existing[key] = val
+                n_done += 1
+                log.info("  [%d/%d] %s vs %s %s (%s): %d windows, %.1fs",
+                         n_done, n_total, pop1, pop2, chrom, label,
+                         val.get("n_windows", 0), val.get("wall_sec", 0))
+                if n_done % 22 == 0:
+                    output["gscan"] = existing
+                    save_output(output)
+
     output["gscan"] = existing
     save_output(output)
     log.info("Genome scan results saved to %s", OUTPUT_FILE)
@@ -654,50 +712,58 @@ def cmd_gscan(args):
 
 
 def cmd_pbs(args):
-    """Run PBS genome scans for focal populations."""
-    output = load_output()
+    """Run PBS genome scans for focal populations — numpy bypass (same .npz cache as gscan)."""
+    output   = load_output()
     existing = output.get("pbs", {})
-    driver = get_driver()
-    lock = Lock()
+    lock     = Lock()
 
-    with driver.session(database=NEO4J_DB) as s:
-        chr_lens = get_chr_lengths(s)
+    tasks_all = [
+        (focal, sister, outgroup, chrom,
+         f"{focal}|{sister}|{outgroup}|{chrom}")
+        for focal, sister, outgroup in PBS_CONFIGS
+        for chrom in CHROMOSOMES
+        if (f"{focal}|{sister}|{outgroup}|{chrom}" not in existing
+            or "error" in existing.get(f"{focal}|{sister}|{outgroup}|{chrom}", {}))
+    ]
 
     n_total = len(PBS_CONFIGS) * len(CHROMOSOMES)
-    n_done = sum(1 for k in existing if "error" not in existing[k])
+    n_done  = n_total - len(tasks_all)
     log.info("=== PBS genome scans: %d calls (%d cached) ===", n_total, n_done)
 
-    # genome_scan WRITE mode — sequential
-    for focal, sister, outgroup in PBS_CONFIGS:
-        for chrom in CHROMOSOMES:
-            key = f"{focal}|{sister}|{outgroup}|{chrom}"
-            if key in existing and "error" not in existing[key]:
-                n_done += 1
-                continue
-            t0 = time.time()
-            cypher = (
-                f"CALL graphpop.genome_scan('{chrom}', '{focal}', "
-                f"{WINDOW_SIZE}, {WINDOW_STEP}, "
-                f"{{pop2: '{sister}', pop3: '{outgroup}'}})"
-            )
-            try:
-                with driver.session(database=NEO4J_DB) as s:
-                    records = s.run(cypher).data()
-                    windows = [{k: _serialize(v) for k, v in r.items()} for r in records]
-                existing[key] = {"result": windows, "wall_sec": time.time() - t0}
-            except Exception as e:
-                existing[key] = {"error": str(e), "wall_sec": time.time() - t0}
-            n_done += 1
-            log.info("  [%d/%d] PBS %s %s: %d windows (%.1fs)",
-                     n_done, n_total, focal, chrom,
-                     len(existing[key].get("result", [])),
-                     existing[key].get("wall_sec", 0))
-            if n_done % 22 == 0:
-                output["pbs"] = existing
-                save_output(output)
+    if tasks_all:
+        chroms_needed = sorted({t[3] for t in tasks_all})
+        _ensure_variant_cache(chroms_needed, GSCAN_CACHE_DIR)
 
-    # Summarize top PBS windows per config
-    driver2 = get_driver()
+        def run_one(focal, sister, outgroup, chrom, key):
+            t0 = time.time()
+            windows = genome_scan_numpy.scan(
+                chrom, focal, pop2=sister, pop3=outgroup,
+                window_size=WINDOW_SIZE, step_size=WINDOW_STEP,
+                cache_dir=GSCAN_CACHE_DIR,
+            )
+            return {"result": windows, "wall_sec": time.time() - t0}
+
+        with ThreadPoolExecutor(max_workers=GSCAN_WORKERS) as pool:
+            futures = {pool.submit(run_one, *t): t for t in tasks_all}
+            for fut in as_completed(futures):
+                focal, sister, outgroup, chrom, key = futures[fut]
+                try:
+                    val = fut.result()
+                except Exception as e:
+                    log.error("  %s|%s|%s %s FAILED: %s", focal, sister, outgroup, chrom, e)
+                    val = {"error": str(e)}
+                with lock:
+                    existing[key] = val
+                    n_done += 1
+                    log.info("  [%d/%d] PBS %s|%s|%s %s: %d windows (%.1fs)",
+                             n_done, n_total, focal, sister, outgroup, chrom,
+                             len(val.get("result", [])), val.get("wall_sec", 0))
+                    if n_done % 22 == 0:
+                        output["pbs"] = existing
+                        save_output(output)
+
+    # Summarize top PBS windows per config — gene annotation via Neo4j (READ only)
+    driver = get_driver()
     pbs_summary = {}
     for focal, sister, outgroup in PBS_CONFIGS:
         config_key = f"{focal}_vs_{sister}_out_{outgroup}"
@@ -716,7 +782,7 @@ def cmd_pbs(args):
         for w in top20:
             genes = []
             try:
-                with driver2.session(database=NEO4J_DB) as s:
+                with driver.session(database=NEO4J_DB) as s:
                     recs = s.run(
                         "MATCH (v:Variant)-[c:HAS_CONSEQUENCE]->(g:Gene) "
                         "WHERE v.chr = $chr AND v.pos >= $start AND v.pos <= $end "
@@ -745,7 +811,6 @@ def cmd_pbs(args):
             "top_windows": annotated,
         }
 
-    driver2.close()
     driver.close()
     output["pbs"] = existing
     output["pbs_summary"] = pbs_summary
@@ -870,53 +935,174 @@ def _text_dendrogram(merge_log, labels):
     return lines
 
 
+# ── Shared diversity helper (fay_wu / pinsps numpy bypass) ───────────
+
+
+def _compute_diversity_chrom(chrom, pop_idx_map, consequence, cache_dir):
+    """Compute whole-chromosome diversity stats for multiple populations.
+
+    Loads the .npz cache once per chromosome, then iterates over populations.
+    Returns {key: {"result": {...}, "wall_sec": float}} where
+    key = f"{pop}|{chrom}" (consequence=None) or f"{pop}|{chrom}|{consequence}".
+
+    Computes the same fields as graphpop.diversity:
+    pi, theta_w, tajima_d, fay_wu_h, fay_wu_h_norm, het_exp, het_obs, fis,
+    n_variants, n_segregating, n_polarized.
+    """
+    t0 = time.time()
+    with np.load(os.path.join(cache_dir, f"{chrom}.npz")) as data:
+        anc = data["ancestral_allele"]               # (M,) int8
+        if consequence == "missense_variant":
+            csq = data["has_missense"].copy()
+        elif consequence == "synonymous_variant":
+            csq = data["has_synonymous"].copy()
+        else:
+            csq = np.ones(len(anc), dtype=bool)
+        # Load full (M,26) arrays; slice per-pop below
+        ac_all  = data["ac"]                         # int32
+        an_all  = data["an"]                         # int32
+        af_all  = data["af"]                         # float32
+        het_all = data["het_count"]                  # int32
+
+    results = {}
+    for pop, idx in pop_idx_map.items():
+        key = f"{pop}|{chrom}" if consequence is None else f"{pop}|{chrom}|{consequence}"
+
+        valid = csq & (an_all[:, idx] >= 2)
+        valid_idx = np.where(valid)[0]
+        n_var = len(valid_idx)
+
+        if n_var == 0:
+            results[key] = {"result": {
+                "pi": 0.0, "theta_w": 0.0, "tajima_d": 0.0,
+                "fay_wu_h": 0.0, "fay_wu_h_norm": 0.0,
+                "het_exp": 0.0, "het_obs": 0.0, "fis": 0.0,
+                "n_variants": 0, "n_segregating": 0, "n_polarized": 0,
+            }, "wall_sec": 0.0}
+            continue
+
+        ac  = ac_all[:, idx].astype(np.float64)
+        an  = an_all[:, idx].astype(np.float64)
+        af  = af_all[:, idx].astype(np.float64)
+        het = het_all[:, idx].astype(np.float64)
+
+        # n = haploid AN of first valid variant (matches Java behaviour)
+        n    = int(an_all[valid_idx[0], idx])
+        a_n  = genome_scan_numpy._harmonic(n - 1)  if n > 1 else 0.0
+        a_n2 = genome_scan_numpy._harmonic2(n - 1) if n > 1 else 0.0
+
+        with np.errstate(invalid="ignore", divide="ignore"):
+            pi_arr = np.where(valid & (an > 1),
+                              2.0 * af * (1.0 - af) * an / (an - 1.0), 0.0)
+
+        pi_sum = float(pi_arr.sum())
+        n_seg  = int((valid & (ac > 0) & (ac < an)).sum())
+
+        # Tajima's D
+        if n_seg > 0 and a_n > 0 and n >= 4:
+            theta_w_raw = n_seg / a_n
+            d   = pi_sum - theta_w_raw
+            b1  = (n + 1) / (3.0 * (n - 1))
+            b2  = 2.0 * (n**2 + n + 3) / (9.0 * n * (n - 1))
+            c1  = b1 - 1.0 / a_n
+            c2  = b2 - (n + 2) / (a_n * n) + a_n2 / (a_n**2)
+            e1  = c1 / a_n
+            e2  = c2 / (a_n**2 + a_n2)
+            var_d = e1 * n_seg + e2 * n_seg * (n_seg - 1)
+            tajima_d     = d / var_d**0.5 if var_d > 0 else 0.0
+            theta_w_site = theta_w_raw / n_var
+        else:
+            tajima_d = theta_w_site = 0.0
+
+        # Heterozygosity / Fis
+        he_sum = float(np.where(valid, 2.0 * af * (1.0 - af), 0.0).sum())
+        with np.errstate(invalid="ignore", divide="ignore"):
+            ho_sum = float(np.where(valid & (an > 0), het / (an / 2.0), 0.0).sum())
+        het_exp = he_sum / n_var
+        het_obs = ho_sum / n_var
+        fis = 1.0 - het_obs / het_exp if het_exp > 0 else 0.0
+
+        # Fay & Wu's H
+        derived = np.where(anc == 1, ac,
+                  np.where(anc == 2, an - ac, -1.0))
+        pol_valid = valid & (derived >= 0) & (derived > 0) & (derived < an)
+        n_pol = int((valid & (anc > 0)).sum())  # ALL polarized sites (matches Java)
+
+        with np.errstate(invalid="ignore", divide="ignore"):
+            theta_h_arr  = np.where(pol_valid, 2.0 * derived**2 / (an * (an - 1.0)), 0.0)
+            pi_polar_arr = np.where(pol_valid, pi_arr, 0.0)
+
+        pi_pol_sum = float(pi_polar_arr.sum())
+        th_sum     = float(theta_h_arr.sum())
+        H          = pi_pol_sum - th_sum
+        fay_wu_h   = H / n_pol if n_pol > 0 else 0.0
+
+        # Normalized H (Zeng et al. 2006)
+        if n_pol > 0 and n >= 4 and a_n > 0:
+            theta = n_pol / a_n
+            b_n   = genome_scan_numpy._harmonic2(n - 1)
+            nD    = float(n)
+            term1 = theta * (nD - 2.0) / (6.0 * (nD - 1.0))
+            term2 = theta**2 * (
+                (18.0 * nD**2 * (3.0 * nD + 2.0) * b_n
+                 - (88.0 * nD**3 + 9.0 * nD**2 - 13.0 * nD + 6.0))
+                / (9.0 * nD * (nD - 1.0)**2)
+            )
+            var_h = term1 + term2
+            fay_wu_h_norm = H / var_h**0.5 if var_h > 0 else 0.0
+        else:
+            fay_wu_h_norm = 0.0
+
+        results[key] = {"result": {
+            "pi":            pi_sum / n_var,
+            "theta_w":       theta_w_site,
+            "tajima_d":      tajima_d,
+            "fay_wu_h":      fay_wu_h,
+            "fay_wu_h_norm": fay_wu_h_norm,
+            "het_exp":       het_exp,
+            "het_obs":       het_obs,
+            "fis":           fis,
+            "n_variants":    n_var,
+            "n_segregating": n_seg,
+            "n_polarized":   n_pol,
+        }, "wall_sec": time.time() - t0}
+
+    return results
+
+
 # ── Subcommand: fay_wu ────────────────────────────────────────────────
 
 
 def cmd_fay_wu(args):
-    """Re-run diversity to get Fay & Wu's H."""
-    output = load_output()
+    """Compute Fay & Wu's H — numpy bypass (same .npz cache as gscan)."""
+    output   = load_output()
     existing = output.get("fay_wu", {})
-    driver = get_driver()
-    lock = Lock()
 
-    with driver.session(database=NEO4J_DB) as s:
-        chr_lens = get_chr_lengths(s)
+    chroms_needed = sorted({
+        c for pop in POPULATIONS for c in CHROMOSOMES
+        if f"{pop}|{c}" not in existing
+        or "error" in existing.get(f"{pop}|{c}", {})
+    })
 
     n_total = len(POPULATIONS) * len(CHROMOSOMES)
-    n_done = sum(1 for k in existing if "error" not in existing[k])
+    n_done  = n_total - len(POPULATIONS) * len(chroms_needed)
     log.info("=== Fay & Wu's H: %d calls (%d cached) ===", n_total, n_done)
 
-    def run_one(pop, chrom):
-        key = f"{pop}|{chrom}"
-        if key in existing and "error" not in existing[key]:
-            return key, existing[key]
-        t0 = time.time()
-        chr_len = chr_lens.get(chrom, 250_000_000)
-        cypher = f"CALL graphpop.diversity('{chrom}', 1, {chr_len}, '{pop}')"
-        try:
-            with driver.session(database=NEO4J_DB) as s:
-                rec = s.run(cypher).single()
-                result = {k: _serialize(rec[k]) for k in rec.keys()} if rec else {}
-            return key, {"result": result, "wall_sec": time.time() - t0}
-        except Exception as e:
-            return key, {"error": str(e), "wall_sec": time.time() - t0}
+    if chroms_needed:
+        _ensure_variant_cache(chroms_needed, GSCAN_CACHE_DIR)
+        with open(os.path.join(GSCAN_CACHE_DIR, "pop_meta.json")) as f:
+            pop_ids = json.load(f)["pop_ids"]
+        pop_idx_map = {p: pop_ids.index(p) for p in POPULATIONS}
 
-    for pop in POPULATIONS:
-        tasks = [(pop, c) for c in CHROMOSOMES
-                 if f"{pop}|{c}" not in existing or "error" in existing.get(f"{pop}|{c}", {})]
-        if not tasks:
-            continue
-        with ThreadPoolExecutor(max_workers=6) as pool:
-            futures = {pool.submit(run_one, *t): t for t in tasks}
-            for fut in as_completed(futures):
-                key, val = fut.result()
-                with lock:
-                    existing[key] = val
-                    n_done += 1
-        log.info("  %s: done (%d/%d)", pop, n_done, n_total)
-        output["fay_wu"] = existing
-        save_output(output)
+        for chrom in chroms_needed:
+            t0 = time.time()
+            new = _compute_diversity_chrom(chrom, pop_idx_map, None, GSCAN_CACHE_DIR)
+            existing.update(new)
+            log.info("  %s: %d pops (%.1fs)", chrom, len(POPULATIONS), time.time() - t0)
+            output["fay_wu"] = existing
+            save_output(output)
+    else:
+        log.info("  all cached")
 
     fay_wu_summary = {}
     for pop in POPULATIONS:
@@ -927,11 +1113,10 @@ def cmd_fay_wu(args):
                 h_vals.append(r["fay_wu_h"])
                 hn_vals.append(r.get("fay_wu_h_norm", 0))
         fay_wu_summary[pop] = {
-            "mean_h": sum(h_vals) / len(h_vals) if h_vals else None,
+            "mean_h":      sum(h_vals)  / len(h_vals)  if h_vals  else None,
             "mean_h_norm": sum(hn_vals) / len(hn_vals) if hn_vals else None,
         }
 
-    driver.close()
     output["fay_wu"] = existing
     output["fay_wu_summary"] = fay_wu_summary
     save_output(output)
@@ -941,56 +1126,87 @@ def cmd_fay_wu(args):
 # ── Subcommand: usfs ─────────────────────────────────────────────────
 
 
-def cmd_usfs(args):
-    """Compute unfolded (polarized) SFS."""
-    output = load_output()
-    existing = output.get("usfs", {})
-    driver = get_driver()
-    lock = Lock()
+def _compute_usfs_chrom(chrom, pop_idx_map, cache_dir):
+    """Compute unfolded SFS for multiple populations from one .npz file.
 
-    with driver.session(database=NEO4J_DB) as s:
-        chr_lens = get_chr_lengths(s)
+    Matches SFSProcedure.java (unfolded=true): histogram of derived allele
+    counts indexed 0..max_AN. Unpolarized variants use raw AC as count.
+    Returns {f"{pop}|{chrom}": {"result": {...}, "wall_sec": float}}.
+    """
+    t0 = time.time()
+    with np.load(os.path.join(cache_dir, f"{chrom}.npz")) as data:
+        anc    = data["ancestral_allele"]    # (M,) int8
+        ac_all = data["ac"]                  # (M,26) int32
+        an_all = data["an"]                  # (M,26) int32
+
+    results = {}
+    for pop, idx in pop_idx_map.items():
+        key = f"{pop}|{chrom}"
+        ac_pop = ac_all[:, idx].astype(np.int64)
+        an_pop = an_all[:, idx].astype(np.int64)
+
+        valid  = an_pop >= 2
+        n_var  = int(valid.sum())
+        if n_var == 0:
+            results[key] = {"result": {
+                "sfs": [], "n_variants": 0, "max_ac": 0, "n_polarized": 0,
+            }, "wall_sec": 0.0}
+            continue
+
+        max_an  = int(an_pop[valid].max())
+        # Derived allele count: REF-ancestral → derived=ac; ALT-ancestral → derived=an−ac
+        derived = np.where(anc == 1, ac_pop,
+                  np.where(anc == 2, an_pop - ac_pop,
+                           ac_pop))            # unpolarized: use raw ac
+        n_pol   = int(((anc == 1) | (anc == 2))[valid].sum())
+
+        counts  = derived[valid].clip(0, max_an).astype(np.int64)
+        sfs     = np.bincount(counts, minlength=max_an + 1)
+
+        results[key] = {"result": {
+            "sfs":         sfs.tolist(),
+            "n_variants":  n_var,
+            "max_ac":      max_an,
+            "n_polarized": n_pol,
+        }, "wall_sec": time.time() - t0}
+
+    return results
+
+
+def cmd_usfs(args):
+    """Compute unfolded (polarized) SFS — numpy bypass (same .npz cache as gscan)."""
+    output   = load_output()
+    existing = output.get("usfs", {})
+
+    chroms_needed = sorted({
+        c for pop in POPULATIONS for c in CHROMOSOMES
+        if f"{pop}|{c}" not in existing
+        or "error" in existing.get(f"{pop}|{c}", {})
+    })
 
     n_total = len(POPULATIONS) * len(CHROMOSOMES)
-    n_done = sum(1 for k in existing if "error" not in existing[k])
+    n_done  = n_total - len(POPULATIONS) * len(chroms_needed)
     log.info("=== Unfolded SFS: %d calls (%d cached) ===", n_total, n_done)
 
-    def run_one(pop, chrom):
-        key = f"{pop}|{chrom}"
-        if key in existing and "error" not in existing[key]:
-            return key, existing[key]
-        t0 = time.time()
-        chr_len = chr_lens.get(chrom, 250_000_000)
-        cypher = f"CALL graphpop.sfs('{chrom}', 1, {chr_len}, '{pop}', false)"
-        try:
-            with driver.session(database=NEO4J_DB) as s:
-                rec = s.run(cypher).single()
-                result = {k: _serialize(rec[k]) for k in rec.keys()} if rec else {}
-            return key, {"result": result, "wall_sec": time.time() - t0}
-        except Exception as e:
-            return key, {"error": str(e), "wall_sec": time.time() - t0}
+    if chroms_needed:
+        _ensure_variant_cache(chroms_needed, GSCAN_CACHE_DIR)
+        with open(os.path.join(GSCAN_CACHE_DIR, "pop_meta.json")) as f:
+            pop_ids = json.load(f)["pop_ids"]
+        pop_idx_map = {p: pop_ids.index(p) for p in POPULATIONS}
 
-    for pop in POPULATIONS:
-        tasks = [(pop, c) for c in CHROMOSOMES
-                 if f"{pop}|{c}" not in existing or "error" in existing.get(f"{pop}|{c}", {})]
-        if not tasks:
-            continue
-        with ThreadPoolExecutor(max_workers=6) as pool:
-            futures = {pool.submit(run_one, *t): t for t in tasks}
-            for fut in as_completed(futures):
-                key, val = fut.result()
-                with lock:
-                    existing[key] = val
-                    n_done += 1
-        log.info("  %s: done (%d/%d)", pop, n_done, n_total)
-        output["usfs"] = existing
-        save_output(output)
+        for chrom in chroms_needed:
+            t0 = time.time()
+            new = _compute_usfs_chrom(chrom, pop_idx_map, GSCAN_CACHE_DIR)
+            existing.update(new)
+            log.info("  %s: %d pops (%.1fs)", chrom, len(POPULATIONS), time.time() - t0)
+            output["usfs"] = existing
+            save_output(output)
+    else:
+        log.info("  all cached")
 
     usfs_summary = {}
     for pop in POPULATIONS:
-        total_sfs = None
-        total_polarized = 0
-        total_variants = 0
+        total_sfs, total_pol, total_var = None, 0, 0
         for chrom in CHROMOSOMES:
             r = existing.get(f"{pop}|{chrom}", {}).get("result", {})
             sfs = r.get("sfs")
@@ -1001,15 +1217,10 @@ def cmd_usfs(args):
                     total_sfs[i] += sfs[i]
                 if len(sfs) > len(total_sfs):
                     total_sfs.extend(sfs[len(total_sfs):])
-            total_polarized += r.get("n_polarized", 0)
-            total_variants += r.get("n_variants", 0)
-        usfs_summary[pop] = {
-            "sfs": total_sfs,
-            "n_polarized": total_polarized,
-            "n_variants": total_variants,
-        }
+            total_pol += r.get("n_polarized", 0)
+            total_var += r.get("n_variants", 0)
+        usfs_summary[pop] = {"sfs": total_sfs, "n_polarized": total_pol, "n_variants": total_var}
 
-    driver.close()
     output["usfs"] = existing
     output["usfs_summary"] = usfs_summary
     save_output(output)
@@ -1020,46 +1231,54 @@ def cmd_usfs(args):
 
 
 def cmd_hwscan(args):
-    """Genome scan for Fay & Wu's H per window."""
-    output = load_output()
+    """Fay & Wu's H genome scan — numpy bypass (same .npz cache as gscan)."""
+    output   = load_output()
     existing = output.get("hwscan", {})
-    driver = get_driver()
-    lock = Lock()
+    lock     = Lock()
 
-    with driver.session(database=NEO4J_DB) as s:
-        chr_lens = get_chr_lengths(s)
+    # Build task list (skip cached)
+    tasks_all = [
+        (pop, chrom, f"{pop}|{chrom}")
+        for pop in H_SCAN_POPS
+        for chrom in CHROMOSOMES
+        if f"{pop}|{chrom}" not in existing or "error" in existing.get(f"{pop}|{chrom}", {})
+    ]
 
     n_total = len(H_SCAN_POPS) * len(CHROMOSOMES)
-    n_done = sum(1 for k in existing if "error" not in existing[k])
+    n_done  = n_total - len(tasks_all)
     log.info("=== Fay & Wu's H genome scan: %d calls (%d cached) ===", n_total, n_done)
 
-    # genome_scan WRITE mode — sequential
-    for pop in H_SCAN_POPS:
-        for chrom in CHROMOSOMES:
-            key = f"{pop}|{chrom}"
-            if key in existing and "error" not in existing[key]:
-                n_done += 1
-                continue
+    if tasks_all:
+        chroms_needed = sorted({t[1] for t in tasks_all})
+        _ensure_variant_cache(chroms_needed, GSCAN_CACHE_DIR)
+
+        def run_one(pop, chrom, key):
             t0 = time.time()
-            cypher = (
-                f"CALL graphpop.genome_scan('{chrom}', '{pop}', "
-                f"{WINDOW_SIZE}, {WINDOW_STEP}, {{}})"
+            windows = genome_scan_numpy.scan(
+                chrom, pop,
+                window_size=WINDOW_SIZE, step_size=WINDOW_STEP,
+                cache_dir=GSCAN_CACHE_DIR,
             )
-            try:
-                with driver.session(database=NEO4J_DB) as s:
-                    records = s.run(cypher).data()
-                    windows = [{k: _serialize(v) for k, v in r.items()} for r in records]
-                existing[key] = {"result": windows, "wall_sec": time.time() - t0}
-            except Exception as e:
-                existing[key] = {"error": str(e), "wall_sec": time.time() - t0}
-            n_done += 1
-            log.info("  [%d/%d] %s/%s: %d windows (%.1fs)",
-                     n_done, n_total, pop, chrom,
-                     len(existing[key].get("result", [])),
-                     existing[key].get("wall_sec", 0))
-            if n_done % 22 == 0:
-                output["hwscan"] = existing
-                save_output(output)
+            return {"result": windows, "wall_sec": time.time() - t0}
+
+        with ThreadPoolExecutor(max_workers=GSCAN_WORKERS) as pool:
+            futures = {pool.submit(run_one, *t): t for t in tasks_all}
+            for fut in as_completed(futures):
+                pop, chrom, key = futures[fut]
+                try:
+                    val = fut.result()
+                except Exception as e:
+                    log.error("  %s/%s FAILED: %s", pop, chrom, e)
+                    val = {"error": str(e)}
+                with lock:
+                    existing[key] = val
+                    n_done += 1
+                    log.info("  [%d/%d] %s/%s: %d windows (%.1fs)",
+                             n_done, n_total, pop, chrom,
+                             len(val.get("result", [])), val.get("wall_sec", 0))
+                    if n_done % 22 == 0:
+                        output["hwscan"] = existing
+                        save_output(output)
 
     hwscan_summary = {}
     for pop in H_SCAN_POPS:
@@ -1078,7 +1297,6 @@ def cmd_hwscan(args):
             "top_sweep_windows": all_windows[:20],
         }
 
-    driver.close()
     output["hwscan"] = existing
     output["hwscan_summary"] = hwscan_summary
     save_output(output)
@@ -1127,22 +1345,32 @@ def cmd_roh_hmm(args):
         except Exception as e:
             return key, {"error": str(e), "wall_sec": time.time() - t0}
 
-    for pop in POPULATIONS:
-        tasks = [(pop, c) for c in CHROMOSOMES
-                 if f"{pop}|{c}" not in existing or "error" in existing.get(f"{pop}|{c}", {})]
-        if not tasks:
-            log.info("  %s: all cached", pop)
-            continue
-        with ThreadPoolExecutor(max_workers=4) as pool:
-            futures = {pool.submit(run_one, *t): t for t in tasks}
+    # graphpop.roh is Mode.READ — submit all tasks to one global pool
+    all_tasks = [
+        (pop, c)
+        for pop in POPULATIONS
+        for c in CHROMOSOMES
+        if f"{pop}|{c}" not in existing or "error" in existing.get(f"{pop}|{c}", {})
+    ]
+
+    if not all_tasks:
+        log.info("  all cached")
+    else:
+        with ThreadPoolExecutor(max_workers=8) as pool:
+            futures = {pool.submit(run_one, *t): t for t in all_tasks}
             for fut in as_completed(futures):
-                key, val = fut.result()
+                pop, chrom = futures[fut]
+                key = f"{pop}|{chrom}"
+                _, val = fut.result()
                 with lock:
                     existing[key] = val
                     n_done += 1
-        log.info("  %s: done (%d/%d)", pop, n_done, n_total)
-        output["roh_hmm"] = existing
-        save_output(output)
+                    log.info("  [%d/%d] %s/%s: %d samples with ROH (%.1fs)",
+                             n_done, n_total, pop, chrom,
+                             val.get("n_samples_with_roh", 0), val.get("wall_sec", 0))
+                    if n_done % 22 == 0:
+                        output["roh_hmm"] = existing
+                        save_output(output)
 
     roh_hmm_summary = {}
     for pop in POPULATIONS:
@@ -1170,6 +1398,51 @@ def cmd_roh_hmm(args):
 # ── Subcommand: daf_enrichment ────────────────────────────────────────
 
 
+def _bg_daf_from_cache(key_pops, cache_dir=GSCAN_CACHE_DIR):
+    """Compute genome-wide background DAF per population from .npz variant cache.
+
+    Replaces the full-table Neo4j scan (~15 min/pop) with a numpy pass over
+    the pre-exported .npz files (~2-3 s total for all populations).
+
+    ANC encoding (from export_variant_cache.py): 0=unknown, 1=REF, 2=ALT.
+    DAF = af   when ancestral==REF (derived allele is ALT)
+    DAF = 1-af when ancestral==ALT (derived allele is REF)
+    """
+    with open(os.path.join(cache_dir, "pop_meta.json")) as f:
+        meta = json.load(f)
+    pop_ids = meta["pop_ids"]
+    pop_idx = {p: i for i, p in enumerate(pop_ids)}
+
+    sum_daf = {p: 0.0 for p in key_pops}
+    cnt     = {p: 0   for p in key_pops}
+
+    for chrom in CHROMOSOMES:
+        with np.load(os.path.join(cache_dir, f"{chrom}.npz")) as data:
+            anc = data["ancestral_allele"]   # (M,) int8: 0/1/2
+            pol = anc > 0                    # polarized mask
+            af_all = data["af"]              # (M, 26) float32
+            an_all = data["an"]              # (M, 26) int32
+            for pop in key_pops:
+                idx  = pop_idx[pop]
+                mask = pol & (an_all[:, idx] >= 10)
+                af_p = af_all[mask, idx]
+                anc_p = anc[mask]
+                daf  = np.where(anc_p == 1, af_p, 1.0 - af_p)
+                sum_daf[pop] += float(daf.sum())
+                cnt[pop]     += int(mask.sum())
+
+    result = {}
+    for pop in key_pops:
+        n = cnt[pop]
+        result[pop] = {
+            "mean_daf":   float(sum_daf[pop] / n) if n > 0 else None,
+            "n_variants": n,
+        }
+        log.info("  %s: background DAF = %.4f (n=%d)",
+                 pop, result[pop]["mean_daf"] or 0, n)
+    return result
+
+
 def cmd_daf_enrichment(args):
     """Test derived allele frequency enrichment at selection signal regions."""
     output = load_output()
@@ -1181,29 +1454,8 @@ def cmd_daf_enrichment(args):
 
     KEY_POPS = ["YRI", "CEU", "CHB", "GIH", "PEL", "FIN"]
 
-    log.info("Computing genome-wide background DAF...")
-    bg_daf = {}
-    with driver.session(database=NEO4J_DB) as s:
-        for pop in KEY_POPS:
-            rec = s.run(
-                "MATCH (v:Variant) "
-                "WHERE v.is_polarized = true AND v.ancestral_allele IS NOT NULL "
-                "WITH v, v.pop_ids AS pids, v.af AS afs, v.an AS ans, "
-                "     v.ancestral_allele AS aa "
-                "UNWIND range(0, size(pids)-1) AS i "
-                "WITH v, pids[i] AS pop, afs[i] AS af, ans[i] AS an, aa "
-                "WHERE pop = $pop AND an >= 10 "
-                "RETURN avg(CASE WHEN aa = 'REF' THEN af ELSE 1.0 - af END) AS mean_daf, "
-                "       count(v) AS n",
-                pop=pop
-            ).single()
-            bg_daf[pop] = {
-                "mean_daf": rec["mean_daf"],
-                "n_variants": rec["n"],
-            }
-            log.info("  %s: background DAF = %.4f (n=%d)",
-                     pop, rec["mean_daf"] or 0, rec["n"] or 0)
-
+    log.info("Computing genome-wide background DAF (numpy cache bypass)...")
+    bg_daf = _bg_daf_from_cache(KEY_POPS, GSCAN_CACHE_DIR)
     results["background_daf"] = bg_daf
 
     # PBS peak DAF
@@ -1592,6 +1844,167 @@ def _pop_continent(pop):
     return "?"
 
 
+# ── Subcommand: hap_stats ────────────────────────────────────────────
+
+HAP_CACHE_DIR = "data/hap_cache"
+
+
+def _load_hap(pop, chrom, hap_cache_dir=HAP_CACHE_DIR):
+    """Load haplotype columns for one population from the bit-packed cache."""
+    import json as _json
+    meta_path = os.path.join(hap_cache_dir, "sample_meta.json")
+    npz_path  = os.path.join(hap_cache_dir, f"{chrom}.npz")
+    with open(meta_path) as f:
+        meta = _json.load(f)
+    pop_ids   = meta["pop_ids"]
+    n_samples = meta["n_samples"]
+    sample_idx = np.array([i for i, p in enumerate(pop_ids) if p == pop], dtype=np.int32)
+    d          = np.load(npz_path, mmap_mode="r")
+    pos, hap_packed = np.array(d["pos"]), np.array(d["hap"])
+    hap_full = np.unpackbits(hap_packed, axis=1, bitorder="big")[:, :2 * n_samples]
+    hap_idx = np.empty(2 * len(sample_idx), dtype=np.int32)
+    hap_idx[0::2] = 2 * sample_idx
+    hap_idx[1::2] = 2 * sample_idx + 1
+    return pos, hap_full[:, hap_idx].astype(np.int8)
+
+
+def cmd_hap_stats(args):
+    """
+    Compute nSL + iHS + XP-EHH from haplotype cache jointly.
+
+    Loads pop1 + pop2 haplotype arrays ONCE per chromosome, then
+    computes all three statistics sharing the pre-loaded arrays.
+
+    Output stored under "hap_stats" key in human_interpretation_results.json:
+      key = "{pop1}|{pop2}|{chrom}"
+      value = {
+        "nsl_{pop1}":          {n_variants, nsl_mean, nsl_std, time_s},
+        "ihs_{pop1}":          {n_variants, ihs_mean, ihs_std, time_s},
+        "xpehh_{pop1}_{pop2}": {n_variants, xpehh_mean, xpehh_std, time_s},
+        "load_time_s": float,
+        "total_time_s": float,
+      }
+    """
+    import allel
+
+    output   = load_output()
+    existing = output.setdefault("hap_stats", {})
+    lock     = Lock()
+
+    available_chroms = [
+        c for c in CHROMOSOMES
+        if os.path.exists(os.path.join(HAP_CACHE_DIR, f"{c}.npz"))
+    ]
+    if not available_chroms:
+        log.error("No hap_cache found in %s — run export_hap_cache.py first", HAP_CACHE_DIR)
+        return
+
+    tasks = []
+    for pop1, pop2 in XPEHH_PAIRS:
+        for chrom in available_chroms:
+            key = f"{pop1}|{pop2}|{chrom}"
+            if key not in existing:
+                tasks.append((pop1, pop2, chrom, key))
+    log.info("hap_stats: %d tasks pending (%d already done)",
+             len(tasks), len(existing))
+
+    if not tasks:
+        log.info("hap_stats: all tasks cached — nothing to do.")
+        return
+
+    def run_one(pop1, pop2, chrom, key):
+        t0 = time.time()
+        try:
+            # Load both populations once
+            t_load0 = time.perf_counter()
+            pos1, hap1 = _load_hap(pop1, chrom)
+            pos2, hap2 = _load_hap(pop2, chrom)
+            load_s = time.perf_counter() - t_load0
+
+            # Shared MAF filter
+            h1   = allel.HaplotypeArray(hap1)
+            h2   = allel.HaplotypeArray(hap2)
+            ac1  = h1.count_alleles()
+            af1  = ac1.to_frequencies()[:, 1]
+            flt  = ac1.is_segregating() & (af1 >= 0.05) & (af1 <= 0.95)
+            h1f  = h1[flt]; h2f = h2[flt]
+            pos_flt = pos1[flt]; ac1f = ac1[flt]
+
+            # nSL (pop1)
+            t1 = time.perf_counter()
+            nsl_raw = allel.nsl(h1f)
+            try:
+                nsl_std, _ = allel.standardize_by_allele_count(
+                    nsl_raw, ac1f[:, 1], diagnostics=False)
+            except Exception:
+                nsl_std = (nsl_raw - np.nanmean(nsl_raw)) / max(np.nanstd(nsl_raw), 1e-9)
+            nsl_time  = time.perf_counter() - t1
+            nsl_valid = ~np.isnan(nsl_std)
+
+            # iHS (pop1)
+            t2 = time.perf_counter()
+            ihs_raw = allel.ihs(h1f, pos_flt, include_edges=True)
+            try:
+                ihs_std, _ = allel.standardize_by_allele_count(
+                    ihs_raw, ac1f[:, 1], diagnostics=False)
+            except Exception:
+                ihs_std = (ihs_raw - np.nanmean(ihs_raw)) / max(np.nanstd(ihs_raw), 1e-9)
+            ihs_time  = time.perf_counter() - t2
+            ihs_valid = ~np.isnan(ihs_std)
+
+            # XP-EHH (pop1 vs pop2)
+            t3 = time.perf_counter()
+            xp_raw  = allel.xpehh(h1f, h2f, pos_flt, include_edges=True)
+            xp_time = time.perf_counter() - t3
+            xp_valid = ~np.isnan(xp_raw)
+
+            result = {
+                f"nsl_{pop1}": {
+                    "n_variants": int(nsl_valid.sum()),
+                    "nsl_mean":   float(np.nanmean(nsl_std)),
+                    "nsl_std":    float(np.nanstd(nsl_std)),
+                    "time_s":     nsl_time,
+                },
+                f"ihs_{pop1}": {
+                    "n_variants": int(ihs_valid.sum()),
+                    "ihs_mean":   float(np.nanmean(ihs_std)),
+                    "ihs_std":    float(np.nanstd(ihs_std)),
+                    "time_s":     ihs_time,
+                },
+                f"xpehh_{pop1}_{pop2}": {
+                    "n_variants":  int(xp_valid.sum()),
+                    "xpehh_mean":  float(np.nanmean(xp_raw)),
+                    "xpehh_std":   float(np.nanstd(xp_raw)),
+                    "time_s":      xp_time,
+                },
+                "load_time_s":  load_s,
+                "total_time_s": time.time() - t0,
+            }
+            return key, result
+        except Exception as e:
+            log.error("  hap_stats %s: FAILED — %s", key, e, exc_info=True)
+            return key, {"error": str(e), "total_time_s": time.time() - t0}
+
+    n_done  = [0]
+    n_total = len(tasks)
+    with ThreadPoolExecutor(max_workers=GSCAN_WORKERS) as pool:
+        futures = {pool.submit(run_one, *t): t for t in tasks}
+        for fut in as_completed(futures):
+            key, val = fut.result()
+            with lock:
+                existing[key] = val
+                n_done[0] += 1
+                log.info("  [%d/%d] %s: total=%.1fs",
+                         n_done[0], n_total, key, val.get("total_time_s", 0))
+                if n_done[0] % 10 == 0:
+                    output["hap_stats"] = existing
+                    save_output(output)
+
+    output["hap_stats"] = existing
+    save_output(output)
+    log.info("hap_stats: done. %d results saved.", len(existing))
+
+
 # ── Main ──────────────────────────────────────────────────────────────
 
 SUBCOMMANDS = {
@@ -1607,6 +2020,7 @@ SUBCOMMANDS = {
     "roh_hmm": cmd_roh_hmm,
     "daf_enrichment": cmd_daf_enrichment,
     "report": cmd_report,
+    "hap_stats": cmd_hap_stats,
 }
 
 

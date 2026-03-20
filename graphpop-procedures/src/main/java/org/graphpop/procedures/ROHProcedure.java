@@ -52,6 +52,35 @@ public class ROHProcedure {
     /** Min SNP density: at least 1 SNP per this many bp. PLINK default = 50 kb. */
     private static final long DEFAULT_DENSITY_KB = 50;
 
+    /** GRCh38/hg38 chromosome lengths (bp). Used for accurate FROH computation. */
+    private static final java.util.Map<String, Long> CHR_LENGTHS_HG38 =
+            java.util.Map.ofEntries(
+                java.util.Map.entry("chr1",  248956422L),
+                java.util.Map.entry("chr2",  242193529L),
+                java.util.Map.entry("chr3",  198295559L),
+                java.util.Map.entry("chr4",  190214555L),
+                java.util.Map.entry("chr5",  181538259L),
+                java.util.Map.entry("chr6",  170805979L),
+                java.util.Map.entry("chr7",  159345973L),
+                java.util.Map.entry("chr8",  145138636L),
+                java.util.Map.entry("chr9",  138394717L),
+                java.util.Map.entry("chr10", 133797422L),
+                java.util.Map.entry("chr11", 135086622L),
+                java.util.Map.entry("chr12", 133275309L),
+                java.util.Map.entry("chr13", 114364328L),
+                java.util.Map.entry("chr14", 107043718L),
+                java.util.Map.entry("chr15", 101991189L),
+                java.util.Map.entry("chr16",  90338345L),
+                java.util.Map.entry("chr17",  83257441L),
+                java.util.Map.entry("chr18",  80373285L),
+                java.util.Map.entry("chr19",  58617616L),
+                java.util.Map.entry("chr20",  64444167L),
+                java.util.Map.entry("chr21",  46709983L),
+                java.util.Map.entry("chr22",  50818468L),
+                java.util.Map.entry("chrX",  156040895L),
+                java.util.Map.entry("chrY",   57227415L)
+            );
+
     @Context
     public Transaction tx;
 
@@ -116,10 +145,10 @@ public class ROHProcedure {
         int nSamples = matrix.nSamples;
         int nVariants = matrix.nVariants;
 
-        // Chromosome span for FROH computation
-        long chrStart = matrix.positions[0];
-        long chrEnd = matrix.positions[nVariants - 1];
-        long chrLength = chrEnd - chrStart;
+        // Chromosome length for FROH computation.
+        // Use known hg38 lengths; fall back to variant span if chromosome unknown.
+        long chrLength = CHR_LENGTHS_HG38.getOrDefault(chr,
+                matrix.positions[nVariants - 1] - matrix.positions[0]);
         if (chrLength <= 0) chrLength = 1;
 
         // Sample IDs in order

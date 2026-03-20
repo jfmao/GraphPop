@@ -113,6 +113,29 @@
 - All 4 analysis phases complete. New JAR (M3.3 memory improvements) deployed 2026-03-16.
 - Next: commit all uncommitted changes, then proceed to Phase 4 (kinship/IBS/IBD) or paper writing.
 
+### [x] Redo benchmark (scripts/benchmark-vs-tools.py) — DONE 2026-03-20
+Results: benchmarks/results/benchmark_v4.jsonl (all 4 regions, exit 0)
+Added Group F: Joint nSL+iHS+XP-EHH (sel_stats_numpy_joint) — 3.6× speedup on full chr22.
+Key full-chr22 speedups vs scikit-allel:
+  π/θ_W/D: 145×  |  Fst/Dxy: 245×  |  SFS: 327×  |  iHS: 179×  |  XP-EHH: 136×
+GraphPop-numpy vs scikit-allel:
+  iHS: 90×  |  XP-EHH: 53×  |  Joint parallel: 3.6× vs independent numpy
+Note: pairwise LD gap (PLINK2-pgen 0.5–1.1s vs GraphPop 1.3–8.8s) remains; deferred
+until numpy LD cache is implemented. selscan skipped (binary not returning results).
+TODO: update paper/manuscript/benchmarks.tex + regenerate paper/scripts/fig2_benchmarks.py.
+
+---
+
+## Deferred Work
+
+### GenomicWindow write-back (deferred to Phase 4)
+The numpy gscan bypass writes results to the JSON checkpoint only (not to Neo4j).
+Writing ~400k `GenomicWindow` nodes back to the graph is deferred until Phase 4+,
+when Cypher-based traversals over window results are actually needed (e.g. GNN
+embeddings, graph-based selection signal queries). At that point, implement a
+standalone `import_gscan_windows.py` that reads from `human_interpretation_results.json`
+and bulk-imports via batched `UNWIND ... MERGE`. Do NOT add this to `human_interpret.py`.
+
 ---
 
 ## Next Phases (from design doc)

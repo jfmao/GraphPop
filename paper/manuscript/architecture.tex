@@ -1,0 +1,40 @@
+\section*{Architecture}
+
+\subsection*{Graph schema}
+
+GraphPop organizes population genomic data as a labeled property graph (Fig.~\ref{fig:architecture}a). \textbf{Variant} nodes store genomic coordinates, alleles, and two classes of genotype representation: (i) per-population allele-count arrays (\texttt{ac[]}, \texttt{an[]}, \texttt{af[]}, \texttt{het\_count[]}, \texttt{hom\_alt\_count[]}) indexed by a shared \texttt{pop\_ids[]} key, and (ii) bit-packed individual genotype arrays (\texttt{gt\_packed}, \texttt{phase\_packed}). Optionally, ancestral allele annotation (\texttt{ancestral\_allele}, \texttt{is\_polarized}) enables polarized analyses. \textbf{Sample} nodes carry a \texttt{packed\_index} indicating their position in packed arrays and link to \textbf{Population} nodes. Functional annotation edges connect Variants to \textbf{Gene} nodes via \texttt{HAS\_CONSEQUENCE} (with VEP-derived consequence type and impact), and Genes connect to \textbf{Pathway} and \textbf{GOTerm} nodes. Variants on the same chromosome are chained by \texttt{NEXT} edges preserving genomic order. \textbf{GenomicWindow} nodes, materialized by genome scan procedures, store per-window statistics and persist as permanent queryable records.
+
+This schema encodes the multi-layer structure of population genomic data as first-class graph topology. The path from a variant's genotype to its functional annotation is a direct edge traversal; statistics written to nodes are immediately queryable by any future analysis.
+
+\subsection*{Dual computational paths}
+
+GraphPop implements two complementary strategies (Fig.~\ref{fig:architecture}b):
+
+\textbf{FAST PATH} (6 procedures: diversity, divergence, SFS, joint SFS, genome scan, population summary). These operate exclusively on pre-aggregated allele-count arrays. Because counts are computed once during import, complexity is $O(V \times K)$ where $V$ is variant count and $K$ is the number of populations---\emph{independent of sample count}. A 3{,}000-sample dataset runs in the same time as a 300-sample dataset. For 1000 Genomes chr22 (1{,}070{,}401 variants, 5 populations), FAST PATH procedures complete in 1--2~seconds. This stands in contrast to matrix-based tools where runtime scales linearly (or worse) with sample count because every analysis must decompress and scan $N$ genotypes per variant.
+
+\textbf{FULL PATH} (6 procedures: LD, iHS, XP-EHH, nSL, ROH, Garud's $H$). These require individual haplotype data. GraphPop reads \texttt{gt\_packed} and \texttt{phase\_packed} arrays from Variant nodes into a dense \texttt{HaplotypeMatrix} where each haplotype occupies 1~bit (packed 8 per byte). For 1{,}006 EUR samples (2{,}012 haplotypes), each variant row requires only 252~bytes versus 2{,}012~bytes for an unpacked representation---an 87\% reduction. All computation follows a three-phase pattern: (1)~load from graph (single-threaded), (2)~compute in parallel (\texttt{IntStream.parallel()}), (3)~write results back to graph (single-threaded). The compute phase involves zero database access, enabling full CPU utilization. For memory-intensive procedures (iHS, XP-EHH), a chunking strategy processes the chromosome in 5~Mb core windows with 2~Mb EHH margins, keeping peak memory under 200~MB regardless of chromosome length.
+
+\subsection*{SIMD-accelerated primitives}
+
+Numerical kernels are implemented in \texttt{VectorOps}, a Java class leveraging the Vector API (JEP~338) for SIMD acceleration. This includes dot product (for $r^2$), Weir--Cockerham Fst variance components ($a$, $b$, $c$), nucleotide diversity, expected heterozygosity, Pearson correlation, and D' on packed haplotypes using \texttt{Integer.bitCount()}. The 14 VectorOps primitives are validated by 50 unit tests against reference implementations.
+
+\subsection*{Packed genotype encoding}
+
+The \texttt{gt\_packed} array uses 2~bits per sample (00=HomRef, 01=Het, 10=HomAlt, 11=Missing), requiring 801~bytes per variant for 3{,}202~samples. The \texttt{phase\_packed} array uses 1~bit per sample (401~bytes). For non-diploid chromosomes, \texttt{ploidy\_packed} (1~bit/sample) flags haploid individuals; all procedures adjust counting accordingly. This encoding reduced the rice 3K database from $\sim$200~GB (under a prior per-sample edge model) to 46~GB, while reading two byte arrays per variant is orders of magnitude faster than traversing thousands of edges.
+
+\subsection*{Persistent analytical record}
+
+A distinguishing feature of GraphPop's architecture is that \emph{computed results become part of the graph}. Genome scan procedures write \texttt{GenomicWindow} nodes storing per-window $\pi$, $\theta_W$, Tajima's $D$, Fst, PBS, and Fay \& Wu's $H$. Selection scan procedures write iHS, XP-EHH, and nSL scores as properties on Variant nodes. ROH results are returned per sample. Population summaries are written to Population nodes. Once computed, these results are permanently available: a Cypher query can retrieve all variants with iHS~$> 2$, or all windows where Fst~$> 0.5$ and $\pi < 0.01$, or intersect these with gene annotations via edge traversal---all without re-computation. This cumulative analytical record is fundamentally different from the ephemeral outputs of file-based tools, where each result exists as an isolated file that must be explicitly loaded, parsed, and coordinate-matched to integrate with other analyses.
+
+\subsection*{Annotation-conditioned queries}
+
+Every procedure accepts an \texttt{options} parameter that may include \texttt{consequence}, \texttt{pathway}, or gene filters. Internally, \texttt{VariantQuery} dynamically builds a Cypher query that optionally joins through \texttt{HAS\_CONSEQUENCE} or \texttt{IN\_PATHWAY} edges before returning variants to the procedure. The filtering is resolved by graph traversal at query time---the procedure code is identical whether or not conditioning is applied.
+
+This means \emph{any} of the 12 procedures can be conditioned on \emph{any} annotation in a single parameter change (Fig.~\ref{fig:architecture}c). The call:
+
+\begin{verbatim}
+CALL graphpop.diversity('chr1', 1, 43270923, 'GJ-tmp',
+     {consequence: 'missense_variant'})
+\end{verbatim}
+
+\noindent produces $\pi_N$ directly. The classical equivalent requires VEP annotation, consequence filtering, VCF subsetting, and a separate diversity tool---four invocations and three intermediate files. For 12 populations $\times$ 12 chromosomes $\times$ 2 consequence classes, GraphPop replaces 288 multi-step pipeline runs with 288 single-line procedure calls.

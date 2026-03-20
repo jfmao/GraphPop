@@ -1,0 +1,188 @@
+\clearpage
+\setcounter{section}{0}
+\setcounter{figure}{0}
+\setcounter{table}{0}
+\renewcommand{\thefigure}{S\arabic{figure}}
+\renewcommand{\thetable}{S\arabic{table}}
+\renewcommand{\thesection}{S\arabic{section}}
+
+\section*{Supplementary Information}
+
+% ---------------------------------------------------------------------------
+\section{Supplementary Note 1: Dataset and Import Pipeline Details}
+% ---------------------------------------------------------------------------
+
+\subsection{Rice 3K dataset}
+
+The 3K Rice Genomes Project (Wang et al.\ 2018) SNP dataset comprises 3{,}024 accessions of Asian cultivated rice (\emph{Oryza sativa} L.) with $\sim$29.6 million SNPs called against the Nipponbare IRGSP-1.0 reference genome. Population classification follows Wang et al.\ (2018) ADMIXTURE at K=9, yielding 12 subpopulations: XI-1A, XI-1B, XI-2, XI-3, XI-adm (indica), GJ-tmp, GJ-trp, GJ-sbtrp, GJ-adm (japonica), cA-Aus, cB-Bas, and admix.
+
+\subsection{Graph construction}
+
+The import pipeline (Python, using cyvcf2) processes VCF files in a single streaming pass, producing CSV files for neo4j-admin bulk import. Genotypes are packed during streaming: \texttt{gt\_packed} (2 bits/sample, numpy-vectorized) and \texttt{phase\_packed} (1 bit/sample). Allele counts per population are pre-aggregated during import. VEP annotations and Reactome pathways are loaded by dedicated parsers. The resulting rice 3K graph database is $\sim$46~GB.
+
+% ---------------------------------------------------------------------------
+\section{Supplementary Note 2: Packed Genotype Encoding}
+% ---------------------------------------------------------------------------
+
+The \texttt{gt\_packed} byte array uses 2 bits per sample with encoding: 00=HomRef, 01=Het, 10=HomAlt, 11=Missing. The cyvcf2 internal encoding ($\{0, 1, 2, 3\}$) is remapped ($0 \to 0$, $1 \to 1$, $2 \to 3$, $3 \to 2$) to place Missing at the highest value. For 3{,}202 samples, each variant requires 801 bytes for genotypes and 401 bytes for phase (1 bit/sample). This encoding replaced a prior model using individual CARRIES edges ($\sim$6.3 billion for rice 3K), reducing the database from $\sim$200~GB to $\sim$46~GB.
+
+The bit-packed HaplotypeMatrix used by FULL PATH procedures achieves further compression: each haplotype is 1 bit, packed 8 per byte. For 1{,}006 EUR samples (2{,}012 haplotypes), each variant row is 252 bytes versus 2{,}012 bytes unpacked---an 87\% reduction.
+
+% ---------------------------------------------------------------------------
+\section{Supplementary Note 3: EHH Computation Details}
+% ---------------------------------------------------------------------------
+
+EHHComputer walks position-sorted haplotype arrays from a focal variant outward (both directions), tracking distinct haplotype classes. The implementation uses flat array tracking with incremental sum-of-pairs updates (M1.4 optimization), replacing the earlier HashMap-per-step approach. Key configurable parameters: \texttt{min\_ehh} (EHH truncation threshold, default 0.05), \texttt{max\_gap} (maximum physical gap before aborting, default 200~kb), \texttt{gap\_scale} (distance cap for trapezoidal integration, default 20~kb). iHH is computed as the trapezoidal integral of the EHH curve.
+
+For iHS and XP-EHH, chromosomes are processed in chunks (5~Mb core window + 2~Mb EHH margin on each side) to bound peak memory at $\sim$200~MB per chunk. Standardization (AF-bin for iHS/nSL; genome-wide for XP-EHH) is applied across all chunks after computation.
+
+% ---------------------------------------------------------------------------
+\section{Supplementary Note 4: ROH HMM Details}
+% ---------------------------------------------------------------------------
+
+The ROH HMM implements a two-state (Autozygous/Hardy--Weinberg) Viterbi decoder following Narasimhan et al.\ (2016). Transition probabilities use exact 2-state continuous-time Markov chain (CTMC) matrix exponentiation: $P(\text{HW} \to \text{AZ}|d) = \pi_\text{AZ} \cdot (1 - (1-\alpha-\beta)^d)$, where $d$ is the inter-variant distance in base pairs. Emission probabilities are allele-frequency weighted: $P(\text{hom}|\text{AZ}) = 1 - \epsilon$ (with het error rate $\epsilon = 10^{-3}$), $P(\text{hom}|\text{HW}) = p^2 + (1-p)^2$. Default per-bp rates match bcftools roh -G30 (\texttt{hw\_to\_az} = $6.7 \times 10^{-8}$, \texttt{az\_to\_hw} = $5 \times 10^{-9}$). Validation: $r = 0.96$ per-sample total ROH length vs bcftools on 1000 Genomes EUR chr22.
+
+% ---------------------------------------------------------------------------
+\section{Supplementary Note 5: Human 1000 Genomes Full-Genome Results}
+% ---------------------------------------------------------------------------
+
+In addition to the chr22 benchmarks, GraphPop was applied to the full 1000 Genomes Phase~3 dataset across all autosomes (chr1--22) for all 5 superpopulations. Genome-wide diversity, divergence, genome scans, iHS, XP-EHH, and nSL results are available in the pre-built graph database deposited at Figshare/Zenodo. Per-population genome-wide summary statistics (Supplementary Table~\ref{tab:human_summary}) confirm expected patterns: AFR has the highest diversity, EAS and EUR show stronger LD, and known selection signals (e.g., \emph{LCT} region in EUR, \emph{SLC24A5} in EUR) are recovered.
+
+% ---------------------------------------------------------------------------
+% Supplementary Tables
+% ---------------------------------------------------------------------------
+
+\section{Supplementary Tables}
+
+\begin{table}[h]
+\caption{Per-population diversity statistics for the rice 3K dataset (genome-wide means across 12 chromosomes).}
+\label{tab:rice_diversity}
+\centering
+\small
+\begin{tabular}{llcccc}
+\toprule
+Rank & Population & Mean $\pi$ & Mean $\theta_W$ & Mean Tajima's $D$ & Mean $F_{IS}$ \\
+\midrule
+1 & admix & 0.07770 & 0.11278 & $-1.117$ & 0.616 \\
+2 & XI-adm & 0.06052 & 0.11325 & $-1.493$ & 0.632 \\
+3 & XI-2 & 0.05707 & 0.09338 & $-1.528$ & 0.632 \\
+4 & cA-Aus & 0.05488 & 0.12711 & $-0.939$ & 0.648 \\
+5 & XI-3 & 0.05418 & 0.08262 & $-1.092$ & 0.615 \\
+6 & XI-1B & 0.05064 & 0.09863 & $-1.306$ & 0.598 \\
+7 & XI-1A & 0.04691 & 0.08591 & $-0.859$ & 0.541 \\
+8 & cB-Bas & 0.04489 & 0.07592 & $-2.043$ & 0.663 \\
+9 & GJ-trp & 0.03239 & 0.05454 & $-1.312$ & 0.700 \\
+10 & GJ-adm & 0.03234 & 0.06210 & $-0.988$ & 0.706 \\
+11 & GJ-sbtrp & 0.02579 & 0.04686 & $-0.890$ & 0.673 \\
+12 & GJ-tmp & 0.01891 & 0.05244 & $-2.406$ & 0.720 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{table}[h]
+\caption{$\pi_N/\pi_S$ ratios for all 12 rice subpopulations (genome-wide means). All values $> 1.0$ indicate relaxed purifying selection (cost of domestication).}
+\label{tab:rice_pinpis}
+\centering
+\small
+\begin{tabular}{llcl}
+\toprule
+Rank & Population & Mean $\pi_N/\pi_S$ & Interpretation \\
+\midrule
+1 & admix & 1.146 & Highest deleterious load \\
+2 & GJ-adm & 1.145 & Admixed accumulation \\
+3 & GJ-trp & 1.107 & Tropical japonica \\
+4 & XI-adm & 1.079 & Indica admixed \\
+5 & cB-Bas & 1.078 & Basmati \\
+6 & GJ-sbtrp & 1.077 & Subtropical japonica \\
+7 & cA-Aus & 1.076 & Aus group \\
+8 & XI-2 & 1.061 & South Asian indica \\
+9 & XI-3 & 1.058 & SE Asian indica \\
+10 & XI-1B & 1.054 & Modern indica \\
+11 & XI-1A & 1.053 & East Asian indica \\
+12 & GJ-tmp & 1.018 & Most constrained \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{table}[h]
+\caption{Annotation-conditioned Fst: missense vs.\ synonymous variant classes for three major population pairs.}
+\label{tab:rice_fst_conditioned}
+\centering
+\small
+\begin{tabular}{lcccc}
+\toprule
+Population pair & Fst (missense) & Fst (synonymous) & Ratio & Interpretation \\
+\midrule
+GJ-tmp vs GJ-trp & 0.252 & 0.228 & 1.106 & Adaptive protein divergence \\
+GJ-tmp vs XI-1A & 0.604 & 0.579 & 1.044 & Adaptive protein divergence \\
+XI-1A vs cA-Aus & 0.366 & 0.356 & 1.028 & Adaptive protein divergence \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{table}[h]
+\caption{Top 10 most differentiated rice population pairs by W\&C Fst (genome-wide mean).}
+\label{tab:rice_fst_top}
+\centering
+\small
+\begin{tabular}{lc}
+\toprule
+Population pair & Mean Fst \\
+\midrule
+GJ-tmp vs XI-1A & 0.711 \\
+GJ-tmp vs XI-1B & 0.694 \\
+GJ-tmp vs cA-Aus & 0.678 \\
+GJ-tmp vs XI-2 & 0.663 \\
+XI-3 vs GJ-tmp & 0.652 \\
+XI-1A vs GJ-sbtrp & 0.636 \\
+GJ-trp vs XI-1A & 0.622 \\
+XI-1B vs GJ-sbtrp & 0.615 \\
+GJ-trp vs XI-1B & 0.603 \\
+XI-1A vs GJ-adm & 0.596 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{table}[h]
+\caption{Known domestication genes recovered at selection scan peaks via graph traversal.}
+\label{tab:rice_genes}
+\centering
+\small
+\begin{tabular}{llccll}
+\toprule
+Gene & Function & Statistic & Value & Comparison & Method \\
+\midrule
+GW5 & Grain width & XP-EHH & 4.91 & XI-1A vs cA-Aus & Graph traversal \\
+Hd1 & Heading date & XP-EHH & $-4.15$ & GJ-trp vs XI-1A & Graph traversal \\
+PROG1 & Prostrate growth & XP-EHH & 4.53 & GJ-tmp vs GJ-trp & Graph traversal \\
+OsC1 & Hull color & Garud's $H_{12}$ & 0.250 & GJ-tmp & Graph traversal \\
+Wx & Amylose (waxy) & Garud's $H_{12}$ & 0.138 & GJ-adm & Graph traversal \\
+DRO1 & Deep rooting & Garud's $H_{12}$ & 0.139 & GJ-tmp & Graph traversal \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{table}[h]
+\caption{GraphPop procedure reference: 12 stored procedures with Cypher signatures and descriptions.}
+\label{tab:procedures}
+\centering
+\small
+\begin{tabular}{p{3cm}p{2cm}p{8cm}}
+\toprule
+Procedure & Path & Description \\
+\midrule
+graphpop.diversity & FAST & $\pi$, $\theta_W$, Tajima's $D$, Fay \& Wu's $H$, $H_e$, $H_o$, $F_{IS}$ \\
+graphpop.divergence & FAST & Hudson Fst, W\&C Fst, $D_{xy}$, $D_a$, PBS \\
+graphpop.sfs & FAST & Site frequency spectrum (folded/unfolded) \\
+graphpop.joint\_sfs & FAST & 2D joint SFS \\
+graphpop.genome\_scan & FAST & Sliding-window scan (materializes GenomicWindow nodes) \\
+graphpop.pop\_summary & FAST & Whole-chromosome summary (writes to Population node) \\
+graphpop.ld & FULL & Pairwise $r^2$, $D'$ (writes LD edges) \\
+graphpop.ihs & FULL & Integrated haplotype score (AF-bin standardized) \\
+graphpop.xpehh & FULL & Cross-population EHH (genome-wide standardized) \\
+graphpop.nsl & FULL & Number of segregating sites by length \\
+graphpop.roh & FULL & Runs of homozygosity (HMM or sliding-window) \\
+graphpop.garud\_h & FULL & Garud's $H_1$, $H_{12}$, $H_2/H_1$ (sweep detection) \\
+\bottomrule
+\end{tabular}
+\end{table}

@@ -1,0 +1,29 @@
+\section*{Benchmarks}
+
+We benchmarked GraphPop against scikit-allel (v1.3.7), VCFtools (v0.1.16), PLINK~2 (v2.00a6), PLINK~1.9 (v1.90b7.2), and bcftools (v1.21) on the 1000 Genomes Project Phase~3 chr22 dataset (3{,}202 samples, 1{,}066{,}555 variants, CEU population). All benchmarks used a single workstation (see Online Methods for hardware specification). GraphPop procedures were called via the Neo4j Cypher interface with the database pre-loaded; competitor tools read from VCF or PLINK binary files as appropriate. For haplotype statistics (nSL, ROH), we additionally benchmarked a pure-NumPy bypass path (GraphPop-numpy) that reads pre-exported haplotype arrays directly, eliminating graph I/O entirely. Runtime and peak memory were recorded for four region sizes (100~kb to full chromosome) across 8 statistics (Table~\ref{tab:benchmarks}).
+
+\subsection*{FAST PATH procedures outperform matrix-based tools by orders of magnitude}
+
+For diversity ($\pi$, $\theta_W$, Tajima's $D$), GraphPop completed the full chr22 in 12.1~s compared to 1{,}757~s for scikit-allel---a \textbf{146$\times$ speedup}---and 220~s for VCFtools (18$\times$; Fig.~\ref{fig:benchmarks}a). The speedup grows with chromosome length because GraphPop's $O(V \times K)$ FAST PATH scales only with variant count, not sample count, while scikit-allel's $O(V \times N)$ matrix operations scale with both. SFS computation showed a similar advantage: \textbf{327$\times$} over scikit-allel (5.9~s vs 1{,}937~s). For Fst and Dxy, GraphPop completed full chr22 in 8.8~s---\textbf{245$\times$ faster} than scikit-allel (2{,}165~s) and 13$\times$ faster than VCFtools (113~s)---while simultaneously returning Dxy and Da at no additional cost. PLINK~2 with native binary format was 2.3$\times$ faster for Fst alone (3.9~s), but does not compute Dxy.
+
+\subsection*{FULL PATH procedures are competitive or superior for haplotype statistics}
+
+For iHS, GraphPop achieved a \textbf{179$\times$ speedup} over scikit-allel (10.9~s vs 1{,}948~s at full chromosome scale). XP-EHH was \textbf{136$\times$ faster} (16.7~s vs 2{,}280~s). Both statistics required no external selection-scan tool. For nSL, the GraphPop Neo4j path was \textbf{7.3$\times$ faster} than scikit-allel (307~s vs 2{,}231~s); the GraphPop-numpy bypass, which avoids graph I/O entirely by reading pre-exported haplotype arrays, achieved \textbf{63$\times$} (35~s). For ROH, the GraphPop-numpy HMM path completed full chr22 in 10.9~s---\textbf{11.7$\times$ faster} than the Neo4j path (128~s), \textbf{4.6$\times$ faster} than bcftools roh (50~s), and \textbf{2.4$\times$ faster} than PLINK~1.9 (26~s)---with identical per-sample results to the Neo4j path ($r = 1.000$) and $r = 0.87$ with bcftools.
+
+For LD, GraphPop Neo4j completed full chr22 pairwise LD (threshold $r^2 \geq 0.1$) in 6.4~s, compared to 1.1~s for PLINK~2-pgen and 9.6~s for GraphPop-numpy. PLINK~2's 5.7$\times$ advantage reflects its highly optimized native binary format. GraphPop was nonetheless 9$\times$ faster than scikit-allel on the 1~Mb test region (1.8~s vs 54~s).
+
+Overall, GraphPop was fastest or tied on 6 of 8 benchmarked statistics (Fig.~\ref{fig:benchmarks}a). PLINK~2 was faster for pairwise LD and Fst (native binary format), while PLINK~2 and bcftools were faster than the GraphPop Neo4j path for ROH (though the GraphPop-numpy path surpassed both).
+
+\subsection*{Memory: streaming Neo4j path vs in-memory numpy path}
+
+GraphPop's Neo4j path maintained a \textbf{constant $\sim$150~MB peak memory} across all analyses---diversity, SFS, LD, nSL, iHS, XP-EHH, ROH---regardless of data size or analysis type (Fig.~\ref{fig:benchmarks}b). This constant footprint reflects its streaming architecture: FAST PATH procedures scan Variant nodes without accumulation; FULL PATH procedures load one chromosome chunk at a time. In contrast, scikit-allel peaked at 4{,}890~MB for full-chromosome diversity (33$\times$ higher), PLINK~2-VCF at 1{,}664~MB, and bcftools at 1{,}759~MB for ROH.
+
+The GraphPop-numpy bypass trades memory for speed: pre-loading a full chromosome haplotype matrix (1{,}067{,}000 variants $\times$ 198 CEU haplotypes) requires $\sim$7{,}745~MB peak. This path is suitable for workstations with $\geq$32~GB RAM and provides the largest speedups for statistics that iterate over all variants (nSL, ROH).
+
+\subsection*{Numerical accuracy}
+
+FAST PATH statistics matched scikit-allel to $< 0.000001\%$ relative error across all region sizes. FULL PATH correlations were: iHS $r = 0.999$ vs scikit-allel, XP-EHH $r = 0.97$, nSL $r = 1.000$. ROH per-sample total length agreed exactly between the Neo4j and numpy paths ($r = 1.000$), with $r = 0.87$ vs bcftools roh and $r = 0.34$ vs PLINK~1.9 (which uses a sliding-window algorithm rather than HMM). LD pair counts matched PLINK~2 to within 0.1\% (phased vs unphased minor difference).
+
+\subsection*{Result persistence eliminates re-computation}
+
+A critical performance advantage not captured by single-run benchmarks is result persistence. In classical workflows, combining selection scan results with diversity statistics or functional annotations requires re-running analyses or writing custom coordinate-matching scripts. In GraphPop, all results from prior analyses are permanently stored on graph nodes and can be retrieved or cross-referenced by Cypher queries in milliseconds. For the rice 3K analysis (Section ``Application''), this meant that after computing iHS, XP-EHH, PBS, Garud's $H$, and Fay \& Wu's $H$ across all populations, identifying loci with convergent multi-statistic signals required only a single query---not re-computation of any statistic.

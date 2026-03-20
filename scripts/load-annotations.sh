@@ -120,7 +120,7 @@ CALL {
     cadd_phred: toFloatOrNull(row.`cadd_phred:float`),
     revel: toFloatOrNull(row.`revel:float`)
   }]->(g)
-} IN TRANSACTIONS OF 10000 ROWS;
+} IN TRANSACTIONS OF 50000 ROWS;
 CYPHER
 
 echo "    Done."
@@ -134,10 +134,14 @@ echo ""
 # Create relationship index
 # ---------------------------------------------------------------------------
 
-echo "==> Creating HAS_CONSEQUENCE index on impact..."
+echo "==> Creating HAS_CONSEQUENCE indexes..."
 
 cypher-shell -u "$NEO4J_USER" -p "$NEO4J_PASS" -d "$NEO4J_DB" <<'CYPHER'
 CREATE INDEX consequence_impact IF NOT EXISTS FOR ()-[r:HAS_CONSEQUENCE]-() ON (r.impact);
+CYPHER
+
+cypher-shell -u "$NEO4J_USER" -p "$NEO4J_PASS" -d "$NEO4J_DB" <<'CYPHER'
+CREATE INDEX consequence_type IF NOT EXISTS FOR ()-[r:HAS_CONSEQUENCE]-() ON (r.consequence);
 CYPHER
 
 echo "    Done."

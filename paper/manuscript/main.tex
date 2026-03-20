@@ -1,0 +1,80 @@
+\documentclass[10pt]{article}
+
+% Nature Methods formatting
+\usepackage[margin=1in]{geometry}
+\usepackage{graphicx}
+\usepackage{amsmath,amssymb}
+\usepackage{natbib}
+\usepackage{booktabs}
+\usepackage{hyperref}
+\usepackage{xcolor}
+\usepackage{lineno}
+\usepackage{authblk}
+\usepackage{siunitx}
+\usepackage{multirow}
+\usepackage{array}
+\usepackage{longtable}
+\usepackage{microtype}
+
+\linenumbers
+
+% Title
+\title{\textbf{GraphPop: graph-native population genomics with annotation-conditioned queries}}
+
+\author[1]{Jianfeng Mao}
+% Add co-authors as needed
+% \author[2]{Author Two}
+
+\affil[1]{Affiliation}
+% \affil[2]{Affiliation Two}
+
+\date{}
+
+\begin{document}
+
+\maketitle
+
+% Abstract
+\input{abstract}
+
+% Main text
+\input{introduction}
+\input{architecture}
+\input{benchmarks}
+\input{application}
+\input{discussion}
+
+% Methods
+\section*{Online Methods}
+\input{methods}
+
+% Data and Code Availability
+\section*{Data and Code Availability}
+GraphPop source code, including all 12 stored procedures, the import pipeline, the MCP server, and the ToolUniverse integration, is available at \url{https://github.com/[repository]} under the MIT license.
+
+Pre-built Neo4j graph databases for both datasets analyzed in this study are publicly available for immediate use: the 1000 Genomes Project full-genome graph (chr1--22, 3{,}202 samples) and the 3K Rice Genomes Project graph (12 chromosomes, 3{,}024 accessions, 29.6M variants) with all computed statistics (diversity, divergence, selection scans, ROH, genome scan windows) persisted as node properties. These databases are deposited at Figshare/Zenodo [DOI to be assigned upon acceptance]. Researchers can download and load these graphs directly into a Neo4j instance to query any pre-computed result or run additional GraphPop analyses without re-importing from VCF.
+
+The source VCF data are available from the 1000 Genomes Project (\url{https://www.internationalgenome.org/}) and the 3K Rice Genomes Project (\url{https://snp-seek.irri.org/}; Wang et al.\ 2018). Reactome pathway annotations are from \url{https://reactome.org/}. Ancestral allele annotations were derived from Ensembl EPO multi-species alignment FASTA files. All benchmark scripts, analysis scripts, and figure-generation code are included in the repository.
+
+% Acknowledgements
+\section*{Acknowledgements}
+We thank the 1000 Genomes Project Consortium and the 3K Rice Genomes Project for making their data publicly available.
+
+% Author Contributions
+\section*{Author Contributions}
+J.M.\ conceived the project, designed the architecture, implemented all software, performed analyses, and wrote the manuscript.
+
+% Competing Interests
+\section*{Competing Interests}
+The authors declare no competing interests.
+
+% References
+\bibliographystyle{naturemag}
+\bibliography{references}
+
+\clearpage
+
+% Supplementary
+\input{supplementary}
+
+\end{document}

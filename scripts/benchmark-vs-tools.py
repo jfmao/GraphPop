@@ -55,8 +55,9 @@ RESULTS_DIR = ROOT / "benchmarks" / "results"
 RESULTS_DIR.mkdir(parents=True, exist_ok=True)
 
 CHR = "chr22"
-POP1 = "AFR"
-POP2 = "EUR"
+POP1 = "YRI"   # sub-pop (Yoruba), used for diversity / single-pop stats
+POP2 = "CEU"   # sub-pop (CEPH European), used for selection / pairwise stats
+HAP_CACHE_DIR = str(ROOT / "data/hap_cache")
 
 NEO4J_USER = "neo4j"
 NEO4J_PASS = "graphpop"
@@ -215,8 +216,8 @@ def load_panel():
         f.readline()  # skip header
         for line in f:
             parts = line.strip().split("\t")
-            if len(parts) >= 3:
-                sample_pop[parts[0]] = parts[2]  # super_pop
+            if len(parts) >= 2:
+                sample_pop[parts[0]] = parts[1]  # sub-pop (ACB, ASW, CEU, YRI, …)
     _panel_cache = sample_pop
     return sample_pop
 
@@ -957,6 +958,80 @@ def ld_graphpop_windowed(start, end, pop, max_dist, r2_threshold, min_af):
     }
 
 
+def ld_graphpop_numpy(start, end, pop, max_dist_bp, r2_threshold, min_maf):
+    """Compute windowed pairwise r² from the numpy haplotype cache (bypasses Neo4j).
+
+    Uses phased haplotypes: r²(i,j) = cov(h_i, h_j)² / (var_i × var_j)
+    where h_i, h_j are 0/1 vectors across 2*n_pop haplotypes.
+
+    For M ≤ 5000 variants: computes full M×M matrix at once.
+    For M > 5000: streams in row-blocks of 512 to bound peak memory.
+    """
+    def _compute():
+        pos, hap = load_hap_cache(pop, start, end)
+        if len(pos) < 2:
+            return {"n_pairs": 0, "n_variants": 0}
+
+        hap_f = hap.astype(np.float32)   # (M, 2K)
+        n_hap = float(hap_f.shape[1])
+
+        # MAF filter
+        freq = hap_f.mean(axis=1)        # (M,)
+        maf  = np.minimum(freq, 1.0 - freq)
+        mask = maf >= min_maf
+        hap_f = hap_f[mask]
+        pos   = pos[mask]
+        freq  = freq[mask]
+        M = len(pos)
+        if M < 2:
+            return {"n_pairs": 0, "n_variants": M}
+
+        # Clamp to prevent divide-by-zero at fixed sites
+        var = (freq * (1.0 - freq)).clip(min=1e-9).astype(np.float32)  # (M,)
+
+        FULL_THRESH = 5000
+        n_pairs = 0
+
+        if M <= FULL_THRESH:
+            # Full matrix in one shot
+            cov = hap_f @ hap_f.T / n_hap - np.outer(freq, freq)  # (M, M)
+            r2  = (cov ** 2) / np.outer(var, var)
+            i_idx, j_idx = np.triu_indices(M, k=1)
+            in_window = (pos[j_idx] - pos[i_idx]) <= max_dist_bp
+            n_pairs = int((r2[i_idx[in_window], j_idx[in_window]] >= r2_threshold).sum())
+        else:
+            # Streaming block approach: process BLOCK rows at a time
+            BLOCK = 512
+            # For each variant i, precompute the last j within max_dist_bp
+            j_max = np.searchsorted(pos, pos + max_dist_bp, side="right")  # (M,)
+
+            for i0 in range(0, M, BLOCK):
+                i1    = min(i0 + BLOCK, M)
+                # j_end is the max col index reachable from any row in this block
+                j_end = int(j_max[i1 - 1])
+                b     = i1 - i0
+                J     = j_end - i0
+
+                hi = hap_f[i0:i1]       # (b, 2K)
+                hj = hap_f[i0:j_end]    # (J, 2K) — aligned to global index i0
+
+                cov   = hi @ hj.T / n_hap - np.outer(freq[i0:i1], freq[i0:j_end])
+                denom = np.outer(var[i0:i1], var[i0:j_end])
+                r2    = cov ** 2 / denom  # (b, J)
+
+                # Validity mask: strict upper triangle and within distance window
+                gi    = np.arange(i0, i1)[:, None]     # (b, 1) global row
+                gj    = np.arange(i0, j_end)[None, :]  # (1, J) global col
+                valid = (gj > gi) & (
+                    (pos[i0:j_end][None, :] - pos[i0:i1, None]) <= max_dist_bp)
+                n_pairs += int((r2[valid] >= r2_threshold).sum())
+
+        return {"n_pairs": n_pairs, "n_variants": M}
+
+    result, elapsed, peak_mb = measure_python_call(_compute)
+    return {**result, "time_s": elapsed, "peak_mem_mb": peak_mb}
+
+
 def ld_plink2_pruning(start, end, pop, tmpdir, window_kb, step, r2, min_maf,
                        use_pgen=False):
     """Run PLINK2 --indep-pairwise for LD pruning.
@@ -999,6 +1074,59 @@ def ld_plink2_pruning(start, end, pop, tmpdir, window_kb, step, r2, min_maf,
         "time_s": elapsed,
         "peak_mem_mb": peak_mb,
     }
+
+
+# ---------------------------------------------------------------------------
+# Haplotype cache helper (for numpy bypasses in Group E)
+# ---------------------------------------------------------------------------
+
+def load_hap_cache(pop, start=None, end=None, chrom=None):
+    """Load population haplotypes from the numpy haplotype cache.
+
+    Returns (pos, hap) where:
+      pos: int64 array (M,) — variant positions
+      hap: int8 array (M, 2*n_pop) — haplotype matrix for the population
+    """
+    import json
+    chrom = chrom or CHR
+    meta_path = os.path.join(HAP_CACHE_DIR, "sample_meta.json")
+    npz_path  = os.path.join(HAP_CACHE_DIR, f"{chrom}.npz")
+    if not os.path.exists(meta_path) or not os.path.exists(npz_path):
+        raise FileNotFoundError(
+            f"Hap cache missing. Run: python scripts/export_hap_cache.py --chr {chrom}")
+
+    with open(meta_path) as f:
+        meta = json.load(f)
+    pop_ids   = meta["pop_ids"]
+    n_samples = meta["n_samples"]
+
+    sample_idx = np.array([i for i, p in enumerate(pop_ids) if p == pop], dtype=np.int32)
+    if len(sample_idx) == 0:
+        raise ValueError(f"Population '{pop}' not in hap cache. "
+                         f"Available: {sorted(set(pop_ids))[:10]}")
+
+    d          = np.load(npz_path, mmap_mode="r")
+    pos        = d["pos"]
+    hap_packed = d["hap"]
+
+    if start is not None and end is not None:
+        mask       = (pos >= start) & (pos <= end)
+        pos        = np.array(pos[mask])
+        hap_packed = np.array(hap_packed[mask])
+    else:
+        pos        = np.array(pos)
+        hap_packed = np.array(hap_packed)
+
+    if len(pos) == 0:
+        return pos, np.empty((0, 2 * len(sample_idx)), dtype=np.int8)
+
+    hap_full = np.unpackbits(hap_packed, axis=1, bitorder="big")[:, :2 * n_samples]
+
+    hap_idx = np.empty(2 * len(sample_idx), dtype=np.int32)
+    hap_idx[0::2] = 2 * sample_idx
+    hap_idx[1::2] = 2 * sample_idx + 1
+
+    return pos, hap_full[:, hap_idx].astype(np.int8)
 
 
 # ---------------------------------------------------------------------------
@@ -1124,6 +1252,45 @@ def ihs_graphpop(start, end, pop):
     }
 
 
+def ihs_graphpop_numpy(start, end, pop):
+    """Compute iHS using scikit-allel on the numpy haplotype cache (bypasses Neo4j)."""
+    import allel
+
+    def _compute():
+        pos, hap = load_hap_cache(pop, start, end)
+        if len(pos) == 0:
+            return {"n_variants": 0, "ihs_mean": None}
+
+        h  = allel.HaplotypeArray(hap)
+        ac = h.count_alleles()
+        af = ac.to_frequencies()[:, 1]
+        flt = ac.is_segregating() & (af >= 0.05) & (af <= 0.95)
+
+        h_flt   = h[flt]
+        pos_flt = pos[flt]
+        if len(pos_flt) < 10:
+            return {"n_variants": 0, "ihs_mean": None}
+
+        ihs_raw = allel.ihs(h_flt, pos_flt, include_edges=True)
+        try:
+            ihs_std, _ = allel.standardize_by_allele_count(
+                ihs_raw, ac[flt][:, 1], diagnostics=False)
+        except (ValueError, ZeroDivisionError):
+            valid_raw = ihs_raw[~np.isnan(ihs_raw)]
+            ihs_std = (ihs_raw - np.nanmean(ihs_raw)) / np.nanstd(ihs_raw) \
+                      if len(valid_raw) > 1 else ihs_raw
+
+        valid = ~np.isnan(ihs_std)
+        return {
+            "n_variants": int(valid.sum()),
+            "ihs_mean": float(np.nanmean(ihs_std)),
+            "ihs_std": float(np.nanstd(ihs_std)),
+        }
+
+    result, elapsed, peak_mb = measure_python_call(_compute)
+    return {**result, "time_s": elapsed, "peak_mem_mb": peak_mb}
+
+
 def xpehh_scikit_allel(start, end, pop1, pop2):
     """Compute XP-EHH using scikit-allel."""
     import allel
@@ -1223,6 +1390,134 @@ def xpehh_graphpop(start, end, pop1, pop2):
     }
 
 
+def xpehh_graphpop_numpy(start, end, pop1, pop2):
+    """Compute XP-EHH using scikit-allel on the numpy haplotype cache (bypasses Neo4j)."""
+    import allel
+
+    def _compute():
+        pos1, hap1 = load_hap_cache(pop1, start, end)
+        pos2, hap2 = load_hap_cache(pop2, start, end)
+
+        # Use common positions (identical since same cache, but guard against edge cases)
+        pos = pos1
+        if len(pos) < 10:
+            return {"n_variants": 0}
+
+        xp = allel.xpehh(
+            allel.HaplotypeArray(hap1),
+            allel.HaplotypeArray(hap2),
+            pos, include_edges=True,
+        )
+        valid = ~np.isnan(xp)
+        return {
+            "n_variants": int(valid.sum()),
+            "xpehh_mean": float(np.nanmean(xp)),
+            "xpehh_std": float(np.nanstd(xp)),
+        }
+
+    result, elapsed, peak_mb = measure_python_call(_compute)
+    return {**result, "time_s": elapsed, "peak_mem_mb": peak_mb}
+
+
+def sel_stats_numpy_joint(start, end, pop1, pop2, chrom=None):
+    """
+    Load haplotype cache ONCE for pop1+pop2, then compute nSL, iHS, XP-EHH
+    sharing the same unpacked arrays.
+    Returns sequential (shared load) timing and parallel timing.
+    """
+    import allel
+    from concurrent.futures import ThreadPoolExecutor as _TPE
+
+    tracemalloc.start()
+
+    # ── Phase 1: Load once ────────────────────────────────────────────────────
+    t_load0 = time.perf_counter()
+    pos1, hap1 = load_hap_cache(pop1, start, end, chrom=chrom or CHR)
+    pos2, hap2 = load_hap_cache(pop2, start, end, chrom=chrom or CHR)
+    load_time = time.perf_counter() - t_load0
+
+    if len(pos1) == 0:
+        tracemalloc.stop()
+        return {"load_time_s": load_time, "nsl": None, "ihs": None, "xpehh": None}
+
+    # ── Phase 2: Shared filter ────────────────────────────────────────────────
+    h1 = allel.HaplotypeArray(hap1)
+    h2 = allel.HaplotypeArray(hap2)
+    ac1 = h1.count_alleles()
+    af1 = ac1.to_frequencies()[:, 1]
+    flt = ac1.is_segregating() & (af1 >= 0.05) & (af1 <= 0.95)
+
+    h1f = h1[flt]; h2f = h2[flt]; pos_flt = pos1[flt]; ac1f = ac1[flt]
+
+    # ── Phase 3: Compute functions ────────────────────────────────────────────
+    def _nsl():
+        t0 = time.perf_counter()
+        raw = allel.nsl(h1f)
+        try:
+            std, _ = allel.standardize_by_allele_count(raw, ac1f[:, 1], diagnostics=False)
+        except Exception:
+            std = (raw - np.nanmean(raw)) / np.nanstd(raw)
+        valid = ~np.isnan(std)
+        return {"n_variants": int(valid.sum()),
+                "nsl_mean": float(np.nanmean(std)),
+                "time_s": time.perf_counter() - t0}
+
+    def _ihs():
+        t0 = time.perf_counter()
+        raw = allel.ihs(h1f, pos_flt, include_edges=True)
+        try:
+            std, _ = allel.standardize_by_allele_count(raw, ac1f[:, 1], diagnostics=False)
+        except Exception:
+            std = (raw - np.nanmean(raw)) / np.nanstd(raw)
+        valid = ~np.isnan(std)
+        return {"n_variants": int(valid.sum()),
+                "ihs_mean": float(np.nanmean(std)),
+                "time_s": time.perf_counter() - t0}
+
+    def _xpehh():
+        t0 = time.perf_counter()
+        xp = allel.xpehh(h1f, h2f, pos_flt, include_edges=True)
+        valid = ~np.isnan(xp)
+        return {"n_variants": int(valid.sum()),
+                "xpehh_mean": float(np.nanmean(xp)),
+                "time_s": time.perf_counter() - t0}
+
+    # Sequential (shared load, sequential compute)
+    nsl_r  = _nsl()
+    ihs_r  = _ihs()
+    xp_r   = _xpehh()
+    seq_compute = nsl_r["time_s"] + ihs_r["time_s"] + xp_r["time_s"]
+    seq_total   = load_time + seq_compute
+
+    # Parallel (shared load, parallel compute with 3 threads)
+    t_par0 = time.perf_counter()
+    with _TPE(max_workers=3) as pool:
+        f_nsl  = pool.submit(_nsl)
+        f_ihs  = pool.submit(_ihs)
+        f_xp   = pool.submit(_xpehh)
+        nsl_rp  = f_nsl.result()
+        ihs_rp  = f_ihs.result()
+        xp_rp   = f_xp.result()
+    par_compute = time.perf_counter() - t_par0
+    par_total   = load_time + par_compute
+
+    _, peak_bytes = tracemalloc.get_traced_memory()
+    tracemalloc.stop()
+
+    return {
+        "load_time_s":   load_time,
+        "nsl":           nsl_r,
+        "ihs":           ihs_r,
+        "xpehh":         xp_r,
+        "seq_compute_s": seq_compute,
+        "seq_total_s":   seq_total,
+        "par_compute_s": par_compute,
+        "par_total_s":   par_total,
+        "peak_mem_mb":   peak_bytes / (1024 * 1024),
+        "pop1": pop1, "pop2": pop2,
+    }
+
+
 # ---------------------------------------------------------------------------
 # Reporting
 # ---------------------------------------------------------------------------
@@ -1316,6 +1611,9 @@ def main():
             div_results = {}
             fst_results = {}
             sfs_results = {}
+            ihs_results = {}
+            xp_results = {}
+            joint_result = None
             ld_only = args.ld_scenarios
 
             if not ld_only:
@@ -1422,6 +1720,10 @@ def main():
 
             # ---- Group D: LD Scenarios ----
             ld_scenarios = {}
+            _hap_cache_ok = (
+                os.path.exists(os.path.join(HAP_CACHE_DIR, "sample_meta.json")) and
+                os.path.exists(os.path.join(HAP_CACHE_DIR, f"{CHR}.npz"))
+            )
 
             # D1: Regional Pairwise LD (100kb window, r²≥0.1, MAF≥0.05)
             # Run on large (1Mb) with all tools; on full (chr22) skip scikit-allel
@@ -1435,7 +1737,8 @@ def main():
                         start, end, POP2, max_dist_bp=100_000, r2_threshold=0.1, min_maf=0.05)
                     print(f" {fmt_time(d1['scikit-allel']['time_s'])}")
 
-                if TOOLS["vcftools"]:
+                # Skip vcftools on full chr22 — too slow (100M+ output pairs)
+                if TOOLS["vcftools"] and region_name != "full":
                     print("  vcftools...", end="", flush=True)
                     d1["vcftools"] = ld_vcftools(
                         start, end, POP2, tmpdir, max_dist_bp=100_000,
@@ -1458,10 +1761,18 @@ def main():
                         tag_suffix="_d1")
                     print(f" {fmt_time(d1['PLINK2-pgen']['time_s'])}")
 
-                print("  GraphPop...", end="", flush=True)
+                print("  GraphPop (Neo4j)...", end="", flush=True)
                 d1["GraphPop"] = ld_graphpop_windowed(
                     start, end, POP2, max_dist=100_000, r2_threshold=0.1, min_af=0.05)
                 print(f" {fmt_time(d1['GraphPop']['time_s'])}")
+
+                if _hap_cache_ok:
+                    print("  GraphPop (numpy)...", end="", flush=True)
+                    d1["GraphPop-numpy"] = ld_graphpop_numpy(
+                        start, end, POP2, max_dist_bp=100_000, r2_threshold=0.1, min_maf=0.05)
+                    print(f" {fmt_time(d1['GraphPop-numpy']['time_s'])}")
+                else:
+                    print("  GraphPop (numpy)... SKIPPED (hap cache not ready)")
 
                 rows = []
                 for tool, r in d1.items():
@@ -1511,10 +1822,18 @@ def main():
                         tag_suffix="_d2")
                     print(f" {fmt_time(d2['PLINK2-pgen']['time_s'])}")
 
-                print("  GraphPop...", end="", flush=True)
+                print("  GraphPop (Neo4j)...", end="", flush=True)
                 d2["GraphPop"] = ld_graphpop_windowed(
                     start, end, POP2, max_dist=500_000, r2_threshold=0.0, min_af=0.05)
                 print(f" {fmt_time(d2['GraphPop']['time_s'])}")
+
+                if _hap_cache_ok:
+                    print("  GraphPop (numpy)...", end="", flush=True)
+                    d2["GraphPop-numpy"] = ld_graphpop_numpy(
+                        start, end, POP2, max_dist_bp=500_000, r2_threshold=0.0, min_maf=0.05)
+                    print(f" {fmt_time(d2['GraphPop-numpy']['time_s'])}")
+                else:
+                    print("  GraphPop (numpy)... SKIPPED (hap cache not ready)")
 
                 rows = []
                 for tool, r in d2.items():
@@ -1562,8 +1881,8 @@ def main():
                 ld_scenarios["d3"] = d3
 
             # ---- Group E: Selection ----
-            # Only on small/medium (expensive)
-            if region_name in ("small", "medium"):
+            # small/medium for quick smoke tests; full for paper benchmark
+            if region_name in ("small", "medium", "full") and not ld_only:
                 print(f"\n--- Group E: iHS — pop={POP2} ---")
                 ihs_results = {}
 
@@ -1577,9 +1896,16 @@ def main():
                     ihs_results["selscan"] = ihs_selscan(start, end, POP2, tmpdir)
                     print(f" {fmt_time(ihs_results['selscan']['time_s'])}")
 
-                print("  GraphPop...", end="", flush=True)
+                print("  GraphPop (Neo4j)...", end="", flush=True)
                 ihs_results["GraphPop"] = ihs_graphpop(start, end, POP2)
                 print(f" {fmt_time(ihs_results['GraphPop']['time_s'])}")
+
+                if _hap_cache_ok:
+                    print("  GraphPop (numpy)...", end="", flush=True)
+                    ihs_results["GraphPop-numpy"] = ihs_graphpop_numpy(start, end, POP2)
+                    print(f" {fmt_time(ihs_results['GraphPop-numpy']['time_s'])}")
+                else:
+                    print("  GraphPop (numpy)... SKIPPED (hap cache not ready)")
 
                 rows = []
                 for tool, r in ihs_results.items():
@@ -1607,9 +1933,16 @@ def main():
                     xp_results["selscan"] = xpehh_selscan(start, end, POP2, POP1, tmpdir)
                     print(f" {fmt_time(xp_results['selscan']['time_s'])}")
 
-                print("  GraphPop...", end="", flush=True)
+                print("  GraphPop (Neo4j)...", end="", flush=True)
                 xp_results["GraphPop"] = xpehh_graphpop(start, end, POP2, POP1)
                 print(f" {fmt_time(xp_results['GraphPop']['time_s'])}")
+
+                if _hap_cache_ok:
+                    print("  GraphPop (numpy)...", end="", flush=True)
+                    xp_results["GraphPop-numpy"] = xpehh_graphpop_numpy(start, end, POP2, POP1)
+                    print(f" {fmt_time(xp_results['GraphPop-numpy']['time_s'])}")
+                else:
+                    print("  GraphPop (numpy)... SKIPPED (hap cache not ready)")
 
                 rows = []
                 for tool, r in xp_results.items():
@@ -1624,6 +1957,45 @@ def main():
                     rows,
                 )
 
+                # ---- Group F: Joint Selection Stats ----
+                joint_result = None
+                if _hap_cache_ok:
+                    print(f"\n--- Group F: Joint nSL+iHS+XP-EHH — {POP2} vs {POP1} ---")
+                    print("  Loading cache + computing jointly...", end="", flush=True)
+                    joint_result = sel_stats_numpy_joint(start, end, POP2, POP1)
+                    print(f"  load={joint_result['load_time_s']:.1f}s  "
+                          f"seq={joint_result['seq_total_s']:.1f}s  "
+                          f"par={joint_result['par_total_s']:.1f}s")
+
+                    indep_ihs_t  = ihs_results.get("GraphPop-numpy", {}).get("time_s") or 0
+                    indep_xp_t   = xp_results.get("GraphPop-numpy",  {}).get("time_s") or 0
+                    indep_sum    = indep_ihs_t + indep_xp_t
+
+                    def fmt(v):
+                        return f"{v:.4f}" if v is not None else "—"
+
+                    rows_f = [
+                        ["Load (shared)",    "—", "—",
+                         f"{joint_result['load_time_s']:.2f}s", "—"],
+                        ["nSL (shared)",     "—", fmt(joint_result["nsl"]["nsl_mean"]),
+                         f"{joint_result['nsl']['time_s']:.2f}s", "—"],
+                        ["iHS (shared)",     "—", fmt(joint_result["ihs"]["ihs_mean"]),
+                         f"{joint_result['ihs']['time_s']:.2f}s", "—"],
+                        ["XP-EHH (shared)", "—", fmt(joint_result["xpehh"]["xpehh_mean"]),
+                         f"{joint_result['xpehh']['time_s']:.2f}s", "—"],
+                        ["TOTAL sequential", "—", "—",
+                         f"{joint_result['seq_total_s']:.2f}s", "—"],
+                        ["TOTAL parallel",   "—", "—",
+                         f"{joint_result['par_total_s']:.2f}s",
+                         f"{indep_sum/joint_result['par_total_s']:.1f}×"
+                         if indep_sum > 0 and joint_result['par_total_s'] > 0 else "—"],
+                    ]
+                    print_group_table(
+                        f"Group F: Joint nSL+iHS+XP-EHH (GraphPop-numpy) — {region_name}",
+                        ["Stat", "Variants", "Mean", "Time", "Speedup vs indep"],
+                        rows_f,
+                    )
+
             # Collect all results for JSONL output
             region_record = {
                 "region": region_name, "chr": CHR, "start": start, "end": end,
@@ -1633,9 +2005,11 @@ def main():
             }
             if ld_scenarios:
                 region_record["ld_scenarios"] = ld_scenarios
-            if region_name in ("small", "medium"):
+            if region_name in ("small", "medium", "full"):
                 region_record["ihs"] = {k: v for k, v in ihs_results.items()}
                 region_record["xpehh"] = {k: v for k, v in xp_results.items()}
+                if joint_result is not None:
+                    region_record["joint"] = joint_result
             all_results.append(region_record)
 
     # Write JSONL

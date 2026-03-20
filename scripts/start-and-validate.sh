@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Run as: sudo bash /mnt/e/GraphPop/scripts/start-and-validate.sh
+# Run as: sudo bash /mnt/workspace/GraphPop/scripts/start-and-validate.sh
 set -euo pipefail
 
 echo "==> Checking memory config..."
@@ -7,7 +7,7 @@ grep -n '^server\.memory\.' /etc/neo4j/neo4j.conf
 
 echo ""
 echo "==> Running neo4j-admin import..."
-CSV_DIR="/mnt/e/GraphPop/data/raw/1000g/csv_out"
+CSV_DIR="/mnt/workspace/GraphPop/data/raw/1000g/csv_out"
 
 neo4j-admin database import full \
     --overwrite-destination=true \

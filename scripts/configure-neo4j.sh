@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Configure Neo4j for GraphPop development on WSL2.
-# Run with: sudo bash /mnt/e/GraphPop/scripts/configure-neo4j.sh
+# Run with: sudo bash /mnt/workspace/GraphPop/scripts/configure-neo4j.sh
 set -euo pipefail
 
 CONF="/etc/neo4j/neo4j.conf"
@@ -31,7 +31,7 @@ fi
 # 5. Set plugin directory to also look at our project output (symlink approach)
 echo ""
 echo "==> Creating symlink for graphpop-procedures plugin"
-ln -sf /mnt/e/GraphPop/graphpop-procedures/target/graphpop-procedures-0.1.0-SNAPSHOT.jar \
+ln -sf /mnt/workspace/GraphPop/graphpop-procedures/target/graphpop-procedures-0.1.0-SNAPSHOT.jar \
        /var/lib/neo4j/plugins/graphpop-procedures.jar 2>/dev/null || true
 
 echo "==> Configuration applied. Key settings:"

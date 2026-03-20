@@ -1,0 +1,61 @@
+\section*{Application: Rice 3K Genome Analysis}
+
+We applied all 12 GraphPop procedures to the 3K Rice Genomes Project\cite{wang2018genomic} dataset (29.6M SNPs, 3{,}024 accessions, 12 subpopulations across 12 chromosomes). The graph database (46~GB) was constructed in a single import pipeline run. All downstream analyses were pure Cypher procedure calls---no file export, no format conversion, no external tool invocation. The analysis demonstrates that graph-native computation does not merely reproduce known biology faster, but reveals evolutionary dynamics that have not been systematically characterized because no existing tool makes the necessary analyses practical.
+
+\subsection*{Correctness validation}
+
+Standard statistics reproduced the established biology of Asian rice. The UPGMA tree from pairwise W\&C Fst recovered the indica--japonica split with Fst~$= 0.71$ between GJ-tmp and XI-1A (the most divergent pair; Fig.~\ref{fig:rice}c). Indica (XI) subpopulations were 2--3$\times$ more diverse than japonica (GJ), with GJ-tmp the least diverse ($\pi = 0.019$, Tajima's $D = -2.41$, $F_{IS} = 0.72$, FROH~$= 0.080$)---matching the known temperate japonica bottleneck history. XP-EHH and Garud's $H$ recovered known domestication genes (GW5, Hd1, PROG1, Wx, OsC1, DRO1) at expected genomic positions. These results confirm numerical accuracy (validated to $< 0.000001\%$ error against scikit-allel on 1000 Genomes chr22) and establish that GraphPop operates correctly on a full-scale non-model genome.
+
+\subsection*{First systematic genome-wide quantification of the cost of domestication}
+
+The ``cost of domestication''---accumulation of mildly deleterious mutations due to population bottlenecks---has been demonstrated in rice through interspecific comparisons with wild relatives\cite{lu2006cost}. However, to our knowledge, $\pi_N/\pi_S$ has not been systematically quantified across all subpopulations of cultivated rice at genome scale, because doing so requires annotation-conditioned diversity computation that no existing tool provides as a single operation.
+
+By calling \texttt{graphpop.diversity} with \texttt{\{consequence: `missense\_variant'\}} and \texttt{`synonymous\_variant'} for all 12 populations $\times$ 12 chromosomes (288 procedure calls), we obtained $\pi_N/\pi_S$ ratios for every subpopulation (Fig.~\ref{fig:rice}a). \textbf{All 12 subpopulations show $\pi_N/\pi_S > 1.0$} (range: 1.018--1.146; Supplementary Table~\ref{tab:rice_pinpis}), demonstrating that genome-wide relaxation of purifying selection is universal across cultivated Asian rice. The pattern is biologically informative:
+
+\begin{itemize}
+\item Admixed groups show the highest ratios (admix: 1.146, GJ-adm: 1.145), consistent with accumulation of slightly deleterious alleles from multiple bottlenecked source populations.
+\item GJ-tmp (temperate japonica) shows the lowest ratio (1.018) despite having the strongest demographic bottleneck ($\pi = 0.019$, FROH = 0.080), suggesting that intense directional selection during temperate adaptation has partially counteracted the relaxation of purifying selection.
+\item Indica subpopulations cluster narrowly (1.053--1.079), reflecting their larger effective population size where purifying selection remains more efficient.
+\end{itemize}
+
+This population-level resolution of the cost of domestication---distinguishing admixed load accumulation from selection-constrained bottleneck survivors---is a direct product of annotation-conditioned computation. The classical equivalent would require 288 multi-step pipeline runs (VEP $\to$ filter $\to$ subset VCF $\to$ compute $\pi$), making systematic analysis impractical.
+
+\subsection*{First genome-wide detection of adaptive protein divergence between rice ecotypes}
+
+Whether protein-coding divergence between rice subpopulations exceeds neutral expectation---evidence that natural or artificial selection has driven amino acid changes---has been examined at candidate loci but not systematically at genome scale. Annotation-conditioned genome scans make this investigation straightforward.
+
+By running \texttt{graphpop.genome\_scan} with \texttt{\{consequence: `missense\_variant'\}} and \texttt{`synonymous\_variant'} separately for three major population pairs, we produced whole-genome Fst profiles restricted to each variant class (Fig.~\ref{fig:conditioned}a; Fig.~\ref{fig:rice}b). All three pairs showed missense Fst exceeding synonymous Fst:
+
+\begin{itemize}
+\item GJ-tmp vs GJ-trp: ratio 1.106 (the temperate--tropical japonica split, $\sim$4.3--5.5~kya\cite{alam2025genomics})
+\item GJ-tmp vs XI-1A: ratio 1.044 (the japonica--indica split)
+\item XI-1A vs cA-Aus: ratio 1.028 (divergence within the indica/aus complex)
+\end{itemize}
+
+The strongest signal at the temperate--tropical japonica boundary indicates that rapid ecological specialization drove adaptive protein evolution---a finding consistent with the phenotypic divergence between these ecotypes (cold tolerance, photoperiod sensitivity, grain quality) but not previously demonstrated at the genome-wide level via direct missense/synonymous Fst comparison.
+
+The top missense-Fst outlier windows (e.g., Chr1:7.45~Mb, Fst~$= 0.966$ for XI-1A vs cA-Aus) pinpoint candidate loci for adaptive protein evolution, invisible to any tool lacking annotation conditioning.
+
+\subsection*{Multi-statistic convergence analysis via the persistent analytical record}
+
+Because all computed results reside on the same graph as permanent node properties, GraphPop enables a mode of analysis impossible with ephemeral outputs: querying for convergent signals across independently computed statistics, without re-computation or file merging.
+
+After running diversity, divergence, genome scan, XP-EHH, PBS, Garud's $H$, nSL, Fay \& Wu's $H$, and ROH across all populations, we queried the graph for loci where multiple statistics converged (Fig.~\ref{fig:selection}c). At \textbf{Chr6:9.0--9.6~Mb} (Hd1, heading date\cite{huang2012map}), the same Variant nodes carry: XP-EHH~$= -4.15$ (GJ-trp vs XI-1A), PBS~$= 1.10$ (GJ-trp), and Fay \& Wu's $H = -0.492$ in a nearby window---three independent lines of evidence for selection, all retrievable from already-stored properties. At \textbf{Chr5:5.3~Mb} (GW5, grain width), XP-EHH peaks in two independent comparisons (XI-1A vs cA-Aus: 4.91; GJ-trp vs XI-1A: $-3.56$) cross-validate each other through the same graph query.
+
+Graph traversal connects these statistics directly to genes: known domestication loci (GW5, Hd1, PROG1, Wx, OsC1, DRO1\cite{huang2012map,alam2025genomics}) were recovered by following \texttt{HAS\_CONSEQUENCE} edges from peak Variant nodes to Gene nodes---zero additional tools, zero coordinate matching (Table~\ref{tab:genes}; Fig.~\ref{fig:selection}a,b).
+
+In classical pipelines, this three-way convergence analysis would require merging outputs from scikit-allel (EHH), a custom implementation (Garud's $H$), VCFtools (Fst), and bedtools (annotation) via coordinate joins. In GraphPop, it is a Cypher query.
+
+\subsection*{Biological synthesis}
+
+The rice 3K analysis reveals three layers of evolutionary insight enabled by graph-native investigation:
+
+\begin{enumerate}
+\item \textbf{The cost of domestication is universal but unequal.} All 12 subpopulations show $\pi_N/\pi_S > 1.0$, but the pattern distinguishes admixed load accumulation from selection-constrained bottleneck survivors---a resolution achievable only through systematic annotation-conditioned analysis.
+
+\item \textbf{Adaptive protein evolution accompanies ecological divergence.} Missense Fst exceeds synonymous Fst at all major population boundaries, with the strongest signal at the temperate--tropical split---evidence for directional selection on protein-coding variants during recent ecological specialization, detectable only via annotation-conditioned genome scans.
+
+\item \textbf{Multi-statistic convergence validates and strengthens selection candidates.} Domestication genes appear as peaks in independently computed statistics (XP-EHH, PBS, Fay \& Wu's $H$, Garud's $H_{12}$), cross-referenced to gene annotations---all discoverable by querying the persistent graph record.
+\end{enumerate}
+
+The entire analysis---from import through all 12 procedure types to biological interpretation---required no tool outside GraphPop and Neo4j. Results remain in the graph, publicly available for any future investigation.
