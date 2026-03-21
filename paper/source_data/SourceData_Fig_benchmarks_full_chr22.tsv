@@ -1,0 +1,19 @@
+statistic	tool	time_s	peak_mem_mb	n_variants	region
+diversity_pi_thetaW_TajimaD	scikit-allel	1756.59	118.6	929834	full
+diversity_pi_thetaW_TajimaD	vcftools	219.77	6.0	1070401	full
+diversity_pi_thetaW_TajimaD	GraphPop	12.06	152.2	1066555.0	full
+differentiation_fst_dxy	scikit-allel	2164.66	810.8	401817	full
+differentiation_fst_dxy	vcftools	113.23	6.0		full
+differentiation_fst_dxy	PLINK2-VCF	8.12	1669.5		full
+differentiation_fst_dxy	PLINK2-pgen	3.89	108.4		full
+differentiation_fst_dxy	GraphPop	8.84	168.3	1066555.0	full
+sfs	scikit-allel	1936.69	207.7	196397	full
+sfs	GraphPop	5.93	165.0		full
+ihs	scikit-allel	1947.52	207.7	89582	full
+ihs	selscan	0.0	0.0		full
+ihs	GraphPop	10.89	169.3	89033.0	full
+ihs	GraphPop-numpy	21.67	7744.9	112740	full
+xpehh	scikit-allel	2279.76	810.8	401591	full
+xpehh	selscan	0.0	0.0		full
+xpehh	GraphPop	16.72	167.0	115383.0	full
+xpehh	GraphPop-numpy	42.62	7991.1	1065990	full

@@ -1,0 +1,3 @@
+pathway_id	pathway_name	n_convergent_genes	n_total_genes	pct_convergent	n_groups	continental_groups	fisher_pval	odds_ratio	convergent_genes
+R-HSA-5576890	Phase 2 - plateau phase	1	8	12.5	5	African,American,East_Asian,European,South_Asian	0.000727	inf	KCNE1
+R-HSA-5576893	Phase 2 - plateau phase	1	14	7.1	5	African,American,East_Asian,European,South_Asian	0.001272	inf	KCNE1

@@ -108,6 +108,91 @@
 
 ---
 
+## Deep Functional Investigations (Novel Graph-Native) — COMPLETE 2026-03-21
+
+### Investigations 1–10: COMPLETE
+- [x] Inv.01: pathway_fst — cardiac repolarization top pathway
+- [x] Inv.02: convergent_sweeps — 9 genes with multi-population sweeps
+- [x] Inv.03: roh_sweep_correlation — ρ=-0.75 π vs sweeps
+- [x] Inv.04: kcne1_deepdive — ancient pre-OoA sweep (h12>0.9, FST ratio=0.296)
+- [x] Inv.05: go_enrichment — per-population GO enrichment
+- [x] Inv.06: synthesis — multi-evidence synthesis (HIGH/MED/LOW tiers)
+- [x] Inv.07: ooa_gradient — PCA gradient (PC1=56%, PC2=30%)
+- [x] Inv.08: gene_fst — 21,194 genes; SLC24A5 rank 10, max_FST=0.843
+- [x] Inv.09: pbs_scan — 6 pops; YRI=HLA, GIH=SLC24A5
+- [x] Inv.10: temporal_selection — FROH, H12, iHS temporal stratification
+
+### Investigations 11–15: COMPLETE
+- [x] Inv.11: consequence_bias — HIGH FST=0.124 < LOW FST=0.143 (purifying selection on HIGH-impact); 891k records, 214s
+- [x] Inv.12: pathway_coselection — 2232 pathways, 1.18M co-selection edges (|ρ|>0.7), 3 communities; 41s
+- [x] Inv.13: cross_species — module-level convergence (development_growth top); rice genes not in Neo4j, redesigned to keyword-matching; 1s
+- [x] Inv.14: rare_burden — 284,945 private-rare events, 27,899 genes; TTN top; FROH correlation ρ=0.11 (ns); 69s
+- [x] Inv.15: sweep_extent — 9 sweep genes, KCNE1 largest 50kb; FST decay from variant_cache; 3.4s
+- [x] Figures fig14–fig18 added to generate_supp_figures.py
+
+### Key findings (Inv.11–15)
+- HAS_CONSEQUENCE schema: only impact/consequence/feature_type/feature (NO CADD/SIFT props)
+- Min AC in 1000G coding variants = 2 (singletons excluded); private rare threshold must be AF<2%
+- Rice genes (LOC_Os*) are NOT in Neo4j; cross-species requires module-level functional analysis
+- ihs_{POP} sparse on Variant nodes for 19 non-African pops only
+
+---
+
+## Investigation 16b — Individual-Level Evolutionary Trajectory: COMPLETE 2026-03-21
+
+### Inv.16b: individual_trajectory — COMPLETE
+- [x] Genome-wide FROH per sample from roh_hmm checkpoint (3094/3202 samples with ROH)
+- [x] Chr22 individual features: het_rate, rare_burden, rare_missense (chunked hap_cache, 88s)
+- [x] PCA (PC1=57%, PC2=31%): PC1=diversity axis, PC2=inbreeding axis
+- [x] UMAP: 3202 individuals in clear continental group clusters
+- [x] Velocity components: drift_inbreeding, functional_burden, population_diversity
+- [x] Panel F: individual PC1 vs population PC1 correlation ρ=0.74 (validates approach)
+- [x] Outputs: individual_trajectory.tsv/.json, fig20_individual_trajectory.png
+
+### Key findings (Inv.16b)
+- African: highest het_rate (0.0453), lowest FROH (0.0047), highest rare_missense (34.5/indiv)
+- South Asian: highest FROH (0.0136), moderate het_rate (0.0354)
+- FROH vs het_rate: ρ=−0.394, p=1.2e−29 (genome drift ↔ local chr22 diversity)
+- Note: chr22 has no H12 GenomicWindow nodes → sweep_burden replaced by rare_missense_chr22
+- Note: hap_cache only has chr22; chr22-based features are representative proxies
+
+---
+
+## Investigation 17 — Novel Graph-Native Individual Analyses: COMPLETE 2026-03-21
+
+### Inv.17: novel_ind_analyses (Analysis 4 + Analysis 6) — COMPLETE
+- [x] Analysis 4: Outlier individuals — z-distance from population centroid in PC space (3202 samples)
+  - Top outlier: HG01816 (CDX, z=9.50, FROH=0.125 = 18× CDX mean — likely recent consanguinity)
+  - 4 UNKNOWN-pop samples in top 10; z-distance weakly predicts FROH (ρ=-0.087)
+- [x] Analysis 6: Purifying selection efficiency gradient — pathway-constrained vs divergent rare missense
+  - 55,446 Neo4j variant-pathway rows → 5,833 chr22 positions classified
+  - Constrained:Divergent ratio: African=0.187, East Asian=0.086 (2.2× difference)
+  - ρ(FROH, C:D ratio)=-0.065 p=2e-4 — bottleneck predicts preferential constrained pathway depletion
+- [x] Figure fig21: Purifying selection gradient (3 panels)
+- [x] Figure fig22: Outlier individual analysis (2 panels)
+- [x] Source data files in paper/source_data/
+- [x] paper/novel_graph_analyses.md updated with confirmed findings
+
+### Paper preparation document: novel_graph_analyses.md
+- [x] All 6 analyses documented with research question, method, Cypher queries, findings, novelty
+- [x] "What's Genuinely Novel" table (main text candidate)
+- [x] Analysis 4 findings updated with actual confirmed results
+- [x] Analysis 6 findings updated with actual confirmed results
+- [ ] Analyses 1, 2, 3, 5 remain planned/feasible (need full hap_cache or further development)
+
+### Figures status
+- [x] fig19_evo_trajectory.png — population-level (Inv.16)
+- [x] fig20_individual_trajectory.png — individual UMAP (Inv.16b)
+- [x] fig21_purifying_selection_gradient.png — main text candidate (Inv.17/Analysis 6)
+- [x] fig22_outlier_analysis.png — supplementary (Inv.17/Analysis 4)
+- [ ] fig23 — pathway trajectory embedding (Analysis 5, planned)
+
+### Paper section placement
+- Main text (application.tex, human 1000G section): fig21 + "What's Novel" table
+- Supplementary: fig20, fig22, individual_trajectory source data
+
+---
+
 ## Immediate Next Steps
 
 - All 4 analysis phases complete. New JAR (M3.3 memory improvements) deployed 2026-03-16.

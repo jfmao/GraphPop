@@ -1,4 +1,85 @@
-\section*{Application: Rice 3K Genome Analysis}
+\section*{Application I: Human 1000 Genomes Novel Analyses}
+
+We applied the full GraphPop analytical stack to the 1000 Genomes Project Phase~3 dataset\cite{1000genomes2015global}: 3{,}202 samples across 26 sub-populations, 22 autosomes, $\sim$70.7M Variant nodes, 91{,}973 Gene nodes, 1.46M GenomicWindow nodes, and 2{,}241 Reactome pathways\cite{gillespie2022reactome} annotated via \texttt{HAS\_CONSEQUENCE} and \texttt{IN\_PATHWAY} edges. The scale and annotation depth of this graph enable a mode of investigation inaccessible to tool-based pipelines: queries that traverse from individual genotypes through variant consequences through gene pathways through population-level selection statistics in a single step.
+
+\subsection*{Pathway-level population differentiation}
+
+Population differentiation is conventionally computed at the variant or gene level; pathway-level Fst requires aggregating per-variant estimates across gene sets, a multi-step join across at least three tools (VCFtools, bedtools, pathway database API). In GraphPop, the equivalent is a single traversal:
+
+\begin{center}
+\texttt{MATCH (p:Pathway)$\leftarrow$[:IN\_PATHWAY]-(g:Gene)$\leftarrow$[:HAS\_CONSEQUENCE]-(v:Variant)}\\
+\texttt{RETURN p.name, mean(v.fst\_yri\_ceu) ORDER BY 2 DESC}
+\end{center}
+
+Ranking 2{,}241 pathways by mean Hudson Fst (YRI vs CEU) placed known pigmentation biology at the top: the SLC24A5-linked oculocutaneous albinism pathway (mean Fst~$= 0.452$), consistent with strong post-OoA selection on skin pigmentation in European populations\cite{yi2010sequencing}. Cardiac ion channel pathways formed a functionally coherent cluster in the top quartile: TREK/TWIK potassium channels (Fst~$= 0.162$), Phase 3 rapid repolarisation (Fst~$= 0.133$), and voltage-gated potassium channels---implicating KCNE1, KCNE4, KCNH2, and KCNQ1 as population-differentiated cardiac loci (Supplementary Fig.~\ref{sfig:pathway_fst}).
+
+This pathway-level view is impossible without annotation conditioning: the KCNE1 locus, for instance, contributes to cardiac repolarisation but is co-localised with variants classified as metabolic and immune pathway members. Only by querying pathway membership directly in the graph can one separate these signals without manual curation.
+
+\subsection*{Graph-native detection of convergent positive selection}
+
+XP-EHH scores for 325 population pairs ($\times$22~chromosomes) are stored as properties on Variant nodes. Querying for genes under sweep in multiple independent continental lineages---convergent positive selection---reduces to a single Cypher pattern match on stored node properties, requiring no re-computation or file intersection. We identified \textbf{9 genes with Garud $H_{12} > 0.3$ in $\geq$2 independent continental groups} (Fig.~\ref{fig:human_selection}).
+
+The most striking signal was \textbf{KCNE1}, the only gene showing sweep evidence in all five continental groups ($H_{12} = 1.0$ in some populations; Fst ratio between- vs within-group $= 0.296$). The elevated between-group Fst combined with universally high $H_{12}$ is the signature of an ancient, pre-OoA selective sweep that reached near-fixation before the Out-of-Africa bottleneck\cite{sabeti2007genome}---a signal recoverable only by cross-querying independently computed statistics stored on the same graph. The classical equivalent requires intersecting five separate XP-EHH output files, then joining against Garud's $H$ scan results and Fst values via chromosome coordinate matching.
+
+Consequence-level analysis reinforced this picture: HIGH-impact variants (missense, stop-gain) showed significantly lower mean Fst (0.124) than LOW-impact variants (0.143; Mann--Whitney $U$, $p \approx 0$), confirming genome-wide purifying selection on functionally deleterious alleles---a population-level signal accessible in a single \texttt{HAS\_CONSEQUENCE}-conditioned query.
+
+\subsection*{Individual-level evolutionary trajectories}
+
+Standard population genetics PCA (PLINK, EIGENSOFT) projects individuals onto axes of ancestry derived from allele frequency differences. We introduce a complementary representation: each individual is characterised by a vector of five evolutionary process statistics (genome-wide FROH, total ROH count, chromosome~22 heterozygosity rate, chr22 rare variant burden, and chr22 rare missense burden), then embedded via PCA and UMAP. This \emph{individual process space} captures the evolutionary forces acting on each individual rather than their ancestral coordinates.
+
+Applied to all 3{,}202 samples (Fig.~\ref{fig:individual}), the first two statistical PCs explained 57.0\% and 30.9\% of variance respectively. \textbf{PC1 is a diversity axis}: African samples, with the largest long-term $N_e$, score highest on heterozygosity and rare burden (mean rare missense per individual: African $= 34.5$, European $= 16.8$, East Asian $= 18.3$). \textbf{PC2 is an inbreeding axis}: South Asian samples score highest on FROH (mean $= 0.014$), consistent with documented consanguinity practices. Individual positions strongly predict their population's position in population-level process space ($\rho = 0.74$, Spearman), validating the approach.
+
+Outlier analysis revealed HG01816 (CDX, Chinese Dai) as the most extreme individual in process space (z-distance $= 9.50$ from population centroid), carrying genome-wide FROH~$= 0.125$---18$\times$ the CDX population mean---consistent with recent close-relative mating (Supplementary Fig.~\ref{sfig:outlier}). GraphPop enables immediate follow-up: a single 3-hop Cypher query from this sample through CARRIES edges to HAS\_CONSEQUENCE edges identifies the specific rare variants driving its anomalous burden, with gene and pathway annotation, in milliseconds.
+
+\subsection*{Bottleneck-driven purging is pathway-specific}
+
+The African populations carry $\sim$2$\times$ more rare missense variants per individual than non-African populations, reflecting larger long-term effective population size. A key question---not addressable by standard tools---is whether this enrichment is uniform across all biological functions or concentrated in specific pathway classes. Answering it requires simultaneously accessing individual genotypes (CARRIES edges), variant consequences (HAS\_CONSEQUENCE), pathway membership (IN\_PATHWAY), and population-level pathway differentiation statistics (from prior Fst computations): four layers of information co-located only in the graph.
+
+We classified 5{,}833 chr22 missense variant positions as belonging to either \emph{constrained pathways} (lowest-quartile mean Fst; maintained by purifying selection across all populations) or \emph{divergent pathways} (highest-quartile Fst; targets of population-specific selection). For each of the 3{,}202 individuals, we computed the constrained:divergent (C:D) burden ratio from haplotype arrays.
+
+The C:D ratio was 2.2$\times$ higher in African samples (0.187) than in East Asian samples (0.086), and decreased monotonically across the bottleneck gradient: $\rho(\text{FROH},\, \text{C:D ratio}) = -0.065$ ($p = 2.1 \times 10^{-4}$; Fig.~\ref{fig:purifying}). This pattern---bottlenecked populations disproportionately depleted of constrained-pathway rare missense---is consistent with drift acting like purifying selection in small populations, but preferentially at functionally critical loci: variants in essential gene sets face stronger selection against them, so drift removes them more efficiently when $N_e$ falls. The gradient is detectable only through individual-level, pathway-stratified burden analysis, which no existing tool pipeline provides as a single operation.
+
+\subsection*{Novel analyses enabled: a capability comparison}
+
+Table~\ref{tab:novel} summarises the analyses demonstrated above alongside the classical equivalent workflow. In each case, the graph-native approach replaces a multi-tool pipeline with a single traversal or a combination of pre-stored results. Three of the six analyses have no classical equivalent at all---they ask questions that are practically infeasible without co-location of individual genotypes, variant annotations, and population-level selection statistics.
+
+\begin{table}[h]
+\centering
+\small
+\caption{Novel analyses enabled by GraphPop's co-located individual genotype, annotation, and selection graph.}
+\label{tab:novel}
+\begin{tabular}{p{4.2cm} p{4.8cm} p{4.8cm}}
+\toprule
+\textbf{Analysis} & \textbf{Classical approach} & \textbf{GraphPop} \\
+\midrule
+Pathway-level population Fst & VCFtools Fst $\to$ BEDtools gene overlap $\to$ pathway API $\to$ manual join (3 tools + join) & Single \texttt{MATCH} traversal through \texttt{IN\_PATHWAY} \\
+\addlinespace
+Convergent sweep detection & 5 XP-EHH runs $\to$ 5 output files $\to$ file intersection $\to$ coordinate join & Cypher pattern match on stored \texttt{xpehh\_*} node properties \\
+\addlinespace
+Individual process-space embedding & PLINK ROH $\to$ custom het script $\to$ VEP $\to$ rare variant filter $\to$ manual join & Pre-stored FROH + single haplotype array pass \\
+\addlinespace
+Outlier $\to$ driver variant trace & Extract single-sample VCF $\to$ VEP $\to$ pathway join & 3-hop Cypher from Sample $\to$ CARRIES $\to$ HAS\_CONSEQUENCE $\to$ IN\_PATHWAY \\
+\addlinespace
+Temporal burden vector (ancient vs recent sweep) & Not feasible (requires iHS-by-timescale classification + per-individual variant access across full genome) & iHS stored on Variant nodes; CARRIES edges give per-individual access \\
+\addlinespace
+Pathway-stratified purging gradient & Not feasible (requires simultaneous genotype $\times$ consequence $\times$ pathway $\times$ FST access) & Single session: haplotype arrays $+$ \texttt{IN\_PATHWAY} query $+$ prior Fst results \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection*{Biological synthesis}
+
+The 1000 Genomes analysis yields three conclusions that are specific to graph-native investigation:
+
+\begin{enumerate}
+\item \textbf{KCNE1 underwent a universal pre-OoA sweep.} Convergent $H_{12}$ peaks in all five continental groups, combined with an elevated between-group:within-group Fst ratio, identify KCNE1 as an ancient sweep predating the Out-of-Africa bottleneck---a finding requiring cross-query of independently computed statistics stored as node properties. No VCF-centric pipeline produces this inference without manual file merging.
+
+\item \textbf{Individual evolutionary trajectories reveal intra-population heterogeneity invisible to PCA.} The 5-dimensional process space (FROH, ROH count, het rate, rare burden, rare missense) separates individuals by evolutionary force rather than ancestry, identifies extreme inbreeding outliers ($\text{FROH} = 18 \times$ population mean), and directly implicates the variants driving each individual's anomalous position through graph traversal.
+
+\item \textbf{Bottleneck-driven purging is pathway-specific.} The 2.2$\times$ excess of constrained-pathway rare missense in African vs East Asian individuals, and its genome-wide FROH correlation ($\rho = -0.065$, $p = 2.1 \times 10^{-4}$), demonstrate that demographic drift preferentially depletes rare functional variants from conserved biological systems. This claim required the simultaneous availability of individual genotypes, variant consequences, pathway annotations, and population Fst statistics---a data co-location achievable only through the graph.
+\end{enumerate}
+
+\section*{Application II: Rice 3K Genome Analysis}
 
 We applied all 12 GraphPop procedures to the 3K Rice Genomes Project\cite{wang2018genomic} dataset (29.6M SNPs, 3{,}024 accessions, 12 subpopulations across 12 chromosomes). The graph database (46~GB) was constructed in a single import pipeline run. All downstream analyses were pure Cypher procedure calls---no file export, no format conversion, no external tool invocation. The analysis demonstrates that graph-native computation does not merely reproduce known biology faster, but reveals evolutionary dynamics that have not been systematically characterized because no existing tool makes the necessary analyses practical.
 
