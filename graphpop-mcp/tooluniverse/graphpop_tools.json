@@ -1,0 +1,287 @@
+[
+  {
+    "name": "GraphPop_Diversity",
+    "type": "Genomics",
+    "description": "Compute diversity statistics (pi, theta_W, Tajima's D, Fay & Wu's H, heterozygosity, F_IS) for a population in a genomic region. FAST PATH: O(V*K) independent of sample count. Supports annotation-conditioned queries via consequence/pathway parameters.",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "chr": { "type": "string", "description": "Chromosome ID (e.g. '22', 'chr1')" },
+        "start": { "type": "integer", "description": "Start position (inclusive)" },
+        "end": { "type": "integer", "description": "End position (inclusive)" },
+        "pop": { "type": "string", "description": "Population name (e.g. 'AFR', 'EUR', 'GJ-tmp')" },
+        "consequence": { "type": "string", "description": "VEP consequence filter (e.g. 'missense_variant')" },
+        "pathway": { "type": "string", "description": "Reactome pathway filter" },
+        "variant_type": { "type": "string", "description": "Variant type: SNP or INDEL" },
+        "min_af": { "type": "number", "description": "Minimum allele frequency" },
+        "samples": { "type": "array", "items": { "type": "string" }, "description": "Custom sample list" }
+      },
+      "required": ["chr", "start", "end", "pop"]
+    },
+    "examples": [
+      {
+        "description": "Compute diversity for AFR population on chr22",
+        "arguments": { "chr": "22", "start": 16000000, "end": 51000000, "pop": "AFR" }
+      },
+      {
+        "description": "Compute piN (missense diversity) for annotation-conditioned analysis",
+        "arguments": { "chr": "1", "start": 1, "end": 43270923, "pop": "GJ-tmp", "consequence": "missense_variant" }
+      }
+    ]
+  },
+  {
+    "name": "GraphPop_Divergence",
+    "type": "Genomics",
+    "description": "Compute population divergence statistics (Hudson Fst, Weir & Cockerham Fst, Dxy, Da, PBS) between two populations. FAST PATH. PBS requires a third population. Supports annotation-conditioned queries.",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "chr": { "type": "string", "description": "Chromosome ID" },
+        "start": { "type": "integer", "description": "Start position (inclusive)" },
+        "end": { "type": "integer", "description": "End position (inclusive)" },
+        "pop1": { "type": "string", "description": "First population" },
+        "pop2": { "type": "string", "description": "Second population" },
+        "pop3": { "type": "string", "description": "Third population for PBS (optional)" },
+        "consequence": { "type": "string", "description": "VEP consequence filter" },
+        "pathway": { "type": "string", "description": "Reactome pathway filter" }
+      },
+      "required": ["chr", "start", "end", "pop1", "pop2"]
+    },
+    "examples": [
+      {
+        "description": "Compute Fst between AFR and EUR on chr22",
+        "arguments": { "chr": "22", "start": 16000000, "end": 51000000, "pop1": "AFR", "pop2": "EUR" }
+      },
+      {
+        "description": "Compute missense Fst for adaptive protein divergence detection",
+        "arguments": { "chr": "1", "start": 1, "end": 43270923, "pop1": "GJ-tmp", "pop2": "GJ-trp", "consequence": "missense_variant" }
+      }
+    ]
+  },
+  {
+    "name": "GraphPop_SFS",
+    "type": "Genomics",
+    "description": "Compute the site frequency spectrum (SFS) for a population. FAST PATH. Supports folded and unfolded (polarized via ancestral allele) SFS. 1,614x faster than scikit-allel.",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "chr": { "type": "string", "description": "Chromosome ID" },
+        "start": { "type": "integer", "description": "Start position (inclusive)" },
+        "end": { "type": "integer", "description": "End position (inclusive)" },
+        "pop": { "type": "string", "description": "Population name" },
+        "folded": { "type": "boolean", "description": "Return folded SFS (default false)" },
+        "consequence": { "type": "string", "description": "VEP consequence filter" }
+      },
+      "required": ["chr", "start", "end", "pop"]
+    },
+    "examples": [
+      {
+        "description": "Compute unfolded SFS for EUR on chr22",
+        "arguments": { "chr": "22", "start": 16000000, "end": 51000000, "pop": "EUR" }
+      }
+    ]
+  },
+  {
+    "name": "GraphPop_JointSFS",
+    "type": "Genomics",
+    "description": "Compute the 2D joint site frequency spectrum between two populations. FAST PATH. Useful for demographic inference with dadi or fastsimcoal2.",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "chr": { "type": "string", "description": "Chromosome ID" },
+        "start": { "type": "integer", "description": "Start position (inclusive)" },
+        "end": { "type": "integer", "description": "End position (inclusive)" },
+        "pop1": { "type": "string", "description": "First population" },
+        "pop2": { "type": "string", "description": "Second population" },
+        "folded": { "type": "boolean", "description": "Return folded joint SFS (default false)" }
+      },
+      "required": ["chr", "start", "end", "pop1", "pop2"]
+    },
+    "examples": [
+      {
+        "description": "Compute joint SFS for AFR and EUR",
+        "arguments": { "chr": "22", "start": 16000000, "end": 51000000, "pop1": "AFR", "pop2": "EUR" }
+      }
+    ]
+  },
+  {
+    "name": "GraphPop_GenomeScan",
+    "type": "Genomics",
+    "description": "Sliding-window genome scan computing per-window diversity, divergence, and selection statistics. Materializes GenomicWindow nodes. Supports annotation-conditioned scans (e.g. missense-only Fst profiles).",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "chr": { "type": "string", "description": "Chromosome ID" },
+        "pop": { "type": "string", "description": "Population name" },
+        "window": { "type": "integer", "description": "Window size in bp (default 100000)" },
+        "step": { "type": "integer", "description": "Step size in bp (default 50000)" },
+        "pop2": { "type": "string", "description": "Second population for Fst/Dxy" },
+        "pop3": { "type": "string", "description": "Third population for PBS" },
+        "consequence": { "type": "string", "description": "VEP consequence filter" },
+        "pathway": { "type": "string", "description": "Reactome pathway filter" }
+      },
+      "required": ["chr", "pop"]
+    },
+    "examples": [
+      {
+        "description": "Genome scan for GJ-tmp with Fst against GJ-trp",
+        "arguments": { "chr": "1", "pop": "GJ-tmp", "pop2": "GJ-trp", "window": 100000, "step": 50000 }
+      },
+      {
+        "description": "Annotation-conditioned genome scan: missense-only sliding-window Fst",
+        "arguments": { "chr": "1", "pop": "GJ-tmp", "pop2": "GJ-trp", "consequence": "missense_variant" }
+      }
+    ]
+  },
+  {
+    "name": "GraphPop_LD",
+    "type": "Genomics",
+    "description": "Compute pairwise linkage disequilibrium (r2, D') within a genomic region. FULL PATH using bit-packed HaplotypeMatrix. Writes LD edges between Variant nodes.",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "chr": { "type": "string", "description": "Chromosome ID" },
+        "start": { "type": "integer", "description": "Start position (inclusive)" },
+        "end": { "type": "integer", "description": "End position (inclusive)" },
+        "pop": { "type": "string", "description": "Population name" },
+        "max_dist": { "type": "integer", "description": "Max distance between pairs in bp (default 500000)" },
+        "r2_threshold": { "type": "number", "description": "Min r2 to report (default 0.2)" }
+      },
+      "required": ["chr", "start", "end", "pop"]
+    },
+    "examples": [
+      {
+        "description": "Compute LD for EUR in a 1 Mb region on chr22",
+        "arguments": { "chr": "22", "start": 16000000, "end": 17000000, "pop": "EUR", "r2_threshold": 0.1 }
+      }
+    ]
+  },
+  {
+    "name": "GraphPop_iHS",
+    "type": "Genomics",
+    "description": "Compute integrated haplotype score (iHS) for detecting recent positive selection. FULL PATH with EHH decay computation and AF-bin standardization. 12x faster than scikit-allel with |r|=0.93 correlation.",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "chr": { "type": "string", "description": "Chromosome ID" },
+        "pop": { "type": "string", "description": "Population name" },
+        "min_af": { "type": "number", "description": "Minimum allele frequency (default 0.05)" },
+        "n_af_bins": { "type": "integer", "description": "Number of AF bins (default 20)" }
+      },
+      "required": ["chr", "pop"]
+    },
+    "examples": [
+      {
+        "description": "Compute iHS for EUR on chromosome 22",
+        "arguments": { "chr": "22", "pop": "EUR" }
+      }
+    ]
+  },
+  {
+    "name": "GraphPop_XPEHH",
+    "type": "Genomics",
+    "description": "Compute cross-population extended haplotype homozygosity (XP-EHH) for detecting selection differences. FULL PATH, genome-wide standardized, memory-efficient chunked processing. 18x faster than scikit-allel with r=0.97.",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "chr": { "type": "string", "description": "Chromosome ID" },
+        "pop1": { "type": "string", "description": "Focal population" },
+        "pop2": { "type": "string", "description": "Reference population" },
+        "min_af": { "type": "number", "description": "Minimum allele frequency" },
+        "chunk_size": { "type": "integer", "description": "Core window size (default 5000000)" }
+      },
+      "required": ["chr", "pop1", "pop2"]
+    },
+    "examples": [
+      {
+        "description": "Compute XP-EHH between EUR and AFR on chr22",
+        "arguments": { "chr": "22", "pop1": "EUR", "pop2": "AFR" }
+      }
+    ]
+  },
+  {
+    "name": "GraphPop_nSL",
+    "type": "Genomics",
+    "description": "Compute nSL (number of segregating sites by length) for detecting selection. FULL PATH, pairwise SSL algorithm. 26x faster than scikit-allel with r=1.000 (identical results).",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "chr": { "type": "string", "description": "Chromosome ID" },
+        "pop": { "type": "string", "description": "Population name" },
+        "min_af": { "type": "number", "description": "Minimum allele frequency" },
+        "n_af_bins": { "type": "integer", "description": "Number of AF bins (default 20)" }
+      },
+      "required": ["chr", "pop"]
+    },
+    "examples": [
+      {
+        "description": "Compute nSL for EUR on chr22",
+        "arguments": { "chr": "22", "pop": "EUR" }
+      }
+    ]
+  },
+  {
+    "name": "GraphPop_ROH",
+    "type": "Genomics",
+    "description": "Detect runs of homozygosity (ROH) per sample. FULL PATH with HMM (Narasimhan 2016, bcftools roh matching) or sliding-window method. Parallel per-sample computation. r=0.96 vs bcftools.",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "chr": { "type": "string", "description": "Chromosome ID" },
+        "pop": { "type": "string", "description": "Population name" },
+        "method": { "type": "string", "description": "'hmm' (default) or 'sliding_window'" },
+        "min_length": { "type": "integer", "description": "Min ROH length in bp (default 500000)" },
+        "het_error_rate": { "type": "number", "description": "HMM het error rate (default 0.001)" }
+      },
+      "required": ["chr", "pop"]
+    },
+    "examples": [
+      {
+        "description": "Detect ROH in EUR population on chr22 using HMM",
+        "arguments": { "chr": "22", "pop": "EUR" }
+      }
+    ]
+  },
+  {
+    "name": "GraphPop_GarudH",
+    "type": "Genomics",
+    "description": "Compute Garud's H statistics (H1, H12, H2/H1, haplotype diversity) in sliding windows to detect hard and soft selective sweeps. FULL PATH using haplotype hashing.",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "chr": { "type": "string", "description": "Chromosome ID" },
+        "pop": { "type": "string", "description": "Population name" },
+        "window": { "type": "integer", "description": "Window size in bp (default 100000)" },
+        "step": { "type": "integer", "description": "Step size in bp (default 50000)" }
+      },
+      "required": ["chr", "pop"]
+    },
+    "examples": [
+      {
+        "description": "Detect selective sweeps in GJ-tmp on chromosome 1",
+        "arguments": { "chr": "1", "pop": "GJ-tmp", "window": 100000, "step": 50000 }
+      }
+    ]
+  },
+  {
+    "name": "GraphPop_PopSummary",
+    "type": "Genomics",
+    "description": "Compute whole-chromosome population summary statistics and write to Population node. FAST PATH. Supports annotation-conditioned summaries.",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "chr": { "type": "string", "description": "Chromosome ID" },
+        "pop": { "type": "string", "description": "Population name" },
+        "consequence": { "type": "string", "description": "VEP consequence filter" },
+        "pathway": { "type": "string", "description": "Reactome pathway filter" }
+      },
+      "required": ["chr", "pop"]
+    },
+    "examples": [
+      {
+        "description": "Compute population summary for AFR on chr22",
+        "arguments": { "chr": "22", "pop": "AFR" }
+      }
+    ]
+  }
+]
