@@ -88,6 +88,19 @@ RESTART_UBUNTU.md
 # Internal project management
 tasks/
 sources/
+results/
+
+# Claude Code config (not for end users)
+CLAUDE.md
+CLAUDE.md.md
+.claudeignore.txt
+
+# Internal reports and guides
+human_interpretation_report.md
+RESTART_GUIDE.md
+
+# Benchmark raw results (internal)
+benchmarks/results/
 
 # Binary tools
 tectonic
