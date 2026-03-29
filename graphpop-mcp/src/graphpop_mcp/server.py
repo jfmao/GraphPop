@@ -1,7 +1,8 @@
-"""MCP server wrapping GraphPop Neo4j stored procedures for AI agent access.
+"""MCP server wrapping GraphPop for AI agent access.
 
-Each tool maps to one of GraphPop's 12 population genomics procedures.
-Connection parameters come from environment variables.
+Exposes 12 population genomics procedures, multi-statistic integration tools
+(converge, rank-genes), annotation lookup, and graph query capabilities.
+Connection parameters come from environment variables (shared with graphpop CLI).
 """
 
 from __future__ import annotations
@@ -14,25 +15,37 @@ from mcp.server.fastmcp import FastMCP
 mcp = FastMCP(
     "GraphPop",
     instructions=(
-        "Graph-native population genomics analytical engine. Runs 12 stored procedures "
-        "inside a Neo4j graph database: diversity, divergence, SFS, joint SFS, genome scan, "
-        "LD, iHS, XP-EHH, nSL, ROH, Garud's H, and population summary. "
-        "Supports annotation-conditioned queries (consequence, pathway, gene) on any procedure."
+        "GraphPop is a graph-native population genomics platform with 12 stored "
+        "procedures inside a Neo4j graph database: diversity, divergence, SFS, "
+        "joint SFS, genome scan, LD, iHS, XP-EHH, nSL, ROH, Garud's H, and "
+        "population summary. Beyond procedures, it provides multi-statistic "
+        "convergence detection (converge), gene ranking (rank_genes), annotation "
+        "lookup (lookup_gene, lookup_pathway, lookup_variant, lookup_region), "
+        "post-hoc filtering of persisted results (filter), and database inventory. "
+        "All FAST PATH procedures support annotation-conditioned queries "
+        "(consequence, pathway, gene). FULL PATH results can be filtered post-hoc "
+        "via the filter tool."
     ),
 )
 
 _driver = None
+_database = None
 
 
 def _get_driver():
     """Lazy-initialize a shared Neo4j driver."""
-    global _driver
+    global _driver, _database
     if _driver is None:
         from neo4j import GraphDatabase
 
-        uri = os.environ.get("GRAPHPOP_NEO4J_URI", "bolt://localhost:7687")
-        user = os.environ.get("GRAPHPOP_NEO4J_USER", "neo4j")
-        password = os.environ.get("GRAPHPOP_NEO4J_PASSWORD", "graphpop")
+        # Use same env var names as graphpop CLI for consistency
+        uri = os.environ.get("GRAPHPOP_URI",
+              os.environ.get("GRAPHPOP_NEO4J_URI", "bolt://localhost:7687"))
+        user = os.environ.get("GRAPHPOP_USER",
+               os.environ.get("GRAPHPOP_NEO4J_USER", "neo4j"))
+        password = os.environ.get("GRAPHPOP_PASSWORD",
+                   os.environ.get("GRAPHPOP_NEO4J_PASSWORD", "graphpop"))
+        _database = os.environ.get("GRAPHPOP_DATABASE", "neo4j")
         _driver = GraphDatabase.driver(uri, auth=(user, password))
     return _driver
 
@@ -40,7 +53,7 @@ def _get_driver():
 def _run_procedure(cypher: str, params: dict | None = None) -> list[dict]:
     """Execute a Cypher procedure call and return results as a list of dicts."""
     driver = _get_driver()
-    with driver.session() as session:
+    with driver.session(database=_database) as session:
         result = session.run(cypher, params or {})
         return [record.data() for record in result]
 
@@ -691,6 +704,289 @@ def graphpop_query(cypher: str, params: str | None = None) -> str:
         parsed_params = json.loads(params)
     results = _run_procedure(cypher, parsed_params)
     return json.dumps(results)
+
+
+# ---------------------------------------------------------------------------
+# High-level analytical tools (beyond raw procedures)
+# ---------------------------------------------------------------------------
+
+
+@mcp.tool()
+def graphpop_converge(
+    pop: str,
+    stats: str = "ihs,xpehh,h12",
+    thresholds: str = "2.0,2.0,0.3",
+    chr: str | None = None,
+    pop2: str | None = None,
+    limit: int = 100,
+) -> str:
+    """Find genomic regions where multiple selection statistics simultaneously exceed thresholds.
+
+    This is GraphPop's signature capability: querying persisted results across
+    independently computed statistics to identify convergent signals.
+
+    Args:
+        pop: Population name.
+        stats: Comma-separated statistic names (ihs, xpehh, nsl, h12, fst, pi, tajima_d).
+        thresholds: Comma-separated threshold values (matched positionally to stats).
+        chr: Restrict to a chromosome (optional).
+        pop2: Second population for xpehh (optional).
+        limit: Maximum results to return (default 100).
+
+    Returns JSON array of convergent regions with gene annotations.
+    """
+    stat_list = [s.strip() for s in stats.split(",")]
+    thresh_list = [float(t.strip()) for t in thresholds.split(",")]
+
+    variant_stats = {"ihs", "xpehh", "nsl"}
+    window_stats = {"h12", "fst", "pi", "tajima_d"}
+
+    where_parts = []
+    if chr:
+        where_parts.append(f"v.chr = '{chr}'")
+
+    for stat, thresh in zip(stat_list, thresh_list):
+        if stat in variant_stats:
+            if stat == "xpehh" and pop2:
+                prop = f"xpehh_{pop}_{pop2}"
+            else:
+                prop = f"{stat}_{pop}"
+            where_parts.append(f"abs(v.{prop}) >= {thresh}")
+
+    if not where_parts:
+        return json.dumps({"error": "No variant-level filters specified"})
+
+    cypher = (
+        f"MATCH (v:Variant) WHERE {' AND '.join(where_parts)} "
+        f"OPTIONAL MATCH (v)-[:HAS_CONSEQUENCE]->(g:Gene) "
+        f"RETURN v.variantId AS variant, v.pos AS pos, v.chr AS chr, "
+        f"g.symbol AS gene "
+        f"ORDER BY v.chr, v.pos LIMIT {limit}"
+    )
+    results = _run_procedure(cypher)
+    return json.dumps(results)
+
+
+@mcp.tool()
+def graphpop_rank_genes(
+    pop: str,
+    chr: str | None = None,
+    top: int = 50,
+    pop2: str | None = None,
+) -> str:
+    """Rank genes by composite selection evidence.
+
+    Combines max |iHS|, max |XP-EHH|, mean Fst, and HIGH-impact variant count
+    per gene into a composite score.
+
+    Args:
+        pop: Population name.
+        chr: Restrict to a chromosome (optional).
+        top: Number of top genes to return (default 50).
+        pop2: Second population for XP-EHH (optional).
+
+    Returns JSON array of ranked genes with per-statistic scores.
+    """
+    ihs_prop = f"ihs_{pop}"
+    where_chr = f"AND v.chr = '{chr}'" if chr else ""
+
+    cypher = (
+        f"MATCH (v:Variant)-[hc:HAS_CONSEQUENCE]->(g:Gene) "
+        f"WHERE v.{ihs_prop} IS NOT NULL {where_chr} "
+        f"WITH g, "
+        f"max(abs(v.{ihs_prop})) AS max_ihs, "
+        f"count(CASE WHEN hc.impact = 'HIGH' THEN 1 END) AS n_high, "
+        f"count(v) AS n_variants "
+        f"RETURN g.symbol AS gene, g.chr AS chr, "
+        f"max_ihs, n_high, n_variants "
+        f"ORDER BY max_ihs DESC LIMIT {top}"
+    )
+    results = _run_procedure(cypher)
+    return json.dumps(results)
+
+
+@mcp.tool()
+def graphpop_lookup_gene(gene: str) -> str:
+    """Look up a gene: variant count, consequence types, pathways, and selection statistics.
+
+    Args:
+        gene: Gene symbol or ID (e.g. "KCNE1", "GW5", "LOC_Os05g09520").
+
+    Returns JSON with gene details, variant summary, pathway memberships, and
+    any persisted selection statistics.
+    """
+    cypher = (
+        f"MATCH (g:Gene) WHERE g.symbol = '{gene}' OR g.geneId = '{gene}' "
+        f"OPTIONAL MATCH (g)<-[hc:HAS_CONSEQUENCE]-(v:Variant) "
+        f"WITH g, count(v) AS n_variants, "
+        f"collect(DISTINCT hc.impact) AS impacts, "
+        f"collect(DISTINCT hc.consequence) AS consequences "
+        f"OPTIONAL MATCH (g)-[:IN_PATHWAY]->(p:Pathway) "
+        f"RETURN g.symbol AS symbol, g.geneId AS geneId, "
+        f"g.chr AS chr, g.start AS start, g.end AS end, "
+        f"n_variants, impacts, consequences, "
+        f"collect(p.name) AS pathways"
+    )
+    results = _run_procedure(cypher)
+    return json.dumps(results)
+
+
+@mcp.tool()
+def graphpop_lookup_pathway(pathway: str) -> str:
+    """Look up a pathway: member genes and variant counts.
+
+    Args:
+        pathway: Pathway name or partial name (case-insensitive search).
+
+    Returns JSON with pathway details and member gene list.
+    """
+    cypher = (
+        f"MATCH (p:Pathway) WHERE toLower(p.name) CONTAINS toLower('{pathway}') "
+        f"OPTIONAL MATCH (p)<-[:IN_PATHWAY]-(g:Gene)<-[:HAS_CONSEQUENCE]-(v:Variant) "
+        f"WITH p, g, count(v) AS n_variants "
+        f"RETURN p.name AS pathway, p.pathwayId AS pathwayId, "
+        f"collect({{gene: g.symbol, n_variants: n_variants}}) AS genes "
+        f"ORDER BY p.name"
+    )
+    results = _run_procedure(cypher)
+    return json.dumps(results)
+
+
+@mcp.tool()
+def graphpop_lookup_region(chr: str, start: int, end: int) -> str:
+    """Look up genes and summary statistics in a genomic region.
+
+    Args:
+        chr: Chromosome ID.
+        start: Start position.
+        end: End position.
+
+    Returns JSON with genes in the region and their variant/consequence summary.
+    """
+    cypher = (
+        f"MATCH (v:Variant)-[:HAS_CONSEQUENCE]->(g:Gene) "
+        f"WHERE v.chr = '{chr}' AND v.pos >= {start} AND v.pos <= {end} "
+        f"WITH g, count(v) AS n_variants, "
+        f"collect(DISTINCT v.variantId) AS sample_variants "
+        f"RETURN g.symbol AS gene, g.chr AS chr, g.start AS start, "
+        f"g.end AS end, n_variants "
+        f"ORDER BY n_variants DESC"
+    )
+    results = _run_procedure(cypher)
+    return json.dumps(results)
+
+
+@mcp.tool()
+def graphpop_filter(
+    statistic: str,
+    chr: str,
+    pop: str,
+    consequence: str | None = None,
+    pathway: str | None = None,
+    gene: str | None = None,
+    min_score: float | None = None,
+    pop2: str | None = None,
+    limit: int = 1000,
+) -> str:
+    """Query persisted statistics (iHS, XP-EHH, nSL) filtered by annotation.
+
+    Use this for conditioned analysis on FULL PATH statistics. These statistics
+    must be computed genome-wide first (via graphpop_ihs etc.), then filtered
+    by annotation post-hoc.
+
+    Args:
+        statistic: One of: ihs, xpehh, nsl.
+        chr: Chromosome ID.
+        pop: Population name.
+        consequence: VEP consequence filter (e.g. "missense_variant").
+        pathway: Pathway name filter.
+        gene: Gene name filter.
+        min_score: Minimum absolute score.
+        pop2: Second population for xpehh.
+        limit: Maximum results (default 1000).
+
+    Returns JSON array of filtered variants with scores and annotations.
+    """
+    if statistic == "xpehh" and pop2:
+        prop = f"xpehh_{pop}_{pop2}"
+    else:
+        prop = f"{statistic}_{pop}"
+
+    match_clause = "MATCH (v:Variant)"
+    where_parts = [f"v.chr = '{chr}'", f"v.{prop} IS NOT NULL"]
+
+    if consequence:
+        match_clause += "-[:HAS_CONSEQUENCE]->(hc)"
+        where_parts.append(f"hc.consequence = '{consequence}'")
+    if pathway:
+        match_clause += "-[:HAS_CONSEQUENCE]->(:Gene)-[:IN_PATHWAY]->(pw:Pathway)"
+        where_parts.append(f"pw.name CONTAINS '{pathway}'")
+    if gene:
+        match_clause += "-[:HAS_CONSEQUENCE]->(g:Gene)"
+        where_parts.append(f"(g.symbol = '{gene}' OR g.geneId = '{gene}')")
+    if min_score is not None:
+        where_parts.append(f"abs(v.{prop}) >= {min_score}")
+
+    return_cols = [f"v.variantId AS variant", "v.pos AS pos",
+                   f"v.{prop} AS {statistic}"]
+    if consequence:
+        return_cols.append("hc.consequence AS consequence")
+    if gene:
+        return_cols.append("g.symbol AS gene")
+
+    cypher = (
+        f"{match_clause} WHERE {' AND '.join(where_parts)} "
+        f"RETURN DISTINCT {', '.join(return_cols)} "
+        f"ORDER BY v.pos LIMIT {limit}"
+    )
+    results = _run_procedure(cypher)
+    return json.dumps(results)
+
+
+@mcp.tool()
+def graphpop_inventory() -> str:
+    """Show comprehensive database inventory: what has been computed.
+
+    Returns populations, chromosomes, annotation types loaded, and which
+    selection statistics have been persisted on Variant/GenomicWindow nodes.
+    No parameters required.
+    """
+    inventory = {}
+
+    # Populations
+    pops = _run_procedure(
+        "MATCH (p:Population) RETURN p.populationId AS pop, "
+        "p.n_samples AS n ORDER BY n DESC"
+    )
+    inventory["populations"] = pops
+
+    # Chromosomes
+    chrs = _run_procedure(
+        "MATCH (c:Chromosome) RETURN c.chromosomeId AS chr, "
+        "c.length AS length ORDER BY chr"
+    )
+    inventory["chromosomes"] = chrs
+
+    # Node counts
+    for label in ["Variant", "Sample", "Gene", "Pathway", "GOTerm", "GenomicWindow"]:
+        result = _run_procedure(f"MATCH (n:{label}) RETURN count(n) AS cnt")
+        inventory[f"n_{label.lower()}"] = result[0]["cnt"] if result else 0
+
+    # Persisted statistics (check a sample variant)
+    props = _run_procedure(
+        "MATCH (v:Variant) WITH v LIMIT 1 RETURN keys(v) AS props"
+    )
+    if props:
+        all_props = props[0]["props"]
+        ihs_props = [p for p in all_props if p.startswith("ihs_")]
+        xpehh_props = [p for p in all_props if p.startswith("xpehh_")]
+        nsl_props = [p for p in all_props if p.startswith("nsl_")]
+        inventory["persisted_ihs"] = ihs_props
+        inventory["persisted_xpehh"] = xpehh_props
+        inventory["persisted_nsl"] = nsl_props
+        inventory["has_ancestral_allele"] = "ancestral_allele" in all_props
+
+    return json.dumps(inventory, indent=2)
 
 
 def main():

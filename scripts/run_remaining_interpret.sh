@@ -4,7 +4,7 @@
 # Each subcommand has resume support, so this script is safe to re-run.
 
 set -euo pipefail
-cd /mnt/workspace/GraphPop
+cd /mnt/data/GraphPop
 
 log() { echo "$(date '+%Y-%m-%d %H:%M:%S') $*"; }
 

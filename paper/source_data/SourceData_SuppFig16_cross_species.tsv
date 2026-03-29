@@ -1,7 +1,0 @@
-module	human_signal_score	human_n_sweep_genes	human_n_go_terms	human_enriched_go	human_max_odds_ratio	rice_n_pops_total	rice_genes	convergence_score
-development_growth	162.28	30	86	6	81.21	104	Sd1(Semi-dwarf (Green Revolution)); sh4(Seed shattering); qSH1(Seed shattering); PROG1(Prostrate growth); Hd1(Heading date); Hd3a(Florigen); GS3(Grain length); DRO1(Deep rooting); GW5(Grain width)	16877.12
-metabolism	102.3	22	44	2	37.48	47	Wx(Amylose content (Waxy)); badh2(Fragrance); Bh4(Hull color); OsC1(Hull color)	4808.1
-stress_response	53.67	15	20	4	12.17	22	Sub1A(Submergence tolerance); COLD1(Cold tolerance)	1180.74
-immunity_defense	44.86	8	19	4	99.2	11	Pi-ta(Blast resistance)	493.46
-signal_transduction	75.16	37	92	1	1.8	0		37.58
-ion_transport	48.68	9	42	24	81.21	0		24.34

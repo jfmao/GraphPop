@@ -5,7 +5,7 @@ set -euo pipefail
 
 LABEL="human_1000g_v1"
 DATABASE="neo4j"
-SNAP_DIR="/mnt/workspace/GraphPop/data/snapshots"
+SNAP_DIR="/mnt/data/GraphPop/data/snapshots"
 DUMP_FILE="$SNAP_DIR/graphpop_${LABEL}_$(date +%Y%m%d).dump"
 
 mkdir -p "$SNAP_DIR"

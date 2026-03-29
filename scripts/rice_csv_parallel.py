@@ -33,7 +33,7 @@ logger = logging.getLogger(__name__)
 
 VCF_PATH = "data/raw/3kRG_data/NB_final_snp.vcf.gz"
 PANEL_PATH = "data/raw/3kRG_data/rice_3k_panel.txt"
-OUT_DIR = Path("/tmp/graphpop_rice_csv")
+OUT_DIR = Path("data/processed/rice_csv")
 CHUNK_SIZE = 100_000
 
 CHROMOSOMES = [

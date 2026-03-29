@@ -21,7 +21,7 @@ Active work tracked in `tasks/todo.md`.
 - **Build:** Maven (Java), pyproject.toml (Python)
 
 ## Environment
-- **OS:** WSL2 Ubuntu on Windows, project at `/mnt/workspace/GraphPop` (ext4 /dev/sdd)
+- **OS:** Ubuntu 24.04 (native), project at `/mnt/data/GraphPop`
 - **GPUs:** RTX 4090 (24GB VRAM) + Intel UHD 770
 - **RAM:** 64 GB (plan upgrade to 128 GB)
 - **Storage:** 1 TB + 4 TB NVMe
@@ -103,6 +103,13 @@ Validate ALL statistics against vcftools, scikit-allel, PLINK, selscan, pixy.
 - Allele count arrays indexed by population: pop_ids[], ac[], an[], af[]
 - Ancestral state needed for unfolded SFS, Fay & Wu's H
 - Always track polarization status (is_polarized boolean)
+
+## Paper Preparation
+See `paper/SUBMISSION_GUIDELINES.md` for Nature Methods submission rules (article types,
+word limits, manuscript structure, cover letter, Extended Data vs Supplementary, source data).
+See `paper/FIGURE_GUIDELINES.md` for figure preparation specs (dimensions, fonts, colors,
+genomics plot conventions). Key rules: Article ≤5,000 words + ≤6 display items + ≤150-word
+abstract; white backgrounds, Arial 5-7pt, Wong palette, vector PDF. Scripts in `paper/scripts/`.
 
 ## Task Management
 1. Write plan to `tasks/tasks_todo.md` with checkable items

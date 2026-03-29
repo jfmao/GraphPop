@@ -23,7 +23,7 @@ build/
 venv/
 *.whl
 
-# Data files
+# Data files (genomic formats)
 *.vcf
 *.vcf.gz
 *.vcf.gz.tbi
@@ -34,38 +34,63 @@ venv/
 *.fq
 *.fastq
 *.fastq.gz
-*.bed
 *.gff
 *.gtf
 *.sam
-
-# Neo4j data
-data/neo4j/
-
-# Large raw data (genomic files, EPO alignments, etc.)
-data/raw/1000g/
-data/raw/3kRG_data/
-data/raw/ensembl_ancestor/
-data/raw/rice_epo/
 *.pgen
 *.psam
 *.pvar.zst
 *.emf.gz
-*.tar.gz
-*.xlsx
-*.zip
-*.pdf
+*.npz
 
-# Large result JSONs (keep local, too big for git)
+# Compressed archives
+*.tar.gz
+*.zip
+
+# Binary documents
+*.xlsx
+*.pdf
+*.png
+*.jpg
+
+# Neo4j data
+data/neo4j/
+
+# Large data directories (keep local only)
+data/raw/
+data/snapshots/
+data/hap_cache/
+data/rice_hap_cache/
+data/results/
+data/processed/
+data/variants_cache/
+
+# Large result JSON files (too big for git)
 human_full_results.json
-results/human/human_full_results.json
-results/rice/rice_full_results.json
-results/rice/rice_interpretation_results.json
+human_interpretation_results.json
+rice_full_results.json
+rice_full_results_v2.json
+rice_interpretation_results.json
 
 # Generated CSVs and cache
 data/raw/*/csv_out/
 data/raw/*/*.panel
 data/raw/*/*.txt
+
+# Paper and manuscript preparation (separate repo/workflow)
+paper/
+docs/Dis_pub_GraphPop-GraphMana.md
+
+# Backup and migration files
+backups/
+RESTART_UBUNTU.md
+
+# Internal project management
+tasks/
+sources/
+
+# Binary tools
+tectonic
 
 # IDE
 .idea/

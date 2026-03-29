@@ -82,7 +82,7 @@ XPEHH_PAIRS = [
 
 def _set_output_file(path: Path) -> None:
     global OUTPUT_FILE
-    OUTPUT_FILE = path
+    OUTPUT_FILE = path.resolve()
 
 
 def load_results() -> dict:
