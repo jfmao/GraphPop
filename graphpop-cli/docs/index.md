@@ -84,6 +84,12 @@ Version 0.1.0 | 60 commands across 11 categories
 ### Programmatic Access (MCP Server)
 - [graphpop-mcp](commands/mcp-server.md) — MCP server for AI agent access (21 tools)
 
+### HPC Cluster Computing
+- [Cluster Computing Guide](cluster-guide.md) — Deployment guide for SLURM/PBS clusters
+- [Cluster Script Reference](commands/cluster/cluster-index.md) — All 11 job templates
+  - SLURM: [setup](commands/cluster/slurm-setup-neo4j.md), [prepare-csv](commands/cluster/slurm-prepare-csv.md), [load-csv](commands/cluster/slurm-load-csv.md), [ingest-single](commands/cluster/slurm-ingest-single.md), [analysis](commands/cluster/slurm-analysis.md), [fullgenome-array](commands/cluster/slurm-fullgenome-array.md), [pairwise-array](commands/cluster/slurm-pairwise-array.md), [interactive](commands/cluster/slurm-interactive.md)
+  - PBS: [prepare-csv](commands/cluster/pbs-prepare-csv.md), [analysis](commands/cluster/pbs-analysis.md), [fullgenome-array](commands/cluster/pbs-fullgenome-array.md)
+
 ## Vignettes
 - [Rice 3K Genome Analysis](../vignettes/rice-3k-analysis.md) — Complete workflow from VCF to biological insight
 - [Human 1000 Genomes Analysis](../vignettes/human-1000g-analysis.md) — Full-genome population genomics tutorial

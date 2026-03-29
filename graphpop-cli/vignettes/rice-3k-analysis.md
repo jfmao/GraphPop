@@ -1732,6 +1732,71 @@ with `--persist`. The database dump preserves all of these properties.
 
 ---
 
+## Running on an HPC Cluster
+
+**Target problem:** How to run the full rice 3K analysis on a SLURM or PBS cluster?
+
+GraphPop provides ready-to-use job templates for HPC environments. The key principle: Neo4j runs on one node with fast local storage; analysis jobs run on any node and connect via bolt:// protocol.
+
+### One-time setup (interactive)
+
+```bash
+# Request an interactive node
+srun --nodes=1 --cpus-per-task=8 --mem=64G --time=2:00:00 --pty bash
+
+# Set up Neo4j with local SSD storage
+sbatch scripts/cluster/slurm_setup_neo4j.sh
+# Note the hostname printed at the end (e.g., node042)
+```
+
+### Import (batch job)
+
+```bash
+# Generate CSVs (no Neo4j needed, parallelizable)
+sbatch scripts/cluster/slurm_prepare_csv.sh /data/rice.vcf.gz /data/panel.txt
+
+# Or use array jobs for multi-chromosome parallel import
+sbatch --array=1-12 scripts/cluster/slurm_prepare_csv.sh ...
+
+# Bulk import (on the database node)
+sbatch scripts/cluster/slurm_load_csv.sh /scratch/$USER/csv_out $HOME/neo4j
+```
+
+### Full-genome analysis (array jobs)
+
+```bash
+# Set connection to database node
+export GRAPHPOP_URI=bolt://node042:7687
+export GRAPHPOP_PASSWORD=mypassword
+
+# Per-population analysis: 12 chromosomes in parallel
+sbatch --array=1-12 scripts/cluster/slurm_fullgenome_array.sh
+
+# Pairwise analysis: XP-EHH + divergence
+export GRAPHPOP_PAIRS="GJ-tmp:GJ-trp,GJ-tmp:XI-1A,XI-1A:cA-Aus"
+sbatch --array=1-12 scripts/cluster/slurm_pairwise_array.sh
+```
+
+### Post-analysis (any node)
+
+```bash
+# Aggregate results (no Neo4j needed)
+graphpop aggregate -d results/ -o tables/
+graphpop plot diversity-bar results/diversity/ -o figures/fig_diversity.png
+graphpop report -o rice3k_report.html
+```
+
+### PBS equivalent
+
+```bash
+qsub -v GRAPHPOP_URI=bolt://db-node:7687,GRAPHPOP_PASSWORD=mypass \
+    scripts/cluster/pbs_fullgenome_array.sh
+```
+
+> **Tip:** For detailed cluster deployment instructions, storage strategy, and troubleshooting, see the [Cluster Computing Guide](../docs/cluster-guide.md).
+
+---
+
 ## Cross-Species Comparison: Rice vs Human
 
 GraphPop enables direct comparison of population genomic patterns across species by applying identical analytical workflows. Three key contrasts emerge:

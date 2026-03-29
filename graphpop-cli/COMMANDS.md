@@ -205,6 +205,27 @@ graphpop
 │    Start: graphpop-mcp
 │    Registration: ToolUniverse (Zitnik Lab, Harvard)
 │
+├─── HPC CLUSTER SCRIPTS (scripts/cluster/) ────────────────────────
+│    │  Ready-to-use SLURM and PBS job templates
+│    │
+│    ├── SLURM
+│    │   ├── slurm_setup_neo4j.sh       One-time Neo4j setup on cluster node
+│    │   ├── slurm_prepare_csv.sh       VCF → CSV generation (no Neo4j)
+│    │   ├── slurm_load_csv.sh          neo4j-admin bulk import from CSVs
+│    │   ├── slurm_ingest_single.sh     Combined CSV + import in one job
+│    │   ├── slurm_analysis.sh          Run analysis scripts as batch job
+│    │   ├── slurm_fullgenome_array.sh  Per-chromosome array: all procedures
+│    │   ├── slurm_pairwise_array.sh    Per-chromosome array: XP-EHH + Fst
+│    │   └── slurm_interactive.sh       Interactive session setup (source)
+│    │
+│    └── PBS/Torque
+│        ├── pbs_prepare_csv.sh         VCF → CSV generation
+│        ├── pbs_analysis.sh            Run analysis scripts
+│        └── pbs_fullgenome_array.sh    Per-chromosome array job
+│
+│    Key pattern: Neo4j on 1 node (SSD) + analysis jobs on any node
+│    See: graphpop-cli/docs/cluster-guide.md
+│
 └─── GLOBAL OPTIONS ────────────────────────────────────────────────
      ├── --uri              Neo4j bolt URI (or GRAPHPOP_URI env var)
      ├── --user             Neo4j username (or GRAPHPOP_USER)

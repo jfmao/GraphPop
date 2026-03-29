@@ -1138,6 +1138,48 @@ graphpop report -o human1000g_report.html
 
 ---
 
+## Running on an HPC Cluster
+
+**Target problem:** How to run the full 1000 Genomes analysis (22 autosomes, 26 populations) on a SLURM cluster?
+
+### Setup and import
+
+```bash
+# Interactive setup
+srun --nodes=1 --cpus-per-task=8 --mem=128G --time=4:00:00 --pty bash
+bash scripts/cluster/slurm_setup_neo4j.sh
+
+# Import (22 chromosomes in parallel)
+sbatch --array=1-22 scripts/cluster/slurm_prepare_csv.sh
+```
+
+### Full-genome analysis
+
+```bash
+export GRAPHPOP_URI=bolt://node042:7687
+export CHR_PREFIX=chr   # human uses 'chr1', not 'Chr1'
+
+# Per-population: 22 chromosomes × 26 populations
+sbatch --array=1-22 scripts/cluster/slurm_fullgenome_array.sh
+
+# Pairwise XP-EHH for key pairs
+export GRAPHPOP_PAIRS="YRI:CEU,YRI:CHB,CEU:CHB,YRI:GIH,CEU:JPT"
+sbatch --array=1-22 scripts/cluster/slurm_pairwise_array.sh
+```
+
+### Post-analysis
+
+```bash
+graphpop aggregate -d results/ -o tables/
+graphpop plot fst-heatmap results/divergence/ -o figures/fig_fst.png
+graphpop converge --stats ihs,xpehh,h12 --thresholds 2,2,0.3 --pop CEU
+graphpop report -o human1000g_report.html
+```
+
+> **Tip:** For full cluster guide including storage strategy, PBS equivalents, and troubleshooting, see the [Cluster Computing Guide](../docs/cluster-guide.md).
+
+---
+
 ## Cross-Species Comparison: Human vs Rice
 
 | Analysis | Human (1000 Genomes) | Rice (3K Genomes) | Interpretation |
