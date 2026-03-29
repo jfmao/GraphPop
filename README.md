@@ -1,8 +1,275 @@
 # GraphPop
 
-GraphPop is a graph-native population genomics platform built on Neo4j. It models
-variants, samples, populations, and genomic annotations as a property graph and
-provides SIMD-accelerated stored procedures for computing population genetics
-statistics (allele frequencies, F-statistics, LD, selection scans) directly inside
-the database. See [`docs/GraphPop_Compiled_Holistic_Design.md`](docs/GraphPop_Compiled_Holistic_Design.md)
-for the full design document.
+**Graph-native population genomics with annotation-conditioned queries**
+
+GraphPop is a population genomics platform that replaces the flat-file, matrix-based paradigm with a graph-native architecture. Variants, genotypes, genes, pathways, and computed statistics coexist as a single queryable structure within a Neo4j graph database. This enables three capabilities absent from classical tools: annotation-conditioned computation (any statistic restricted to a functional variant class in one parameter), a persistent analytical record (computed results stored as queryable node properties), and multi-statistic composition (cross-query independently computed statistics via graph traversal).
+
+## Key Features
+
+- **12 population genetics procedures** — diversity (π, θ_W, Tajima's D, Fay & Wu's H), divergence (Fst, D_xy, PBS), SFS, LD, iHS, XP-EHH, nSL, ROH, Garud's H, genome scan
+- **Annotation conditioning** — any procedure conditioned on VEP consequence, Reactome pathway, or gene via a single `--consequence` / `--pathway` / `--gene` parameter
+- **Persistent analytical record** — computed statistics written to graph nodes; multi-statistic convergence queries without re-computation
+- **60-command CLI** — complete command-line interface with default TSV output, no Python/Neo4j/Cypher knowledge required
+- **11 visualization types** — publication-ready figures following Nature Methods guidelines
+- **MCP server** — 21 tools for AI agent access via the Model Context Protocol
+- **63–327× speedup** over scikit-allel; constant ~160 MB memory
+
+## Quick Start
+
+```bash
+# Install the CLI
+cd graphpop-cli && pip install -e .
+
+# Set up Neo4j (downloads, configures, and starts automatically)
+graphpop setup --password mypassword
+graphpop start
+
+# Import your data
+graphpop import --vcf data.vcf.gz --panel panel.txt --database myproject
+
+# Run an analysis
+graphpop diversity chr1 1 50000000 EUR -o diversity.tsv
+
+# Annotation-conditioned analysis (piN)
+graphpop diversity chr1 1 50000000 EUR --consequence missense_variant -o piN.tsv
+
+# Selection scan with persistent results
+graphpop ihs chr22 EUR --persist -o ihs.tsv
+
+# Multi-statistic convergence detection
+graphpop converge --stats ihs,xpehh,h12 --thresholds 2.0,2.0,0.3 --pop EUR
+
+# Rank genes by composite selection evidence
+graphpop rank-genes --pop EUR --top 50 -o top_genes.tsv
+
+# Visualize
+graphpop plot manhattan ihs.tsv --stat ihs --threshold 2.5 -o fig_ihs.png
+graphpop plot diversity-bar results/diversity/ -o fig_diversity.png
+
+# Generate automated report
+graphpop report -o analysis_report.html
+```
+
+## Architecture
+
+GraphPop organises data as a labelled property graph:
+
+```
+Variant ──HAS_CONSEQUENCE──> Gene ──IN_PATHWAY──> Pathway
+   │                          │
+   ├── ac[], an[], af[]        ├── IN_PATHWAY ──> GOTerm
+   ├── gt_packed (2 bits/sample)
+   ├── ihs_EUR, xpehh_EUR_AFR  (persisted selection statistics)
+   │
+   ├──NEXT──> Variant  (genomic order)
+   └──ON_CHROMOSOME──> Chromosome
+```
+
+Two computational paths:
+
+| Path | Procedures | Data source | Complexity |
+|------|-----------|------------|------------|
+| **FAST PATH** | diversity, divergence, SFS, genome scan, pop summary | Pre-aggregated allele count arrays | O(V × K), independent of sample count |
+| **FULL PATH** | LD, iHS, XP-EHH, nSL, ROH, Garud's H | Bit-packed haplotype matrices (1 bit/haplotype) | O(V × N), 87% memory reduction |
+
+## Installation
+
+### Prerequisites
+
+- Java 21+ (for Neo4j stored procedures)
+- Python 3.10+ (for CLI and import pipeline)
+- Neo4j Community Edition 5.x (auto-installed by `graphpop setup`)
+
+### Install all components
+
+```bash
+# 1. Clone the repository
+git clone https://github.com/jfmao/GraphPop.git
+cd GraphPop
+
+# 2. Build the Java procedures (requires Maven)
+cd graphpop-procedures && mvn package -DskipTests && cd ..
+
+# 3. Install the CLI
+cd graphpop-cli && pip install -e . && cd ..
+
+# 4. Install the import pipeline
+cd graphpop-import && pip install -e . && cd ..
+
+# 5. Set up Neo4j and deploy the procedures plugin
+graphpop setup --password mypassword \
+    --deploy-plugin graphpop-procedures/target/graphpop-procedures-0.1.0-SNAPSHOT.jar
+
+# 6. Start Neo4j
+graphpop start
+
+# 7. Verify
+graphpop status
+graphpop --version
+```
+
+### Install the MCP server (optional, for AI agent access)
+
+```bash
+cd graphpop-mcp && pip install -e .
+
+# Configure for Claude Desktop or other MCP clients
+export GRAPHPOP_URI=bolt://localhost:7687
+export GRAPHPOP_PASSWORD=mypassword
+graphpop-mcp
+```
+
+## CLI Command Overview
+
+60 commands across 11 categories:
+
+```
+graphpop
+├── Setup & Server        setup, start, stop, status
+├── Database Management   db {list,create,switch,drop,info}, import, dump, load
+├── Configuration         config {init,show,set,path}, validate, inventory
+├── FAST PATH Procedures  diversity, divergence, sfs, joint-sfs, genome-scan, pop-summary
+├── FULL PATH Procedures  ihs, xpehh, nsl, roh, garud-h, ld
+├── Conditioned Analysis  filter (post-hoc annotation filtering)
+├── Annotation Lookup     lookup {gene,pathway,variant,region}, neighbors
+├── Multi-Stat Integration converge, rank-genes, compare
+├── Orchestration         run-all, aggregate, batch, report, export-windows
+├── Data Extraction       extract {variants,samples,genotypes}, export-bed
+├── Visualization         plot {diversity-bar,fst-heatmap,manhattan,pinpis,
+│                               sfs-plot,roh-landscape,gene-zoom,chromosome,
+│                               pop-tree,pca-scatter,heatmap}
+└── Utilities             query
+```
+
+See [graphpop-cli/COMMANDS.md](graphpop-cli/COMMANDS.md) for the full command tree with all options.
+
+## Annotation Conditioning
+
+GraphPop's signature capability: condition any FAST PATH statistic on functional annotations via graph traversal.
+
+```bash
+# Standard diversity
+graphpop diversity chr1 1 43270923 GJ-tmp
+
+# Missense-only diversity (piN) — one parameter change
+graphpop diversity chr1 1 43270923 GJ-tmp --consequence missense_variant
+
+# Pathway-restricted genome scan
+graphpop genome-scan chr1 GJ-tmp 100000 50000 --pathway "Starch biosynthesis"
+
+# For FULL PATH statistics, use compute-then-filter:
+graphpop ihs chr1 GJ-tmp --persist
+graphpop filter ihs chr1 GJ-tmp --consequence missense_variant --min-score 2.0
+```
+
+## Example: End-to-End Rice 3K Analysis
+
+```bash
+# Import
+graphpop import --vcf NB_final_snp.vcf.gz --panel rice_panel.txt \
+    --database rice3k --vep rice_snpeff.vcf --pathways plant_reactome.tsv
+
+# Full-genome analysis (all 12 pops × 12 chromosomes)
+graphpop run-all -d results/
+
+# Cost of domestication (piN/piS across all subpopulations)
+for pop in GJ-tmp GJ-trp XI-1A XI-1B cA-Aus; do
+    graphpop diversity Chr1 1 43270923 $pop --consequence missense_variant
+    graphpop diversity Chr1 1 43270923 $pop --consequence synonymous_variant
+done
+
+# Multi-statistic convergence at domestication loci
+graphpop converge --stats ihs,xpehh,h12 --thresholds 2.0,2.0,0.3 --pop GJ-tmp
+
+# Gene ranking
+graphpop rank-genes --pop GJ-tmp --top 50 -o top_genes.tsv
+
+# Explore a candidate gene
+graphpop lookup gene GW5
+graphpop plot gene-zoom GW5 --pop GJ-tmp -o fig_gw5.pdf
+
+# Summary
+graphpop aggregate -d results/ -o tables/
+graphpop report -o rice3k_report.html
+graphpop dump --database rice3k -o rice3k_v1.dump
+```
+
+## Documentation
+
+| Resource | Description |
+|----------|-------------|
+| [Command reference](graphpop-cli/docs/index.md) | Per-command manuals (53 files, R-style format) |
+| [Rice 3K vignette](graphpop-cli/vignettes/rice-3k-analysis.md) | End-to-end tutorial: VCF → biological insight |
+| [Human 1000G vignette](graphpop-cli/vignettes/human-1000g-analysis.md) | Full-genome population genomics tutorial |
+| [Command tree](graphpop-cli/COMMANDS.md) | All 60 commands with options and examples |
+| [MCP server](graphpop-cli/docs/commands/mcp-server.md) | AI agent access via Model Context Protocol |
+| [Design document](docs/GraphPop_Compiled_Holistic_Design.md) | Architecture and implementation details |
+
+## Pre-built Databases
+
+Pre-built Neo4j graph databases with all computed statistics are available for download:
+
+| Dataset | Samples | Variants | Size | Download |
+|---------|---------|----------|------|----------|
+| Human 1000 Genomes (22 autosomes) | 3,202 | 70.7M | ~31 GB | [Figshare/Zenodo] |
+| Rice 3K Genomes (12 chromosomes) | 3,024 | 29.6M | ~15 GB | [Figshare/Zenodo] |
+
+Load a pre-built database:
+
+```bash
+graphpop load --dump-file rice3k_v1.dump --database rice3k
+graphpop start
+graphpop db info
+```
+
+## Repository Structure
+
+```
+GraphPop/
+├── graphpop-procedures/    Java compute engine (12 Neo4j stored procedures)
+│   ├── src/main/java/      Procedure implementations + VectorOps SIMD kernels
+│   └── src/test/java/      147 unit tests
+├── graphpop-cli/           Python CLI (pip install -e .)
+│   ├── src/graphpop_cli/   60 commands across 11 categories
+│   ├── docs/commands/      53 per-command manuals
+│   └── vignettes/          2 end-to-end tutorials (rice 3K + human 1000G)
+├── graphpop-mcp/           MCP server for AI agent access
+│   ├── src/graphpop_mcp/   21 tools (procedures + analytical + lookup)
+│   └── tooluniverse/       ToolUniverse registration
+├── graphpop-import/        VCF-to-graph import pipeline
+│   └── src/graphpop_import/  VCF parser, CSV emitter, annotation loaders
+├── scripts/                Analysis and utility scripts
+│   ├── rice_investigate_*  21 rice deep investigation scripts
+│   ├── benchmark-*.py      Performance benchmarking
+│   └── cluster/            HPC job scripts (SLURM/PBS)
+├── docs/                   Design documentation
+└── benchmarks/             Benchmark descriptions
+```
+
+## Performance
+
+Benchmarked on 1000 Genomes chr22 (3,202 samples, 1,066,555 variants):
+
+| Statistic | GraphPop | scikit-allel | Speedup |
+|-----------|----------|-------------|---------|
+| π / θ_W / Tajima's D | 12.1 s | 1,757 s | **146×** |
+| Fst / D_xy | 8.8 s | 2,165 s | **245×** |
+| SFS | 5.9 s | 1,937 s | **327×** |
+| iHS | 10.9 s | 1,948 s | **179×** |
+| XP-EHH | 16.7 s | 2,280 s | **136×** |
+
+Memory: GraphPop Neo4j path maintains constant ~160 MB regardless of analysis type.
+
+## Citation
+
+If you use GraphPop in your research, please cite:
+
+> Mao, J. GraphPop: graph-native population genomics with annotation-conditioned queries. *Nature Methods* (2026). [in preparation]
+
+## License
+
+MIT License. See individual component directories for details.
+
+## Contributing
+
+Contributions are welcome. Please open an issue for bug reports or feature requests, or submit a pull request for code contributions.
