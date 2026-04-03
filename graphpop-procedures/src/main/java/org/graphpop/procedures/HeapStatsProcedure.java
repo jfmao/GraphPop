@@ -1,7 +1,7 @@
 package org.graphpop.procedures;
 
+import org.neo4j.procedure.Description;
 import org.neo4j.procedure.Mode;
-import org.neo4j.procedure.Name;
 import org.neo4j.procedure.Procedure;
 
 import java.util.stream.Stream;
@@ -29,11 +29,13 @@ public class HeapStatsProcedure {
     }
 
     @Procedure(name = "graphpop.heap_stats", mode = Mode.READ)
+    @Description("Report JVM heap memory usage for the Neo4j database.")
     public Stream<HeapResult> heapStats() {
         return Stream.of(snapshot());
     }
 
     @Procedure(name = "graphpop.gc", mode = Mode.READ)
+    @Description("Trigger JVM garbage collection.")
     public Stream<HeapResult> gc() {
         System.gc();
         System.gc();   // two rounds for best effort

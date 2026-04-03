@@ -2,6 +2,7 @@ package org.graphpop.procedures;
 
 import org.neo4j.graphdb.Transaction;
 import org.neo4j.procedure.Context;
+import org.neo4j.procedure.Description;
 import org.neo4j.procedure.Mode;
 import org.neo4j.procedure.Name;
 import org.neo4j.procedure.Procedure;
@@ -96,6 +97,7 @@ public class ROHProcedure {
     }
 
     @Procedure(name = "graphpop.roh", mode = Mode.READ)
+    @Description("Detect runs of homozygosity (ROH) using a hidden Markov model on individual genotypes.")
     @SuppressWarnings("unchecked")
     public Stream<ROHResult> roh(
             @Name("chr") String chr,

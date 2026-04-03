@@ -2,6 +2,7 @@ package org.graphpop.procedures;
 
 import org.neo4j.graphdb.Transaction;
 import org.neo4j.procedure.Context;
+import org.neo4j.procedure.Description;
 import org.neo4j.procedure.Mode;
 import org.neo4j.procedure.Name;
 import org.neo4j.procedure.Procedure;
@@ -52,6 +53,7 @@ public class GarudHProcedure {
     }
 
     @Procedure(name = "graphpop.garud_h", mode = Mode.READ)
+    @Description("Compute Garud's H statistics (H1, H12, H2/H1) for detecting soft and hard sweeps.")
     @SuppressWarnings("unchecked")
     public Stream<GarudHResult> garudH(
             @Name("chr") String chr,

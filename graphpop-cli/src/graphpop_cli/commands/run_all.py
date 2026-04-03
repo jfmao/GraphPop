@@ -2,14 +2,13 @@
 from __future__ import annotations
 
 import json
-import sys
 import time
 from pathlib import Path
 
 import click
 
 from ..cli import pass_ctx
-from ..config import build_cypher, build_options_map
+from ..config import build_cypher
 
 
 # Default procedures for each phase

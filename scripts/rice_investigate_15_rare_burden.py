@@ -16,14 +16,15 @@ from pathlib import Path
 import matplotlib.pyplot as plt
 import numpy as np
 from neo4j import GraphDatabase
+import os
 
 ROOT = Path(__file__).resolve().parent.parent
 RESULTS_DIR = ROOT / "data" / "results" / "rice"
 FIG_DIR = RESULTS_DIR / "figures"
 
 NEO4J_URI = "bolt://localhost:7687"
-NEO4J_USER = "neo4j"
-NEO4J_PASS = "graphpop"
+NEO4J_USER = os.environ.get("GRAPHPOP_USER", "neo4j")
+NEO4J_PASS = os.environ.get("GRAPHPOP_PASSWORD", "graphpop")
 
 POPS = ["XI-1A", "XI-1B", "XI-2", "XI-3", "XI-adm",
         "GJ-tmp", "GJ-trp", "GJ-sbtrp", "GJ-adm",

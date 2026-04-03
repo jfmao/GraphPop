@@ -105,11 +105,12 @@ def inventory(ctx, output_path, fmt):
     # Check for ihs/xpehh/nsl properties on Variant nodes (sample a few)
     for stat_prefix in ["ihs_", "xpehh_", "nsl_"]:
         recs = ctx.run(
-            f"MATCH (v:Variant) "
-            f"WITH v LIMIT 1 "
-            f"UNWIND keys(v) AS k "
-            f"WITH k WHERE k STARTS WITH '{stat_prefix}' "
-            f"RETURN COLLECT(DISTINCT k) AS props"
+            "MATCH (v:Variant) "
+            "WITH v LIMIT 1 "
+            "UNWIND keys(v) AS k "
+            "WITH k WHERE k STARTS WITH $stat_prefix "
+            "RETURN COLLECT(DISTINCT k) AS props",
+            {"stat_prefix": stat_prefix},
         )
         props = recs[0]["props"] if recs and recs[0]["props"] else []
         if props:

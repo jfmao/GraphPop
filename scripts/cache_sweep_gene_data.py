@@ -71,7 +71,7 @@ def main():
     froh_arr = np.array([ind_rows.get(s, 0.0) for s in sample_ids])
 
     from neo4j import GraphDatabase
-    driver = GraphDatabase.driver("bolt://localhost:7687", auth=("neo4j", "graphpop"))
+    driver = GraphDatabase.driver(os.environ.get("GRAPHPOP_URI", "bolt://localhost:7687"), auth=(os.environ.get("GRAPHPOP_USER", "neo4j"), os.environ.get("GRAPHPOP_PASSWORD", "graphpop")))
 
     # ── Step 1: Query variant positions in each convergent sweep gene ─────────
     print("Step 1: Querying variant positions in convergent sweep genes...", flush=True)
@@ -198,6 +198,7 @@ def main():
             # Correlation of individual FROH with dosage
             valid = froh_arr > 0
             from scipy.stats import spearmanr
+import os
             rho, p = spearmanr(froh_arr[valid], dos[valid].astype(float))
             variant_stats.append({
                 "pos":          pos_val,

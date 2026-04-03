@@ -44,9 +44,9 @@ def lookup_gene(ctx, gene_name, output_path, fmt):
       graphpop lookup gene GW5 -o gw5_info.tsv
       graphpop lookup gene ENSG00000180509 --format json
     """
-    cypher = f"""
+    cypher = """
     MATCH (g:Gene)
-    WHERE g.symbol = '{gene_name}' OR g.geneId = '{gene_name}'
+    WHERE g.symbol = $gene_name OR g.geneId = $gene_name
     OPTIONAL MATCH (v:Variant)-[:HAS_CONSEQUENCE]->(g)
     OPTIONAL MATCH (g)-[:IN_PATHWAY]->(pw:Pathway)
     WITH g, v, COLLECT(DISTINCT pw.name) AS pathways
@@ -64,7 +64,7 @@ def lookup_gene(ctx, gene_name, output_path, fmt):
            CASE WHEN v IS NOT NULL THEN [k IN keys(v) WHERE k STARTS WITH 'xpehh_' | k + '=' + toString(v[k])] ELSE [] END AS xpehh_scores
     ORDER BY v.pos
     """
-    records = ctx.run(cypher)
+    records = ctx.run(cypher, {"gene_name": gene_name})
 
     if not records:
         click.echo(f"Gene '{gene_name}' not found in the graph.", err=True)
@@ -90,9 +90,9 @@ def lookup_pathway(ctx, pw_name, output_path, fmt):
       graphpop lookup pathway "Cardiac repolarization"
       graphpop lookup pathway "starch" -o starch_pathway.tsv
     """
-    cypher = f"""
+    cypher = """
     MATCH (pw:Pathway)
-    WHERE pw.name CONTAINS '{pw_name}'
+    WHERE pw.name CONTAINS $pw_name
     OPTIONAL MATCH (g:Gene)-[:IN_PATHWAY]->(pw)
     OPTIONAL MATCH (v:Variant)-[:HAS_CONSEQUENCE]->(g)
     WITH pw, g, COUNT(DISTINCT v) AS variant_count
@@ -106,7 +106,7 @@ def lookup_pathway(ctx, pw_name, output_path, fmt):
            variant_count
     ORDER BY pw.name, g.symbol
     """
-    records = ctx.run(cypher)
+    records = ctx.run(cypher, {"pw_name": pw_name})
 
     if not records:
         click.echo(f"No pathways matching '{pw_name}' found.", err=True)
@@ -132,8 +132,8 @@ def lookup_variant(ctx, var_id, output_path, fmt):
       graphpop lookup variant chr22:16050075:A:G
       graphpop lookup variant Chr01:12345:A:T --format json
     """
-    cypher = f"""
-    MATCH (v:Variant {{variantId: '{var_id}'}})
+    cypher = """
+    MATCH (v:Variant {variantId: $var_id})
     OPTIONAL MATCH (v)-[:HAS_CONSEQUENCE]->(g:Gene)
     OPTIONAL MATCH (g)-[:IN_PATHWAY]->(pw:Pathway)
     RETURN v AS variant_props,
@@ -141,7 +141,7 @@ def lookup_variant(ctx, var_id, output_path, fmt):
            g.geneId AS gene_id,
            COLLECT(DISTINCT pw.name) AS pathways
     """
-    records = ctx.run(cypher)
+    records = ctx.run(cypher, {"var_id": var_id})
 
     if not records:
         click.echo(f"Variant '{var_id}' not found.", err=True)
@@ -181,9 +181,9 @@ def lookup_region(ctx, chr, start, end, output_path, fmt):
       graphpop lookup region chr6 9000000 9600000
       graphpop lookup region chr22 16000000 17000000 -o region.tsv
     """
-    cypher = f"""
+    cypher = """
     MATCH (v:Variant)
-    WHERE v.chr = '{chr}' AND v.pos >= {start} AND v.pos <= {end}
+    WHERE v.chr = $chr AND v.pos >= $start AND v.pos <= $end
     OPTIONAL MATCH (v)-[:HAS_CONSEQUENCE]->(g:Gene)
     WITH g, COUNT(DISTINCT v) AS variant_count,
          MIN(v.pos) AS min_pos, MAX(v.pos) AS max_pos
@@ -196,7 +196,7 @@ def lookup_region(ctx, chr, start, end, output_path, fmt):
            max_pos
     ORDER BY min_pos
     """
-    records = ctx.run(cypher)
+    records = ctx.run(cypher, {"chr": chr, "start": start, "end": end})
 
     if not records:
         click.echo(f"No variants found in {chr}:{start}-{end}.", err=True)

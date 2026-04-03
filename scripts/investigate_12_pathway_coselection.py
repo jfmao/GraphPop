@@ -35,11 +35,12 @@ import numpy as np
 import networkx as nx
 from neo4j import GraphDatabase
 from scipy.stats import spearmanr, rankdata
+import os
 
 # ── Config ────────────────────────────────────────────────────────────────────
 NEO4J_URI  = "bolt://localhost:7687"
-NEO4J_USER = "neo4j"
-NEO4J_PASS = "graphpop"
+NEO4J_USER = os.environ.get("GRAPHPOP_USER", "neo4j")
+NEO4J_PASS = os.environ.get("GRAPHPOP_PASSWORD", "graphpop")
 NEO4J_DB   = "neo4j"
 
 OUT_DIR  = Path("data/results")

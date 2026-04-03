@@ -106,9 +106,10 @@ def query_variant_pathway_classes(fst_map: dict, p25: float, p75: float) -> dict
     Returns: {(chr_str, pos_int): "constrained"|"neutral"|"divergent"}
     """
     from neo4j import GraphDatabase
+import os
     print("  Querying Neo4j (all chromosomes, HIGH/MODERATE impact)...", flush=True)
     t0 = time.time()
-    driver = GraphDatabase.driver("bolt://localhost:7687", auth=("neo4j", "graphpop"))
+    driver = GraphDatabase.driver(os.environ.get("GRAPHPOP_URI", "bolt://localhost:7687"), auth=(os.environ.get("GRAPHPOP_USER", "neo4j"), os.environ.get("GRAPHPOP_PASSWORD", "graphpop")))
     pos_class = {}   # (chr, pos) → class
     n_rows = 0
     try:

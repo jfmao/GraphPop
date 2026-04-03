@@ -17,6 +17,7 @@ from pathlib import Path
 
 import numpy as np
 import allel
+import os
 
 CSV_DIR = Path("data/raw/1000g/csv_out")
 CHR = "chr22"
@@ -24,8 +25,8 @@ POP = "AFR"
 PATHWAY = "Cell surface interactions at the vascular wall"
 CONSEQUENCE = "missense_variant"
 
-NEO4J_USER = "neo4j"
-NEO4J_PASS = "graphpop"
+NEO4J_USER = os.environ.get("GRAPHPOP_USER", "neo4j")
+NEO4J_PASS = os.environ.get("GRAPHPOP_PASSWORD", "graphpop")
 
 # ---------------------------------------------------------------------------
 # Classical pipeline: multi-step filtering

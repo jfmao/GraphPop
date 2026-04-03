@@ -64,23 +64,28 @@ def filter_results(ctx, statistic, chr, population, output_path, fmt,
         prop_unstd = None
 
     # Build Cypher query
+    params: dict = {"chr": chr, "population": population, "limit": limit}
+
     if statistic in ("ihs", "xpehh", "nsl"):
         # Per-variant statistics stored on Variant nodes
         match_clause = "MATCH (v:Variant)"
-        where_parts = [f"v.chr = '{chr}'"]
+        where_parts = ["v.chr = $chr"]
         if prop:
             where_parts.append(f"v.{prop} IS NOT NULL")
 
         # Annotation join
         if consequence:
             match_clause += "-[:HAS_CONSEQUENCE]->(hc)"
-            where_parts.append(f"hc.consequence = '{consequence}'")
+            where_parts.append("hc.consequence = $consequence")
+            params["consequence"] = consequence
         if pathway:
             match_clause += "-[:HAS_CONSEQUENCE]->(:Gene)-[:IN_PATHWAY]->(pw:Pathway)"
-            where_parts.append(f"pw.name CONTAINS '{pathway}'")
+            where_parts.append("pw.name CONTAINS $pathway")
+            params["pathway"] = pathway
         if gene:
             match_clause += "-[:HAS_CONSEQUENCE]->(g:Gene)"
-            where_parts.append(f"(g.geneId = '{gene}' OR g.symbol = '{gene}')")
+            where_parts.append("(g.geneId = $gene OR g.symbol = $gene)")
+            params["gene"] = gene
 
         if min_score is not None and prop:
             where_parts.append(f"abs(v.{prop}) >= {min_score}")
@@ -105,15 +110,15 @@ def filter_results(ctx, statistic, chr, population, output_path, fmt,
             f"{match_clause} "
             f"WHERE {' AND '.join(where_parts)} "
             f"RETURN DISTINCT {', '.join(return_cols)} "
-            f"ORDER BY v.pos LIMIT {limit}"
+            "ORDER BY v.pos LIMIT $limit"
         )
 
     elif statistic == "h12":
         # Garud's H stored on GenomicWindow nodes
         match_clause = "MATCH (w:GenomicWindow)"
         where_parts = [
-            f"w.chr = '{chr}'",
-            f"w.population = '{population}'",
+            "w.chr = $chr",
+            "w.population = $population",
         ]
         if min_score is not None:
             where_parts.append(f"w.h12 >= {min_score}")
@@ -121,18 +126,18 @@ def filter_results(ctx, statistic, chr, population, output_path, fmt,
         cypher = (
             f"{match_clause} "
             f"WHERE {' AND '.join(where_parts)} "
-            f"RETURN w.windowId AS window_id, w.chr AS chr, "
-            f"w.start AS start, w.end AS end, "
-            f"w.h12 AS h12, w.h2_h1 AS h2_h1, w.hap_diversity AS hap_div "
-            f"ORDER BY w.h12 DESC LIMIT {limit}"
+            "RETURN w.windowId AS window_id, w.chr AS chr, "
+            "w.start AS start, w.end AS end, "
+            "w.h12 AS h12, w.h2_h1 AS h2_h1, w.hap_diversity AS hap_div "
+            "ORDER BY w.h12 DESC LIMIT $limit"
         )
 
     else:
         # Window-level statistics (fst, pi, tajima_d)
         match_clause = "MATCH (w:GenomicWindow)"
         where_parts = [
-            f"w.chr = '{chr}'",
-            f"w.population = '{population}'",
+            "w.chr = $chr",
+            "w.population = $population",
         ]
         if min_score is not None:
             where_parts.append(f"w.{prop} >= {min_score}")
@@ -144,10 +149,10 @@ def filter_results(ctx, statistic, chr, population, output_path, fmt,
             f"WHERE {' AND '.join(where_parts)} "
             f"RETURN w.windowId AS window_id, w.start AS start, w.end AS end, "
             f"w.{prop} AS {statistic}, w.n_variants AS n_variants "
-            f"ORDER BY w.start LIMIT {limit}"
+            "ORDER BY w.start LIMIT $limit"
         )
 
-    records = ctx.run(cypher)
+    records = ctx.run(cypher, params)
 
     if not records:
         click.echo(f"No results found for {statistic} on {chr}/{population} "

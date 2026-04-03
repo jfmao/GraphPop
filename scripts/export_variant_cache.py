@@ -31,8 +31,8 @@ from neo4j import GraphDatabase
 # ── Constants ──────────────────────────────────────────────────────────────────
 
 NEO4J_URI  = "bolt://localhost:7687"
-NEO4J_USER = "neo4j"
-NEO4J_PASS = "graphpop"
+NEO4J_USER = os.environ.get("GRAPHPOP_USER", "neo4j")
+NEO4J_PASS = os.environ.get("GRAPHPOP_PASSWORD", "graphpop")
 NEO4J_DB   = "neo4j"
 
 CHROMOSOMES = [f"chr{i}" for i in range(1, 23)]

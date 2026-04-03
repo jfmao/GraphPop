@@ -6,6 +6,7 @@ import org.neo4j.graphdb.Node;
 import org.neo4j.graphdb.RelationshipType;
 import org.neo4j.graphdb.Transaction;
 import org.neo4j.procedure.Context;
+import org.neo4j.procedure.Description;
 import org.neo4j.procedure.Mode;
 import org.neo4j.procedure.Name;
 import org.neo4j.procedure.Procedure;
@@ -76,6 +77,7 @@ public class GenomeScanProcedure {
     }
 
     @Procedure(name = "graphpop.genome_scan", mode = Mode.WRITE)
+    @Description("Run a sliding-window genome scan computing diversity and divergence statistics with optional persistence to GenomicWindow nodes.")
     public Stream<WindowResult> genomeScan(
             @Name("chr") String chr,
             @Name("pop") String pop,

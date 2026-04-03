@@ -57,7 +57,8 @@ def main():
     # Stream Neo4j query
     print("\nStreaming Neo4j (all chromosomes, HIGH/MODERATE impact)...", flush=True)
     from neo4j import GraphDatabase
-    driver = GraphDatabase.driver("bolt://localhost:7687", auth=("neo4j", "graphpop"))
+import os
+    driver = GraphDatabase.driver(os.environ.get("GRAPHPOP_URI", "bolt://localhost:7687"), auth=(os.environ.get("GRAPHPOP_USER", "neo4j"), os.environ.get("GRAPHPOP_PASSWORD", "graphpop")))
 
     # variant_pathways[chr][pos_str] = [pathway_id, ...]
     variant_pathways = defaultdict(lambda: defaultdict(list))

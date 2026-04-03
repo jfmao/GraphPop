@@ -65,8 +65,10 @@ def converge(ctx, stats, thresholds, chromosome, population, pop2,
     # --- Query variant-based stats ---
     if requested_variant:
         where_parts = []
+        params: dict = {"limit": limit}
         if chromosome:
-            where_parts.append(f"v.chr = '{chromosome}'")
+            where_parts.append("v.chr = $chromosome")
+            params["chromosome"] = chromosome
 
         return_cols = [
             "v.variantId AS variant_id",
@@ -90,16 +92,18 @@ def converge(ctx, stats, thresholds, chromosome, population, pop2,
             f"OPTIONAL MATCH (v)-[:HAS_CONSEQUENCE]->(g:Gene) "
             f"RETURN DISTINCT {', '.join(return_cols)}, "
             f"g.symbol AS gene "
-            f"ORDER BY v.pos LIMIT {limit}"
+            f"ORDER BY v.pos LIMIT $limit"
         )
-        variant_records = ctx.run(cypher)
+        variant_records = ctx.run(cypher, params)
         results.extend(variant_records)
 
     # --- Query window-based stats ---
     if requested_window:
-        where_parts = [f"w.population = '{population}'"]
+        where_parts = ["w.population = $population"]
+        params = {"population": population, "limit": limit}
         if chromosome:
-            where_parts.append(f"w.chr = '{chromosome}'")
+            where_parts.append("w.chr = $chromosome")
+            params["chromosome"] = chromosome
 
         return_cols = [
             "w.windowId AS window_id",
@@ -126,9 +130,9 @@ def converge(ctx, stats, thresholds, chromosome, population, pop2,
             f"MATCH (w:GenomicWindow) "
             f"WHERE {' AND '.join(where_parts)} "
             f"RETURN {', '.join(return_cols)} "
-            f"ORDER BY w.start LIMIT {limit}"
+            f"ORDER BY w.start LIMIT $limit"
         )
-        window_records = ctx.run(cypher)
+        window_records = ctx.run(cypher, params)
         results.extend(window_records)
 
     if not results:

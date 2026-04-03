@@ -1,10 +1,26 @@
 """graphpop compare — compare statistics between two populations."""
 from __future__ import annotations
 
+import re
+
 import click
 
 from ..cli import pass_ctx
 from ..formatters import format_output
+
+# Allowed stat names — used to whitelist dynamic property access
+_VALID_STATS = {"pi", "theta_w", "tajima_d", "fst", "ihs"}
+_IDENT_RE = re.compile(r'^[A-Za-z0-9_-]+$')
+
+
+def _validate_identifier(value: str, label: str) -> str:
+    """Validate that a value is safe for use as a Cypher property name."""
+    if not _IDENT_RE.match(value):
+        raise click.BadParameter(
+            f"Invalid {label}: {value!r}. Only alphanumeric, hyphen, "
+            "and underscore characters are allowed."
+        )
+    return value
 
 
 @click.command("compare")
@@ -37,6 +53,10 @@ def compare(ctx, pop1, pop2, chr, stat, window_size, output_path, fmt, limit):
       graphpop compare GJ-tmp GJ-trp Chr1 --stat fst -o delta.tsv
       graphpop compare EUR EAS chr22 --stat ihs -o ihs_diff.tsv
     """
+    # Validate identifiers used in dynamic property names
+    pop1 = _validate_identifier(pop1, "population")
+    pop2 = _validate_identifier(pop2, "population")
+
     if stat == "ihs":
         records = _compare_variant_stat(ctx, pop1, pop2, chr, stat, limit)
     else:
@@ -55,14 +75,15 @@ def compare(ctx, pop1, pop2, chr, stat, window_size, output_path, fmt, limit):
 def _compare_window_stat(ctx, pop1, pop2, chr, stat, window_size, limit):
     """Compare window-based statistics between two populations."""
     prop = stat
+    params = {"chr": chr, "pop1": pop1, "pop2": pop2, "limit": limit}
 
     cypher = (
         f"MATCH (w1:GenomicWindow) "
-        f"WHERE w1.chr = '{chr}' AND w1.population = '{pop1}' "
+        f"WHERE w1.chr = $chr AND w1.population = $pop1 "
         f"AND w1.{prop} IS NOT NULL "
         f"WITH w1 "
         f"MATCH (w2:GenomicWindow) "
-        f"WHERE w2.chr = '{chr}' AND w2.population = '{pop2}' "
+        f"WHERE w2.chr = $chr AND w2.population = $pop2 "
         f"AND w2.start = w1.start AND w2.end = w1.end "
         f"AND w2.{prop} IS NOT NULL "
         f"RETURN w1.start AS window_start, "
@@ -71,19 +92,20 @@ def _compare_window_stat(ctx, pop1, pop2, chr, stat, window_size, limit):
         f"w2.{prop} AS {stat}_{pop2}, "
         f"(w1.{prop} - w2.{prop}) AS delta, "
         f"abs(w1.{prop} - w2.{prop}) AS abs_delta "
-        f"ORDER BY w1.start LIMIT {limit}"
+        f"ORDER BY w1.start LIMIT $limit"
     )
-    return ctx.run(cypher)
+    return ctx.run(cypher, params)
 
 
 def _compare_variant_stat(ctx, pop1, pop2, chr, stat, limit):
     """Compare variant-based statistics (ihs) between two populations."""
     prop1 = f"{stat}_{pop1}"
     prop2 = f"{stat}_{pop2}"
+    params = {"chr": chr, "limit": limit}
 
     cypher = (
         f"MATCH (v:Variant) "
-        f"WHERE v.chr = '{chr}' "
+        f"WHERE v.chr = $chr "
         f"AND v.{prop1} IS NOT NULL AND v.{prop2} IS NOT NULL "
         f"RETURN v.pos AS pos, "
         f"v.variantId AS variantId, "
@@ -91,6 +113,6 @@ def _compare_variant_stat(ctx, pop1, pop2, chr, stat, limit):
         f"v.{prop2} AS {stat}_{pop2}, "
         f"(v.{prop1} - v.{prop2}) AS delta, "
         f"abs(v.{prop1} - v.{prop2}) AS abs_delta "
-        f"ORDER BY v.pos LIMIT {limit}"
+        f"ORDER BY v.pos LIMIT $limit"
     )
-    return ctx.run(cypher)
+    return ctx.run(cypher, params)

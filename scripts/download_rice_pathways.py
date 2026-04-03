@@ -26,8 +26,8 @@ PATHWAY_FILE = PLANT_REACTOME_DIR / "gene_ids_by_pathway_and_species.tab"
 OUTPUT_MAPPING = PLANT_REACTOME_DIR / "rice_loc_pathway_mapping.tsv"
 
 NEO4J_URI = "bolt://localhost:7687"
-NEO4J_USER = "neo4j"
-NEO4J_PASS = "graphpop"
+NEO4J_USER = os.environ.get("GRAPHPOP_USER", "neo4j")
+NEO4J_PASS = os.environ.get("GRAPHPOP_PASSWORD", "graphpop")
 
 
 def load_rice_pathways():
@@ -121,6 +121,7 @@ def map_uniprot_to_loc(uniprot_ids):
 def load_into_neo4j(loc_to_pathways, pathways):
     """Load Pathway nodes and IN_PATHWAY edges into Neo4j."""
     from neo4j import GraphDatabase
+import os
 
     print(f"==> Loading {len(pathways)} pathways and {sum(len(v) for v in loc_to_pathways.values())} edges into Neo4j...")
     sys.stdout.flush()

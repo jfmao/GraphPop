@@ -196,8 +196,9 @@ def query_chr22_missense_pathway_classes(fst_map: dict, p25: float, p75: float) 
     Returns: {pos → "constrained" | "neutral" | "divergent" | "unknown"}
     """
     from neo4j import GraphDatabase
+import os
     print("  Querying Neo4j for chr22 rare missense variant → pathway mapping...", flush=True)
-    driver = GraphDatabase.driver("bolt://localhost:7687", auth=("neo4j", "graphpop"))
+    driver = GraphDatabase.driver(os.environ.get("GRAPHPOP_URI", "bolt://localhost:7687"), auth=(os.environ.get("GRAPHPOP_USER", "neo4j"), os.environ.get("GRAPHPOP_PASSWORD", "graphpop")))
     pos_class = {}
     try:
         with driver.session(database="neo4j") as s:

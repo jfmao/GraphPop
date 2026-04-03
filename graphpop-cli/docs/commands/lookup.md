@@ -2,29 +2,25 @@
 
 ## Description
 
-`graphpop lookup` queries the graph for annotation and summary information about
-a gene, pathway, variant, or genomic region. It is the fastest way to answer
-"what does the graph know about X?" without writing Cypher. Four subcommands
-are available:
+`graphpop lookup` queries the graph for annotation information about a gene,
+pathway, variant, or genomic region. It is the fastest way to answer "what does
+the graph know about X?" without writing Cypher. Four subcommands are available:
 
 | Subcommand | Query target |
 |------------|-------------|
-| `gene` | Gene node: variant count, consequence breakdown, pathways, persisted selection statistics |
-| `pathway` | Pathway node: member gene list, mean Fst across gene bodies, pathway-level statistics |
-| `variant` | Single Variant node: full annotation including allele frequencies, consequences, gene membership, persisted scores |
-| `region` | Genomic interval: genes overlapping the region, windowed statistics, variant density |
+| `gene` | Gene node: per-variant detail with consequences, pathways, persisted iHS/XP-EHH scores |
+| `pathway` | Pathway node: member genes with variant counts (substring match on pathway name) |
+| `variant` | Single Variant node: full property dump including allele frequencies, gene, pathways |
+| `region` | Genomic interval: genes overlapping the region with variant counts |
 
-All subcommands operate as read-only queries against the existing graph. They do
-not compute new statistics; they report what has already been persisted by prior
-commands such as `graphpop genome-scan`, `graphpop ihs --persist`, or
-`graphpop pop-summary`.
+All subcommands operate as read-only queries against the existing graph.
 
 ## Usage
 
 ```
 graphpop lookup gene GENE_NAME [OPTIONS]
-graphpop lookup pathway PATHWAY_NAME [OPTIONS]
-graphpop lookup variant VARIANT_ID [OPTIONS]
+graphpop lookup pathway PW_NAME [OPTIONS]
+graphpop lookup variant VAR_ID [OPTIONS]
 graphpop lookup region CHR START END [OPTIONS]
 ```
 
@@ -32,9 +28,9 @@ graphpop lookup region CHR START END [OPTIONS]
 
 | Name | Type | Required | Description |
 |------|------|----------|-------------|
-| `GENE_NAME` | string | yes (gene) | Gene symbol (e.g., `BRCA2`, `Os01g0100100`). Case-sensitive. |
-| `PATHWAY_NAME` | string | yes (pathway) | Pathway name as stored on Pathway nodes (e.g., `"Starch and sucrose metabolism"`). |
-| `VARIANT_ID` | string | yes (variant) | Variant identifier in `chr:pos:ref:alt` format (e.g., `chr22:17080794:G:A`). |
+| `GENE_NAME` | string | yes (gene) | Gene symbol (e.g., `KCNE1`) or gene ID (e.g., `ENSG00000180509`). |
+| `PW_NAME` | string | yes (pathway) | Pathway name substring (e.g., `"starch"`). Matched with CONTAINS. |
+| `VAR_ID` | string | yes (variant) | Variant identifier in `chr:pos:ref:alt` format (e.g., `chr22:16050075:A:G`). |
 | `CHR` | string | yes (region) | Chromosome name. |
 | `START` | integer | yes (region) | Start position (1-based, inclusive). |
 | `END` | integer | yes (region) | End position (1-based, inclusive). |
@@ -43,102 +39,89 @@ graphpop lookup region CHR START END [OPTIONS]
 
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
-| `--pop` | string | all | Restrict reported statistics to a specific population. |
 | `--format` | choice | `tsv` | Output format: `tsv`, `csv`, `json`. |
 | `-o`, `--output` | path | stdout | Write output to a file instead of stdout. |
-| `--include-variants` | flag | false | (gene/pathway/region) Include per-variant detail rows in addition to the summary. |
-| `--include-scores` | flag | false | Include all persisted selection scores (iHS, XP-EHH, nSL, H12) on each variant row. |
 
 ## Value
 
 ### graphpop lookup gene
 
-Returns a summary block followed by optional variant detail:
+Returns one row per variant in the gene, with gene-level and variant-level annotation:
 
 | Column | Type | Description |
 |--------|------|-------------|
 | `gene` | string | Gene symbol. |
+| `gene_id` | string | Gene identifier (e.g., Ensembl ID). |
 | `chr` | string | Chromosome. |
 | `start` | integer | Gene start position. |
 | `end` | integer | Gene end position. |
-| `n_variants` | integer | Total variants within gene boundaries. |
-| `n_missense` | integer | Count of missense variants. |
-| `n_synonymous` | integer | Count of synonymous variants. |
-| `n_high_impact` | integer | Count of HIGH-impact variants (stop_gained, frameshift, splice). |
-| `pathways` | string | Comma-separated list of pathway names. |
-| `mean_fst_{pop_pair}` | float | Mean Fst across gene variants (one column per persisted population pair). |
-| `max_abs_ihs_{pop}` | float | Maximum |iHS| within the gene (one column per population with persisted scores). |
+| `variant_id` | string | Variant identifier (chr:pos:ref:alt). |
+| `pos` | integer | Variant genomic position. |
+| `ref` | string | Reference allele. |
+| `alt` | string | Alternate allele. |
+| `pathways` | list | Pathway names the gene belongs to. |
+| `ihs_scores` | list | Persisted iHS scores as `key=value` strings (e.g., `ihs_EUR=2.31`). |
+| `xpehh_scores` | list | Persisted XP-EHH scores as `key=value` strings. |
 
 ### graphpop lookup pathway
+
+Returns one row per gene in each matching pathway:
 
 | Column | Type | Description |
 |--------|------|-------------|
 | `pathway` | string | Pathway name. |
-| `n_genes` | integer | Number of member genes. |
-| `genes` | string | Comma-separated gene symbols. |
-| `mean_fst_{pop_pair}` | float | Mean Fst across all pathway genes. |
-| `mean_pi_{pop}` | float | Mean nucleotide diversity across pathway genes. |
+| `pathway_id` | string | Pathway identifier. |
+| `gene` | string | Gene symbol. |
+| `gene_id` | string | Gene identifier. |
+| `chr` | string | Chromosome. |
+| `gene_start` | integer | Gene start position. |
+| `gene_end` | integer | Gene end position. |
+| `variant_count` | integer | Number of variants with consequences in this gene. |
 
 ### graphpop lookup variant
 
+Returns all properties stored on the Variant node, flattened into columns.
+Additional annotation columns are appended:
+
 | Column | Type | Description |
 |--------|------|-------------|
-| `variantId` | string | Variant identifier. |
-| `pos` | integer | Genomic position. |
-| `ref` | string | Reference allele. |
-| `alt` | string | Alternate allele. |
-| `consequence` | string | VEP consequence type. |
-| `gene` | string | Gene symbol (if in a gene). |
-| `af_{pop}` | float | Allele frequency per population. |
-| `ihs_{pop}` | float | Persisted iHS score (if available). |
-| `xpehh_{pop_pair}` | float | Persisted XP-EHH score (if available). |
+| *(all variant properties)* | various | Every property on the Variant node (variantId, pos, ref, alt, chr, pop_ids, ac, an, af, etc.). |
+| `gene` | string | Gene symbol (if the variant has a HAS_CONSEQUENCE edge). |
+| `gene_id` | string | Gene identifier. |
+| `pathways` | list | Pathway names via the gene. |
 
 ### graphpop lookup region
 
+Returns one row per gene (or intergenic block) in the region:
+
 | Column | Type | Description |
 |--------|------|-------------|
-| `gene` | string | Gene symbol. |
-| `gene_start` | integer | Gene start. |
-| `gene_end` | integer | Gene end. |
-| `n_variants` | integer | Variants in this gene within the queried region. |
-| `mean_fst` | float | Mean Fst (if persisted). |
-| `max_abs_ihs` | float | Max |iHS| (if persisted). |
-
-## Details
-
-### Resolution order
-
-For `lookup gene`, the command first matches by exact gene symbol on Gene nodes.
-If no match is found, it attempts a case-insensitive search and reports the
-closest match with a warning. For rice datasets, both MSU and RAP identifiers
-are supported (e.g., `LOC_Os01g01010` or `Os01g0100100`).
-
-### Performance
-
-All lookups are index-backed. Gene and pathway lookups resolve in under 100 ms.
-Region lookups scale linearly with the number of genes in the interval but
-remain fast for typical query sizes (under 1 second for a 5 Mb region). The
-`--include-variants` flag may increase response time for large genes with
-thousands of variants.
+| `gene` | string | Gene symbol, or `intergenic` if no gene annotation. |
+| `gene_id` | string | Gene identifier. |
+| `gene_start` | integer | Gene start position. |
+| `gene_end` | integer | Gene end position. |
+| `variant_count` | integer | Number of variants in this gene within the queried region. |
+| `min_pos` | integer | Minimum variant position in the gene/region. |
+| `max_pos` | integer | Maximum variant position in the gene/region. |
 
 ## Examples
 
 ```bash
-# Look up a gene: variant count, pathways, selection stats
-graphpop lookup gene BRCA2 --pop EUR --format json
+# Look up a gene: per-variant detail with pathways and scores
+graphpop lookup gene KCNE1
+graphpop lookup gene GW5 -o gw5_info.tsv
+graphpop lookup gene ENSG00000180509 --format json
 
-# Look up a rice gene with full variant detail
-graphpop lookup gene Os01g0100100 --pop GJ-tmp --include-variants \
-    --include-scores -o gene_detail.tsv
-
-# Look up a pathway and its gene members
-graphpop lookup pathway "Starch and sucrose metabolism" --pop GJ-tmp
+# Look up a pathway by substring match
+graphpop lookup pathway "Cardiac repolarization"
+graphpop lookup pathway "starch" -o starch_pathway.tsv
 
 # Look up a single variant with all annotations
-graphpop lookup variant chr22:17080794:G:A --format json
+graphpop lookup variant chr22:16050075:A:G --format json
 
-# Look up all genes in a 2 Mb region
-graphpop lookup region chr22 20000000 22000000 --pop CEU -o region_genes.tsv
+# Look up all genes in a genomic region
+graphpop lookup region chr6 9000000 9600000
+graphpop lookup region chr22 16000000 17000000 -o region.tsv
 ```
 
 ## See Also

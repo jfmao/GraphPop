@@ -3,6 +3,7 @@ package org.graphpop.procedures;
 import org.neo4j.graphdb.Node;
 import org.neo4j.graphdb.Transaction;
 import org.neo4j.procedure.Context;
+import org.neo4j.procedure.Description;
 import org.neo4j.procedure.Mode;
 import org.neo4j.procedure.Name;
 import org.neo4j.procedure.Procedure;
@@ -97,6 +98,7 @@ public class IHSProcedure {
     }
 
     @Procedure(name = "graphpop.ihs", mode = Mode.WRITE)
+    @Description("Compute the integrated haplotype score (iHS) for detecting ongoing positive selection.")
     @SuppressWarnings("unchecked")
     public Stream<IHSResult> ihs(
             @Name("chr") String chr,

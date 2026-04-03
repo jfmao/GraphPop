@@ -1,6 +1,6 @@
 # GraphPop CLI — User Manual
 
-Version 0.1.0 | 60 commands across 11 categories
+Version 0.1.0 | 61 commands across 11 categories
 
 ## Table of Contents
 
@@ -23,6 +23,9 @@ Version 0.1.0 | 60 commands across 11 categories
 ### Configuration & Validation
 - [graphpop config](commands/config.md) — Manage configuration (init, show, set, path)
 - [graphpop config init](commands/config-init.md) — Create config file
+- [graphpop config show](commands/config-show.md) — Display current configuration
+- [graphpop config set](commands/config-set.md) — Set a configuration value
+- [graphpop config path](commands/config-path.md) — Print config file path
 - [graphpop validate](commands/validate.md) — Check database integrity
 - [graphpop inventory](commands/inventory.md) — Show what has been computed
 

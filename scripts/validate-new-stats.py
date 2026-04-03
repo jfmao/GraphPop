@@ -17,6 +17,7 @@ import time
 import allel
 import numpy as np
 from cyvcf2 import VCF
+import os
 
 # ---------------------------------------------------------------------------
 # Config
@@ -34,8 +35,8 @@ GARUD_POP = "EUR"
 GARUD_WINDOW = 100_000
 GARUD_STEP = 50_000
 
-NEO4J_USER = "neo4j"
-NEO4J_PASS = "graphpop"
+NEO4J_USER = os.environ.get("GRAPHPOP_USER", "neo4j")
+NEO4J_PASS = os.environ.get("GRAPHPOP_PASSWORD", "graphpop")
 
 
 def load_panel(panel_path):

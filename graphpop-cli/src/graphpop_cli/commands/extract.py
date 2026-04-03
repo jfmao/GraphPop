@@ -56,6 +56,7 @@ def extract_variants(ctx, chromosome, start, end, population, min_af, max_af,
       graphpop extract variants --gene KCNE1 --pop EUR -o kcne1_variants.tsv
     """
     field_list = [f.strip() for f in fields.split(",")]
+    params = {}
 
     # Build MATCH clause with optional annotation joins
     match_clause = "MATCH (v:Variant)"
@@ -63,54 +64,62 @@ def extract_variants(ctx, chromosome, start, end, population, min_af, max_af,
 
     if consequence:
         match_clause += "-[:HAS_CONSEQUENCE]->(hc)"
-        where_parts.append(f"hc.consequence = '{consequence}'")
+        where_parts.append("hc.consequence = $consequence")
+        params["consequence"] = consequence
     if gene:
         if "-[:HAS_CONSEQUENCE]->" not in match_clause:
             match_clause += "-[:HAS_CONSEQUENCE]->(g:Gene)"
         else:
-            match_clause = match_clause.replace("->(hc)", "->(hc)-[:ON_GENE]->(g:Gene)")
-            # Simpler: use separate MATCH
             match_clause = "MATCH (v:Variant)-[:HAS_CONSEQUENCE]->(g:Gene)"
             if consequence:
                 match_clause = "MATCH (v:Variant)-[hc_rel:HAS_CONSEQUENCE]->(g:Gene)"
                 where_parts = [p for p in where_parts if "hc.consequence" not in p]
-                where_parts.append(f"hc_rel.consequence = '{consequence}'")
-        where_parts.append(f"(g.symbol = '{gene}' OR g.geneId = '{gene}')")
+                where_parts.append("hc_rel.consequence = $consequence")
+        where_parts.append("(g.symbol = $gene OR g.geneId = $gene)")
+        params["gene"] = gene
     if pathway:
         if "Gene" not in match_clause:
             match_clause += "-[:HAS_CONSEQUENCE]->(g:Gene)-[:IN_PATHWAY]->(pw:Pathway)"
         else:
             match_clause += "-[:IN_PATHWAY]->(pw:Pathway)"
-        where_parts.append(f"pw.name CONTAINS '{pathway}'")
+        where_parts.append("pw.name CONTAINS $pathway")
+        params["pathway"] = pathway
 
     if chromosome:
-        where_parts.append(f"v.chr = '{chromosome}'")
+        where_parts.append("v.chr = $chromosome")
+        params["chromosome"] = chromosome
     if start is not None:
-        where_parts.append(f"v.pos >= {start}")
+        where_parts.append("v.pos >= $start")
+        params["start"] = start
     if end is not None:
-        where_parts.append(f"v.pos <= {end}")
+        where_parts.append("v.pos <= $end")
+        params["end"] = end
 
     # AF filtering: if population is given, look up index in pop_ids array
     if population and (min_af is not None or max_af is not None):
-        # Use dynamic property access for population-specific AF
+        params["population"] = population
         if min_af is not None:
             where_parts.append(
-                f"ANY(i IN range(0, size(v.pop_ids)-1) "
-                f"WHERE v.pop_ids[i] = '{population}' AND v.af[i] >= {min_af})"
+                "ANY(i IN range(0, size(v.pop_ids)-1) "
+                "WHERE v.pop_ids[i] = $population AND v.af[i] >= $min_af)"
             )
+            params["min_af"] = min_af
         if max_af is not None:
             where_parts.append(
-                f"ANY(i IN range(0, size(v.pop_ids)-1) "
-                f"WHERE v.pop_ids[i] = '{population}' AND v.af[i] <= {max_af})"
+                "ANY(i IN range(0, size(v.pop_ids)-1) "
+                "WHERE v.pop_ids[i] = $population AND v.af[i] <= $max_af)"
             )
+            params["max_af"] = max_af
 
     # Build RETURN clause from requested fields
     return_cols = []
     for f in field_list:
         if f == "af" and population:
+            if "population" not in params:
+                params["population"] = population
             return_cols.append(
-                f"[i IN range(0, size(v.pop_ids)-1) "
-                f"WHERE v.pop_ids[i] = '{population}' | v.af[i]][0] AS af_{population}"
+                "[i IN range(0, size(v.pop_ids)-1) "
+                "WHERE v.pop_ids[i] = $population | v.af[i]][0] AS af_" + population
             )
         elif f in ("gene", "gene_symbol") and "Gene" in match_clause:
             return_cols.append("g.symbol AS gene")
@@ -120,15 +129,16 @@ def extract_variants(ctx, chromosome, start, end, population, min_af, max_af,
         else:
             return_cols.append(f"v.{f} AS {f}")
 
+    params["limit"] = limit
     where_str = " AND ".join(where_parts) if where_parts else "true"
     cypher = (
         f"{match_clause} "
         f"WHERE {where_str} "
         f"RETURN DISTINCT {', '.join(return_cols)} "
-        f"ORDER BY v.pos LIMIT {limit}"
+        f"ORDER BY v.pos LIMIT $limit"
     )
 
-    records = ctx.run(cypher)
+    records = ctx.run(cypher, params)
     if not records:
         click.echo("No variants found with given filters.", err=True)
         return
@@ -157,10 +167,10 @@ def extract_samples(ctx, population, output_path, fmt):
       graphpop extract samples --pop EUR -o samples.tsv
       graphpop extract samples --pop GJ-tmp --format json
     """
-    cypher = f"""
+    cypher = """
     MATCH (s:Sample)
-    WHERE s.population = '{population}'
-    OPTIONAL MATCH (p:Population {{name: '{population}'}})
+    WHERE s.population = $population
+    OPTIONAL MATCH (p:Population {name: $population})
     RETURN s.sampleId AS sampleId,
            s.population AS population,
            s.packed_index AS packed_index,
@@ -169,7 +179,7 @@ def extract_samples(ctx, population, output_path, fmt):
            p.mean_froh AS pop_mean_froh
     ORDER BY s.packed_index
     """
-    records = ctx.run(cypher)
+    records = ctx.run(cypher, {"population": population})
     if not records:
         click.echo(f"No samples found for population '{population}'.", err=True)
         return
@@ -208,18 +218,26 @@ def extract_genotypes(ctx, chromosome, start, end, population, gt_format,
       graphpop extract genotypes --chr chr22 --start 16000000 --end 17000000 --pop EUR -o geno.tsv
       graphpop extract genotypes --chr chr22 --start 16000000 --end 17000000 --pop EUR --format-gt raw -o geno_raw.tsv
     """
+    params = {
+        "chromosome": chromosome,
+        "start": start,
+        "end": end,
+        "population": population,
+        "limit": limit,
+    }
+
     if gt_format == "raw":
         # Return per-variant summary with raw gt_packed as hex
         cypher = (
-            f"MATCH (v:Variant) "
-            f"WHERE v.chr = '{chromosome}' AND v.pos >= {start} AND v.pos <= {end} "
-            f"RETURN v.variantId AS variantId, v.pos AS pos, v.ref AS ref, v.alt AS alt, "
-            f"v.gt_packed AS gt_packed_hex, "
-            f"[i IN range(0, size(v.pop_ids)-1) "
-            f"WHERE v.pop_ids[i] = '{population}' | v.af[i]][0] AS af "
-            f"ORDER BY v.pos LIMIT {limit}"
+            "MATCH (v:Variant) "
+            "WHERE v.chr = $chromosome AND v.pos >= $start AND v.pos <= $end "
+            "RETURN v.variantId AS variantId, v.pos AS pos, v.ref AS ref, v.alt AS alt, "
+            "v.gt_packed AS gt_packed_hex, "
+            "[i IN range(0, size(v.pop_ids)-1) "
+            "WHERE v.pop_ids[i] = $population | v.af[i]][0] AS af "
+            "ORDER BY v.pos LIMIT $limit"
         )
-        records = ctx.run(cypher)
+        records = ctx.run(cypher, params)
         if not records:
             click.echo("No variants found in region.", err=True)
             return
@@ -232,16 +250,17 @@ def extract_genotypes(ctx, chromosome, start, end, population, gt_format,
         gt_label = "c.gt" if gt_format == "dosage" else (
             "CASE c.gt WHEN 1 THEN '0/1' WHEN 2 THEN '1/1' ELSE '0/0' END"
         )
+        params["carries_limit"] = limit * 100
         cypher = (
-            f"MATCH (s:Sample)-[c:CARRIES]->(v:Variant) "
-            f"WHERE s.population = '{population}' "
-            f"AND v.chr = '{chromosome}' AND v.pos >= {start} AND v.pos <= {end} "
-            f"RETURN s.sampleId AS sampleId, v.variantId AS variantId, "
+            "MATCH (s:Sample)-[c:CARRIES]->(v:Variant) "
+            "WHERE s.population = $population "
+            "AND v.chr = $chromosome AND v.pos >= $start AND v.pos <= $end "
+            "RETURN s.sampleId AS sampleId, v.variantId AS variantId, "
             f"v.pos AS pos, {gt_label} AS genotype "
-            f"ORDER BY v.pos, s.sampleId "
-            f"LIMIT {limit * 100}"
+            "ORDER BY v.pos, s.sampleId "
+            "LIMIT $carries_limit"
         )
-        records = ctx.run(cypher)
+        records = ctx.run(cypher, params)
         if not records:
             click.echo("No genotype data found. CARRIES edges may not exist "
                        "for this region/population.", err=True)

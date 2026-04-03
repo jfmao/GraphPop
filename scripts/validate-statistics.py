@@ -15,6 +15,7 @@ import sys
 from pathlib import Path
 
 import numpy as np
+import os
 
 # ---------------------------------------------------------------------------
 # Configuration
@@ -32,8 +33,8 @@ END = 17_000_000
 POP1 = "AFR"
 POP2 = "EUR"
 
-NEO4J_USER = "neo4j"
-NEO4J_PASS = "graphpop"
+NEO4J_USER = os.environ.get("GRAPHPOP_USER", "neo4j")
+NEO4J_PASS = os.environ.get("GRAPHPOP_PASSWORD", "graphpop")
 
 # ---------------------------------------------------------------------------
 # Load population panel

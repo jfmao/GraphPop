@@ -59,8 +59,8 @@ POP1 = "YRI"   # sub-pop (Yoruba), used for diversity / single-pop stats
 POP2 = "CEU"   # sub-pop (CEPH European), used for selection / pairwise stats
 HAP_CACHE_DIR = str(ROOT / "data/hap_cache")
 
-NEO4J_USER = "neo4j"
-NEO4J_PASS = "graphpop"
+NEO4J_USER = os.environ.get("GRAPHPOP_USER", "neo4j")
+NEO4J_PASS = os.environ.get("GRAPHPOP_PASSWORD", "graphpop")
 
 REGIONS = {
     "small":  (16_000_000, 16_100_000),

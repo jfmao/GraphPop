@@ -1,7 +1,6 @@
 """graphpop setup — download, configure, and initialize Neo4j for GraphPop."""
 from __future__ import annotations
 
-import os
 import platform
 import shutil
 import subprocess
@@ -11,7 +10,6 @@ from pathlib import Path
 import click
 import yaml
 
-from ..cli import pass_ctx
 
 
 DEFAULT_NEO4J_HOME = Path.home() / "neo4j"

@@ -48,8 +48,8 @@ RESULTS_DIR.mkdir(parents=True, exist_ok=True)
 CHR = "chr22"
 POP = "CEU"   # sub-pop (CEPH European, ~99 samples)
 
-NEO4J_USER = "neo4j"
-NEO4J_PASS = "graphpop"
+NEO4J_USER = os.environ.get("GRAPHPOP_USER", "neo4j")
+NEO4J_PASS = os.environ.get("GRAPHPOP_PASSWORD", "graphpop")
 
 REGIONS = {
     "medium": (16_000_000, 16_500_000),

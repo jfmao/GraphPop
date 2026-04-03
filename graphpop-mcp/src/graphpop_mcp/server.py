@@ -39,12 +39,9 @@ def _get_driver():
         from neo4j import GraphDatabase
 
         # Use same env var names as graphpop CLI for consistency
-        uri = os.environ.get("GRAPHPOP_URI",
-              os.environ.get("GRAPHPOP_NEO4J_URI", "bolt://localhost:7687"))
-        user = os.environ.get("GRAPHPOP_USER",
-               os.environ.get("GRAPHPOP_NEO4J_USER", "neo4j"))
-        password = os.environ.get("GRAPHPOP_PASSWORD",
-                   os.environ.get("GRAPHPOP_NEO4J_PASSWORD", "graphpop"))
+        uri = os.environ.get("GRAPHPOP_URI", "bolt://localhost:7687")
+        user = os.environ.get("GRAPHPOP_USER", "neo4j")
+        password = os.environ.get("GRAPHPOP_PASSWORD", "graphpop")
         _database = os.environ.get("GRAPHPOP_DATABASE", "neo4j")
         _driver = GraphDatabase.driver(uri, auth=(user, password))
     return _driver
@@ -333,7 +330,8 @@ def graphpop_genome_scan(
         pathway: Reactome pathway filter.
         run_id: Custom run identifier.
 
-    Returns JSON array of window results.
+    Returns JSON array of window results with: window_id, chr, start, end, population,
+    n_variants, n_segregating, pi, theta_w, tajima_d, fst, fst_wc, dxy, pbs, fay_wu_h.
     """
     opts = _build_options(
         min_af=min_af, max_af=max_af, variant_type=variant_type,
@@ -419,7 +417,7 @@ def graphpop_ihs(
         max_gap: Maximum gap in bp before aborting EHH walk (default 200,000).
         n_af_bins: Number of allele frequency bins for standardization (default 20).
 
-    Returns JSON array with per-variant: variantId, pos, af, ihs, ihs_unstd.
+    Returns JSON array with per-variant: variantId, pos, af, ihs_unstd, ihs.
     """
     opts: dict = {}
     if min_af is not None:
@@ -467,7 +465,7 @@ def graphpop_xpehh(
         chunk_size: Core window size for chunking (default 5,000,000).
         ehh_margin: EHH margin on each side (default 2,000,000).
 
-    Returns JSON array with per-variant: variantId, pos, xpehh, xpehh_unstd.
+    Returns JSON array with per-variant: variantId, pos, af_pop1, af_pop2, xpehh_unstd, xpehh.
     """
     opts: dict = {}
     if min_af is not None:
@@ -511,7 +509,7 @@ def graphpop_nsl(
         variant_type: Filter by variant type (default "SNP").
         n_af_bins: Number of AF bins for standardization (default 20).
 
-    Returns JSON array with per-variant: variantId, pos, af, nsl, nsl_unstd.
+    Returns JSON array with per-variant: variantId, pos, af, nsl_unstd, nsl.
     """
     opts: dict = {}
     if min_af is not None:
@@ -553,7 +551,7 @@ def graphpop_roh(
         hmm_min_af: Minimum AF for HMM variants (default 0.0).
         variant_type: Filter by variant type (default "SNP").
 
-    Returns JSON array with per-sample ROH segments: sample, start, end, length_kb, n_snps.
+    Returns JSON array with per-sample aggregates: sampleId, n_roh, total_length, froh, mean_length, max_length.
     """
     opts: dict = {}
     if method is not None:
@@ -594,7 +592,7 @@ def graphpop_garud_h(
         min_af: Minimum allele frequency filter.
         variant_type: Filter by variant type (default "SNP").
 
-    Returns JSON array of windows with: chr, start, end, h1, h12, h2_h1, hap_diversity, n_variants.
+    Returns JSON array of windows with: chr, start, end, population, h1, h12, h2_h1, hap_diversity, n_haplotypes, n_variants.
     """
     opts: dict = {}
     if min_af is not None:
@@ -633,8 +631,8 @@ def graphpop_pop_summary(
         pathway: Reactome pathway filter.
         samples: Custom sample list.
 
-    Returns JSON with: population, chr, pi, theta_w, tajima_d, het_exp, het_obs, fis,
-    fay_wu_h, n_variants, n_segregating.
+    Returns JSON with: pi, theta_w, tajima_d, fay_wu_h, mean_he, mean_ho, mean_fis,
+    n_variants, n_segregating, n_polarized.
     """
     opts = _build_options(
         min_af=min_af, max_af=max_af, variant_type=variant_type,

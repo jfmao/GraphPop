@@ -12,8 +12,8 @@ import cyvcf2
 from neo4j import GraphDatabase
 
 NEO4J_URI = "bolt://localhost:7687"
-NEO4J_USER = "neo4j"
-NEO4J_PASS = "graphpop"
+NEO4J_USER = os.environ.get("GRAPHPOP_USER", "neo4j")
+NEO4J_PASS = os.environ.get("GRAPHPOP_PASSWORD", "graphpop")
 
 SNPEFF_VCF = "data/raw/3kRG_data/NB_bialSNP_pseudo_canonical_ALL.vcf.gz"
 CHR_MAP = {str(i): f"Chr{i}" for i in range(1, 13)}

@@ -3,6 +3,7 @@ package org.graphpop.procedures;
 import org.neo4j.graphdb.Node;
 import org.neo4j.graphdb.Transaction;
 import org.neo4j.procedure.Context;
+import org.neo4j.procedure.Description;
 import org.neo4j.procedure.Mode;
 import org.neo4j.procedure.Name;
 import org.neo4j.procedure.Procedure;
@@ -98,6 +99,7 @@ public class XPEHHProcedure {
     }
 
     @Procedure(name = "graphpop.xpehh", mode = Mode.WRITE)
+    @Description("Compute cross-population extended haplotype homozygosity (XP-EHH) between two populations.")
     @SuppressWarnings("unchecked")
     public Stream<XPEHHResult> xpehh(
             @Name("chr") String chr,

@@ -27,8 +27,8 @@ END = 16_100_000  # Small region to keep validation fast
 
 POP = "EUR"
 
-NEO4J_USER = "neo4j"
-NEO4J_PASS = "graphpop"
+NEO4J_USER = os.environ.get("GRAPHPOP_USER", "neo4j")
+NEO4J_PASS = os.environ.get("GRAPHPOP_PASSWORD", "graphpop")
 
 MAX_DIST = 500_000
 R2_THRESHOLD = 0.2
@@ -107,6 +107,7 @@ def compute_ld_scikit_allel():
     # r_matrix is a condensed distance matrix (upper triangle)
     # Convert to square form
     from scipy.spatial.distance import squareform
+import os
     r_square = squareform(r_matrix)
     r2_matrix = r_square ** 2
 

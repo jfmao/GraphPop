@@ -16,6 +16,7 @@ from pathlib import Path
 
 import numpy as np
 import allel
+import os
 
 CSV_DIR = Path("data/raw/1000g/csv_out")
 CHR = "chr22"
@@ -23,8 +24,8 @@ START = 16_000_000
 END = 17_000_000
 POP = "AFR"
 
-NEO4J_USER = "neo4j"
-NEO4J_PASS = "graphpop"
+NEO4J_USER = os.environ.get("GRAPHPOP_USER", "neo4j")
+NEO4J_PASS = os.environ.get("GRAPHPOP_PASSWORD", "graphpop")
 
 
 def load_ac_from_csv(csv_dir, pop, chr_filter, start, end):

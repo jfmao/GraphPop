@@ -2,6 +2,7 @@ package org.graphpop.procedures;
 
 import org.neo4j.graphdb.Transaction;
 import org.neo4j.procedure.Context;
+import org.neo4j.procedure.Description;
 import org.neo4j.procedure.Mode;
 import org.neo4j.procedure.Name;
 import org.neo4j.procedure.Procedure;
@@ -53,6 +54,7 @@ public class NSLProcedure {
     }
 
     @Procedure(name = "graphpop.nsl", mode = Mode.WRITE)
+    @Description("Compute the number of segregating sites by length (nSL) statistic for detecting selection.")
     @SuppressWarnings("unchecked")
     public Stream<NSLResult> nsl(
             @Name("chr") String chr,

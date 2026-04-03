@@ -239,72 +239,6 @@ graphpop
      └── --format tsv|csv|json  Output format (default: tsv)
 ```
 
-## New Commands (not yet implemented)
-
-Commands marked with ★ are newly proposed additions to the CLI.
-
-### ★ Annotation Lookup (`graphpop lookup`)
-Enables users to explore the graph interactively without writing Cypher.
-- `graphpop lookup gene KCNE1` → variants, pathways, GO terms, selection stats
-- `graphpop lookup pathway "Cardiac repolarization"` → gene list, Fst
-- `graphpop lookup variant chr22:16050075:A:G` → full annotation record
-- `graphpop lookup region chr6 9000000 9600000` → genes + stats in region
-
-### ★ Graph Neighborhood (`graphpop neighbors`)
-Explores the graph structure around a gene or variant.
-- `graphpop neighbors KCNE1 --hops 2` → genes sharing pathways with KCNE1
-- Useful for hypothesis generation: "what other genes are functionally related?"
-
-### ★ Multi-Statistic Convergence (`graphpop converge`)
-Finds loci where multiple independently computed statistics agree.
-- `graphpop converge --stats ihs,xpehh,h12 --thresholds 2,2,0.3 --pop EUR`
-- Returns regions with gene annotations — the key GraphPop novelty.
-
-### ★ Gene Ranking (`graphpop rank-genes`)
-Ranks genes by composite selection evidence.
-- `graphpop rank-genes --pop GJ-tmp --top 50 -o top_genes.tsv`
-- Combines max |iHS|, max |XP-EHH|, max H12, mean Fst per gene.
-
-### ★ Population Comparison (`graphpop compare`)
-Statistical comparison between two populations.
-- `graphpop compare EUR AFR chr22 --stat pi` → per-window delta with significance
-
-### ★ Batch Execution (`graphpop batch`)
-Run any command across multiple populations/chromosomes with parallelism.
-- `graphpop batch diversity --pops EUR,AFR,EAS --chrs chr1,chr2 --workers 4`
-- More flexible than `run-all` for custom analysis combinations.
-
-### ★ Automated Report (`graphpop report`)
-One-command summary of an entire database.
-- `graphpop report --database rice3k -o report.html`
-- Generates: dataset overview, diversity table, Fst heatmap, top selection peaks, QC summary, auto-generated figures.
-
-### ★ Data Extraction (`graphpop extract`)
-Flexible variant/genotype/sample extraction with filters.
-- `graphpop extract variants --chr chr22 --pop EUR --consequence missense_variant`
-- `graphpop extract genotypes --chr chr22 --region 16000000-17000000 --pop EUR`
-- `graphpop extract samples --pop EUR` → per-sample statistics
-
-### ★ BED Export (`graphpop export-bed`)
-Export high-signal regions in BED format for bedtools integration.
-- `graphpop export-bed --stat fst --threshold 0.5 --pop EUR`
-- Enables interoperability with the bedtools/UCSC ecosystem.
-
-### ★ Database Inventory (`graphpop inventory`)
-Show what analyses have been run on this database.
-- Which populations? Which chromosomes? What's persisted (iHS, XP-EHH, windows)?
-- What annotations are loaded (VEP, Reactome, GO, ancestral)?
-- More detailed than `db info` — answers "what can I query?"
-
-### ★ Additional Plot Types
-- `graphpop plot gene-zoom` — multi-track regional plot at a gene (Fst + iHS + H12 + gene model)
-- `graphpop plot chromosome` — chromosome-wide ideogram with statistics tracks
-- `graphpop plot pop-tree` — phylogenetic tree from Fst matrix
-- `graphpop plot pca-scatter` — PCA scatter from allele frequencies
-- `graphpop plot heatmap` — general-purpose heatmap from any matrix TSV
-
----
-
 ## End-to-End Workflow
 
 ```bash
@@ -376,41 +310,17 @@ graphpop validate
 
 ## Statistics
 
-| Category | Implemented | Proposed | Total |
-|----------|------------|----------|-------|
-| Setup & Server | 4 | — | 4 |
-| Database Management | 8 | — | 8 |
-| Configuration | 5 | 1 (inventory) | 6 |
-| Procedures | 12 | — | 12 |
-| Conditioned Analysis | 1 (filter) | — | 1 |
-| Annotation Lookup | — | 5 (lookup ×4, neighbors) | 5 |
-| Multi-Stat Integration | — | 3 (converge, rank-genes, compare) | 3 |
-| Orchestration | 3 | 2 (batch, report) | 5 |
-| Data Extraction | 1 (export-windows) | 4 (extract ×3, export-bed) | 5 |
-| Visualization | 6 | 5 (gene-zoom, chromosome, pop-tree, pca-scatter, heatmap) | 11 |
-| Utilities | 1 (query) | — | 1 |
-| **Total** | **41** | **20** | **61** |
-
-## Implementation Priority
-
-### Phase 1 — High value, enables core analysis workflows
-1. `lookup` (gene, pathway, variant, region) — graph exploration without Cypher
-2. `converge` — the signature GraphPop analysis (multi-statistic convergence)
-3. `inventory` — users need to know what's been computed
-4. `plot gene-zoom` — the most requested genomics visualization
-5. `rank-genes` — the deliverable users want (ranked gene list)
-
-### Phase 2 — Expands utility and interoperability
-6. `extract variants` / `extract samples` — flexible data export
-7. `export-bed` — bedtools interoperability
-8. `batch` — flexible parallelized execution
-9. `compare` — population comparison
-10. `plot pop-tree` — population phylogeny
-
-### Phase 3 — Polish and automation
-11. `report` — automated analysis summary
-12. `plot chromosome` — ideogram visualization
-13. `plot pca-scatter` — PCA from frequencies
-14. `plot heatmap` — general-purpose heatmap
-15. `extract genotypes` — genotype matrix export
-16. `neighbors` — graph neighborhood exploration
+| Category | Commands |
+|----------|----------|
+| Setup & Server | 4 |
+| Database Management | 8 |
+| Configuration & Validation | 6 |
+| Procedures | 12 |
+| Conditioned Analysis | 1 |
+| Annotation Lookup | 5 |
+| Multi-Stat Integration | 3 |
+| Orchestration & Aggregation | 5 |
+| Data Extraction & Export | 5 |
+| Visualization | 11 |
+| Utilities | 1 |
+| **Total** | **61** |

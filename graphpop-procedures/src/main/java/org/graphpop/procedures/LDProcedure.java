@@ -4,6 +4,7 @@ import org.graphpop.VectorOps;
 import org.neo4j.graphdb.RelationshipType;
 import org.neo4j.graphdb.Transaction;
 import org.neo4j.procedure.Context;
+import org.neo4j.procedure.Description;
 import org.neo4j.procedure.Mode;
 import org.neo4j.procedure.Name;
 import org.neo4j.procedure.Procedure;
@@ -50,6 +51,7 @@ public class LDProcedure {
     }
 
     @Procedure(name = "graphpop.ld", mode = Mode.WRITE)
+    @Description("Compute pairwise linkage disequilibrium (r-squared and D-prime) between variants in a genomic region.")
     @SuppressWarnings("unchecked")
     public Stream<LDResult> ld(
             @Name("chr") String chr,

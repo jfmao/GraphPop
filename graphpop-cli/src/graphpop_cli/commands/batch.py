@@ -1,7 +1,6 @@
 """graphpop batch — run any procedure across multiple populations and chromosomes."""
 from __future__ import annotations
 
-import os
 from pathlib import Path
 
 import click
@@ -55,7 +54,7 @@ COMMAND_REGISTRY = {
         "yield": ["n_samples", "mean_froh", "median_froh", "n_roh_segments"],
     },
     "garud-h": {
-        "procedure": "graphpop.garudH",
+        "procedure": "graphpop.garud_h",
         "args": lambda chr, pop, **kw: [f"'{chr}'", f"'{pop}'"],
         "yield": ["n_windows", "mean_h12", "max_h12"],
     },

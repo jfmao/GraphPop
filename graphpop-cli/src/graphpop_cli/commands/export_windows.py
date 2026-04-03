@@ -38,12 +38,16 @@ def export_windows(ctx, chr, population, output_path, fmt,
       graphpop export-windows --min-fst 0.5            # high-Fst windows
       graphpop export-windows chr1 AFR --max-tajima-d -2  # negative Tajima's D
     """
-    # Build Cypher query
+    # Build Cypher query with parameterized values to prevent injection
     where_clauses = []
+    params: dict = {}
+
     if chr:
-        where_clauses.append(f"w.chr = '{chr}'")
+        where_clauses.append("w.chr = $chr")
+        params["chr"] = chr
     if population:
-        where_clauses.append(f"w.population = '{population}'")
+        where_clauses.append("w.population = $population")
+        params["population"] = population
     if min_pi is not None:
         where_clauses.append(f"w.pi >= {min_pi}")
     if max_pi is not None:
@@ -55,10 +59,13 @@ def export_windows(ctx, chr, population, output_path, fmt,
     if max_tajima_d is not None:
         where_clauses.append(f"w.tajima_d <= {max_tajima_d}")
     if run_id:
-        where_clauses.append(f"w.run_id = '{run_id}'")
+        where_clauses.append("w.run_id = $run_id")
+        params["run_id"] = run_id
 
     where = " AND ".join(where_clauses) if where_clauses else "TRUE"
-    limit_clause = f" LIMIT {limit}" if limit else ""
+    limit_clause = " LIMIT $limit" if limit else ""
+    if limit:
+        params["limit"] = limit
 
     cypher = (
         f"MATCH (w:GenomicWindow) WHERE {where} "
@@ -73,7 +80,7 @@ def export_windows(ctx, chr, population, output_path, fmt,
         f"{limit_clause}"
     )
 
-    records = ctx.run(cypher)
+    records = ctx.run(cypher, params)
 
     if not records:
         click.echo("No windows found matching criteria.", err=True)

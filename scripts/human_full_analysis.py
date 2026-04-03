@@ -33,14 +33,15 @@ from itertools import combinations
 from pathlib import Path
 
 from neo4j import GraphDatabase
+import os
 
 # ---------------------------------------------------------------------------
 # Configuration
 # ---------------------------------------------------------------------------
 
 NEO4J_URI = "bolt://localhost:7687"
-NEO4J_USER = "neo4j"
-NEO4J_PASS = "graphpop"
+NEO4J_USER = os.environ.get("GRAPHPOP_USER", "neo4j")
+NEO4J_PASS = os.environ.get("GRAPHPOP_PASSWORD", "graphpop")
 NEO4J_DB = "neo4j"
 
 OUTPUT_FILE = Path("human_full_results.json")

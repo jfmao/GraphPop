@@ -3,7 +3,6 @@ from __future__ import annotations
 
 import csv
 import re
-import sys
 from pathlib import Path
 
 import click
@@ -569,10 +568,11 @@ def gene_zoom(ctx, target, population, pop2, output, title, width, height):
     else:
         # Resolve gene name
         recs = ctx.run(
-            f"MATCH (g:Gene) "
-            f"WHERE g.symbol = '{target}' OR g.geneId = '{target}' "
-            f"RETURN g.chr AS chr, g.start AS start, g.end AS end, "
-            f"g.symbol AS symbol LIMIT 1"
+            "MATCH (g:Gene) "
+            "WHERE g.symbol = $target OR g.geneId = $target "
+            "RETURN g.chr AS chr, g.start AS start, g.end AS end, "
+            "g.symbol AS symbol LIMIT 1",
+            {"target": target},
         )
         if not recs:
             click.echo(f"Gene '{target}' not found in the graph.", err=True)
@@ -592,15 +592,19 @@ def gene_zoom(ctx, target, population, pop2, output, title, width, height):
     fst_pos = []
     fst_vals = []
     fst_query = (
-        f"MATCH (w:GenomicWindow) "
-        f"WHERE w.chr = '{chrom}' AND w.population = '{population}' "
-        f"AND w.start >= {reg_start} AND w.end <= {reg_end} "
-        f"RETURN w.start AS start, w.end AS end, "
-        f"w.fst AS fst "
-        f"ORDER BY w.start"
+        "MATCH (w:GenomicWindow) "
+        "WHERE w.chr = $chrom AND w.population = $population "
+        "AND w.start >= $reg_start AND w.end <= $reg_end "
+        "RETURN w.start AS start, w.end AS end, "
+        "w.fst AS fst "
+        "ORDER BY w.start"
     )
+    region_params = {
+        "chrom": chrom, "population": population,
+        "reg_start": reg_start, "reg_end": reg_end,
+    }
     try:
-        fst_recs = ctx.run(fst_query)
+        fst_recs = ctx.run(fst_query, region_params)
         for r in fst_recs:
             mid = ((r["start"] or 0) + (r["end"] or 0)) / 2
             val = r.get("fst")
@@ -616,13 +620,13 @@ def gene_zoom(ctx, target, population, pop2, output, title, width, height):
     ihs_vals = []
     ihs_query = (
         f"MATCH (v:Variant) "
-        f"WHERE v.chr = '{chrom}' AND v.pos >= {reg_start} AND v.pos <= {reg_end} "
+        f"WHERE v.chr = $chrom AND v.pos >= $reg_start AND v.pos <= $reg_end "
         f"AND v.{ihs_prop} IS NOT NULL "
         f"RETURN v.pos AS pos, v.{ihs_prop} AS ihs "
         f"ORDER BY v.pos"
     )
     try:
-        ihs_recs = ctx.run(ihs_query)
+        ihs_recs = ctx.run(ihs_query, region_params)
         for r in ihs_recs:
             ihs_pos.append(r["pos"])
             ihs_vals.append(abs(float(r["ihs"])))
@@ -631,12 +635,12 @@ def gene_zoom(ctx, target, population, pop2, output, title, width, height):
 
     # --- Query gene models ---
     gene_query = (
-        f"MATCH (v:Variant)-[hc:HAS_CONSEQUENCE]->(g:Gene) "
-        f"WHERE v.chr = '{chrom}' AND v.pos >= {reg_start} AND v.pos <= {reg_end} "
-        f"RETURN DISTINCT g.symbol AS gene, g.start AS start, g.end AS end "
-        f"ORDER BY g.start"
+        "MATCH (v:Variant)-[hc:HAS_CONSEQUENCE]->(g:Gene) "
+        "WHERE v.chr = $chrom AND v.pos >= $reg_start AND v.pos <= $reg_end "
+        "RETURN DISTINCT g.symbol AS gene, g.start AS start, g.end AS end "
+        "ORDER BY g.start"
     )
-    gene_recs = ctx.run(gene_query)
+    gene_recs = ctx.run(gene_query, region_params)
 
     # --- Build figure ---
     fig, axes = plt.subplots(3, 1, figsize=(width, height), sharex=True,
@@ -846,12 +850,12 @@ def chromosome(ctx, chrom, population, stats, output, title, width, height):
         if stat.lower() in window_stats:
             query = (
                 f"MATCH (w:GenomicWindow) "
-                f"WHERE w.chr = '{chrom}' AND w.population = '{population}' "
+                f"WHERE w.chr = $chrom AND w.population = $population "
                 f"AND w.{stat} IS NOT NULL "
                 f"RETURN w.start AS start, w.end AS end, w.{stat} AS value "
                 f"ORDER BY w.start"
             )
-            recs = ctx.run(query)
+            recs = ctx.run(query, {"chrom": chrom, "population": population})
             if recs:
                 positions = [((r["start"] or 0) + (r["end"] or 0)) / 2 for r in recs]
                 values = [float(r["value"]) for r in recs]
@@ -865,11 +869,11 @@ def chromosome(ctx, chrom, population, stats, output, title, width, height):
             prop = f"{stat}_{population}"
             query = (
                 f"MATCH (v:Variant) "
-                f"WHERE v.chr = '{chrom}' AND v.{prop} IS NOT NULL "
+                f"WHERE v.chr = $chrom AND v.{prop} IS NOT NULL "
                 f"RETURN v.pos AS pos, v.{prop} AS value "
                 f"ORDER BY v.pos"
             )
-            recs = ctx.run(query)
+            recs = ctx.run(query, {"chrom": chrom})
             if recs:
                 positions = [r["pos"] for r in recs]
                 values = [abs(float(r["value"])) for r in recs]

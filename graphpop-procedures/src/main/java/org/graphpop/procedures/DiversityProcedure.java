@@ -4,6 +4,7 @@ import org.graphpop.VectorOps;
 import org.neo4j.graphdb.Node;
 import org.neo4j.graphdb.Transaction;
 import org.neo4j.procedure.Context;
+import org.neo4j.procedure.Description;
 import org.neo4j.procedure.Mode;
 import org.neo4j.procedure.Name;
 import org.neo4j.procedure.Procedure;
@@ -50,6 +51,7 @@ public class DiversityProcedure {
     }
 
     @Procedure(name = "graphpop.diversity", mode = Mode.READ)
+    @Description("Compute nucleotide diversity (pi), Watterson's theta, Tajima's D, Fay & Wu's H, and heterozygosity for a population in a genomic region.")
     @SuppressWarnings("unchecked")
     public Stream<DiversityResult> diversity(
             @Name("chr") String chr,

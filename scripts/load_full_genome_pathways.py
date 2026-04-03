@@ -31,8 +31,8 @@ REACTOME    = CACHE_DIR / "Ensembl2Reactome.txt"
 BIOMART_GO  = CACHE_DIR / "biomart_go.tsv"
 
 NEO4J_URI  = "bolt://localhost:7687"
-NEO4J_USER = "neo4j"
-NEO4J_PASS = "graphpop"
+NEO4J_USER = os.environ.get("GRAPHPOP_USER", "neo4j")
+NEO4J_PASS = os.environ.get("GRAPHPOP_PASSWORD", "graphpop")
 NEO4J_DB   = "neo4j"
 BATCH_SIZE = 5000
 
@@ -66,6 +66,7 @@ def parse_reactome(path: Path):
 def parse_biomart_go(path: Path):
     """Returns (goterms dict, edges set) with ENSG IDs."""
     import csv
+import os
     goterms = {}    # goId → (name, aspect)
     edges = set()   # (ensg, goId)
     aspect_map = {

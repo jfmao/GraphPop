@@ -41,11 +41,11 @@ class GraphPopContext:
     def database(self):
         return self.cfg["database"]
 
-    def run(self, cypher: str) -> list[dict]:
+    def run(self, cypher: str, parameters: dict | None = None) -> list[dict]:
         """Run Cypher and return records as list of dicts."""
         try:
             with self.driver.session(database=self.database) as session:
-                return [rec.data() for rec in session.run(cypher)]
+                return [rec.data() for rec in session.run(cypher, parameters)]
         except Exception as e:
             err_msg = str(e)
             if "Connection refused" in err_msg or "Failed to establish" in err_msg:

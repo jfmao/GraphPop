@@ -4,6 +4,7 @@ import org.graphpop.VectorOps;
 import org.neo4j.graphdb.Node;
 import org.neo4j.graphdb.Transaction;
 import org.neo4j.procedure.Context;
+import org.neo4j.procedure.Description;
 import org.neo4j.procedure.Mode;
 import org.neo4j.procedure.Name;
 import org.neo4j.procedure.Procedure;
@@ -41,6 +42,7 @@ public class DivergenceProcedure {
     }
 
     @Procedure(name = "graphpop.divergence", mode = Mode.READ)
+    @Description("Compute Fst (Hudson and Weir-Cockerham), Dxy, and PBS divergence statistics between populations in a genomic region.")
     @SuppressWarnings("unchecked")
     public Stream<DivergenceResult> divergence(
             @Name("chr") String chr,

@@ -39,8 +39,8 @@ from scipy.stats import spearmanr
 
 # ── Config ────────────────────────────────────────────────────────────────────
 NEO4J_URI  = "bolt://localhost:7687"
-NEO4J_USER = "neo4j"
-NEO4J_PASS = "graphpop"
+NEO4J_USER = os.environ.get("GRAPHPOP_USER", "neo4j")
+NEO4J_PASS = os.environ.get("GRAPHPOP_PASSWORD", "graphpop")
 NEO4J_DB   = "neo4j"
 
 RESULTS_JSON = Path("human_interpretation_results.json")
@@ -239,6 +239,7 @@ def main():
         group_ts[row["group"]].append(row["dominant_timescale"])
     for grp, ts_list in sorted(group_ts.items()):
         from collections import Counter
+import os
         most_common = Counter(ts_list).most_common(1)[0]
         print(f"  {grp:<12}: {most_common[0]}  ({most_common[1]}/{len(ts_list)} pops)")
 

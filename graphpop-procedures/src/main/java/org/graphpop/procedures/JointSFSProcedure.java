@@ -3,6 +3,7 @@ package org.graphpop.procedures;
 import org.neo4j.graphdb.Node;
 import org.neo4j.graphdb.Transaction;
 import org.neo4j.procedure.Context;
+import org.neo4j.procedure.Description;
 import org.neo4j.procedure.Mode;
 import org.neo4j.procedure.Name;
 import org.neo4j.procedure.Procedure;
@@ -42,6 +43,7 @@ public class JointSFSProcedure {
     }
 
     @Procedure(name = "graphpop.joint_sfs", mode = Mode.READ)
+    @Description("Compute the two-dimensional joint site frequency spectrum between two populations.")
     @SuppressWarnings("unchecked")
     public Stream<JointSFSResult> jointSfs(
             @Name("chr") String chr,

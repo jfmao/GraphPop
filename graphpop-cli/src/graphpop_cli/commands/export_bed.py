@@ -1,8 +1,6 @@
 """graphpop export-bed — export high-scoring regions as BED format."""
 from __future__ import annotations
 
-import sys
-
 import click
 
 from ..cli import pass_ctx
@@ -69,9 +67,11 @@ def export_bed(ctx, stat, threshold, population, pop2, chromosome,
 
 def _query_window_stat(ctx, stat, threshold, population, pop2, chromosome):
     """Query GenomicWindow nodes for window-based statistics."""
-    where_parts = [f"w.population = '{population}'"]
+    params = {"population": population}
+    where_parts = ["w.population = $population"]
     if chromosome:
-        where_parts.append(f"w.chr = '{chromosome}'")
+        where_parts.append("w.chr = $chromosome")
+        params["chromosome"] = chromosome
 
     prop = stat
     if stat == "fst" and pop2:
@@ -90,7 +90,7 @@ def _query_window_stat(ctx, stat, threshold, population, pop2, chromosome):
         f"w.{prop} AS score "
         f"ORDER BY w.chr, w.start"
     )
-    return ctx.run(cypher)
+    return ctx.run(cypher, params)
 
 
 def _query_variant_stat(ctx, stat, threshold, population, pop2, chromosome):
@@ -100,9 +100,11 @@ def _query_variant_stat(ctx, stat, threshold, population, pop2, chromosome):
     else:
         prop = f"{stat}_{population}"
 
+    params = {}
     where_parts = [f"v.{prop} IS NOT NULL", f"abs(v.{prop}) >= {threshold}"]
     if chromosome:
-        where_parts.append(f"v.chr = '{chromosome}'")
+        where_parts.append("v.chr = $chromosome")
+        params["chromosome"] = chromosome
 
     cypher = (
         f"MATCH (v:Variant) "
@@ -110,7 +112,7 @@ def _query_variant_stat(ctx, stat, threshold, population, pop2, chromosome):
         f"RETURN v.chr AS chr, v.pos AS pos, v.{prop} AS score "
         f"ORDER BY v.chr, v.pos"
     )
-    return ctx.run(cypher)
+    return ctx.run(cypher, params)
 
 
 def _windows_to_bed(records, stat, bed_name):

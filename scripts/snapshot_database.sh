@@ -26,8 +26,8 @@ DATABASE="neo4j"
 SNAPSHOT_DIR="data/snapshots"
 GRAPHEVO_PYTHON="/home/jfmao/miniconda3/envs/graphevo/bin/python"
 NEO4J_URI="bolt://localhost:7687"
-NEO4J_USER="neo4j"
-NEO4J_PASS="graphpop"
+NEO4J_USER="${GRAPHPOP_USER:-neo4j}"
+NEO4J_PASS="${GRAPHPOP_PASSWORD:-graphpop}"
 
 # ── Parse args ────────────────────────────────────────────────────────────────
 while [[ $# -gt 0 ]]; do
