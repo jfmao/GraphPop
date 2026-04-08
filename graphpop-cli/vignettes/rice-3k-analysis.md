@@ -104,30 +104,35 @@ all database setup.
 **Target problem:** How to obtain and prepare rice genomic data for
 graph-native analysis.
 
-### 2.1 Download the VCF
+### 2.1 Download the VCF and panel file
 
-The 3K Rice Genomes SNP data is available from the International Rice
-Research Institute (IRRI) SNP-Seek database:
+The 3K Rice Genomes SNP data (NB_final_snp) and population panel file are
+archived on Zenodo for reproducibility:
 
 ```bash
-# Download the filtered SNP VCF from SNP-Seek
-# URL: https://snp-seek.irri.org/
-# Navigate to: Download > 3K RG > Base SNP set (NB_final_snp)
-wget https://snp-seek.irri.org/download/NB_final_snp.vcf.gz
-wget https://snp-seek.irri.org/download/NB_final_snp.vcf.gz.tbi
+# Download from Zenodo (recommended — original SNP-Seek links are no longer available)
+# DOI: 10.5281/zenodo.19475602
+wget https://zenodo.org/records/19475602/files/NB_final_snp.vcf.gz
+wget https://zenodo.org/records/19475602/files/NB_final_snp.vcf.gz.tbi
+wget https://zenodo.org/records/19475602/files/rice_3k_panel.txt
 ```
+
+> **Note:** The original data was hosted at the IRRI SNP-Seek database
+> (https://snp-seek.irri.org/), but those download links are no longer
+> available. The files above are identical to the original NB_final_snp
+> base SNP set from the 3K Rice Genomes Project (Wang et al. 2018).
 
 This VCF contains approximately 29.6 million biallelic SNPs across 12
 chromosomes for 3,024 accessions. The file is roughly 120 GB uncompressed.
 
-### 2.2 Prepare the population panel file
+### 2.2 Verify the population panel file
 
 The panel file is a two-column TSV mapping each sample to its
 subpopulation. GraphPop expects a header line with `sample_id` and
 `population`:
 
 ```bash
-cat rice_3k_panel.txt | head -15
+head -15 rice_3k_panel.txt
 ```
 
 Expected output:
@@ -151,9 +156,7 @@ IRIS_313-10017	GJ-adm
 
 The population assignments follow Wang et al. 2018, which used ADMIXTURE
 at K=9 to classify accessions into 9 genetic groups. With subgroup splits,
-this yields 12 named subpopulations. You can obtain this classification from
-the supplementary materials of the original paper or from the SNP-Seek
-database metadata.
+this yields 12 named subpopulations.
 
 If you have your own panel assignments (e.g., from a different ADMIXTURE
 run or geographic grouping), simply create a TSV with the same two-column
