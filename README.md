@@ -74,7 +74,7 @@ Two computational paths:
 
 ## Installation
 
-### Quick install (recommended — no Java or Maven required)
+### Quick install (recommended)
 
 ```bash
 pip install graphpop-cli                  # Install the CLI
@@ -83,14 +83,18 @@ graphpop start                            # Start the database
 graphpop status                           # Verify
 ```
 
-The `graphpop setup` command automatically downloads Neo4j Community Edition
-and the pre-compiled GraphPop procedures plugin from GitHub Releases.
-No Java, Maven, or admin privileges are required.
+**Prerequisites:** Python 3.10+ and Java 21+ (required by Neo4j runtime).
+Java can be installed via `conda install -c conda-forge openjdk=21` (no admin
+privileges needed). The `graphpop setup` command automatically downloads
+Neo4j Community Edition and the pre-compiled GraphPop procedures plugin from
+GitHub Releases. No Maven or admin privileges are required.
 
 ### Conda install
 
 ```bash
-conda env create -f environment.yml       # Creates 'graphpop' environment
+git clone https://github.com/jfmao/GraphPop.git
+cd GraphPop
+conda env create -f environment.yml       # Creates 'graphpop' environment with Java 21 + Python
 conda activate graphpop
 pip install -e graphpop-cli -e graphpop-import -e graphpop-mcp
 graphpop setup --password mypassword
@@ -104,7 +108,7 @@ git clone https://github.com/jfmao/GraphPop.git
 cd GraphPop
 make install                              # Builds Java + installs all Python packages
 graphpop setup --password mypassword \
-    --deploy-plugin graphpop-procedures/target/graphpop-procedures-0.1.0-SNAPSHOT.jar
+    --deploy-plugin graphpop-procedures/target/graphpop-procedures-0.1.0.jar
 graphpop start
 ```
 
@@ -115,7 +119,7 @@ cd graphpop-procedures && ./mvnw package -DskipTests && cd ..
 cd graphpop-cli && pip install -e . && cd ..
 cd graphpop-import && pip install -e . && cd ..
 graphpop setup --password mypassword \
-    --deploy-plugin graphpop-procedures/target/graphpop-procedures-0.1.0-SNAPSHOT.jar
+    --deploy-plugin graphpop-procedures/target/graphpop-procedures-0.1.0.jar
 graphpop start
 ```
 

@@ -63,6 +63,9 @@ def setup(neo4j_home, pagecache, heap, password, skip_download, deploy_plugin,
     """
     neo4j_path = Path(neo4j_home)
 
+    # Step 0: Check Java runtime
+    _check_java()
+
     # Step 1: Download Neo4j
     if not skip_download:
         if neo4j_path.exists() and (neo4j_path / "bin" / "neo4j").exists():
@@ -206,6 +209,36 @@ def _configure_neo4j(neo4j_home: Path, pagecache: str, heap: str):
     conf_path.write_text("\n".join(new_lines) + "\n")
     for k, v in settings.items():
         click.echo(f"  {k}={v}")
+
+
+def _check_java():
+    """Verify that Java 21+ is available for Neo4j runtime."""
+    try:
+        result = subprocess.run(
+            ["java", "-version"], capture_output=True, text=True,
+        )
+        output = result.stderr + result.stdout  # java -version prints to stderr
+        click.echo(f"  Java found: {output.splitlines()[0].strip()}")
+        # Check version >= 21
+        import re
+        m = re.search(r'"(\d+)', output)
+        if m and int(m.group(1)) < 21:
+            click.echo(
+                "  Warning: Java 21+ is required by Neo4j. "
+                "Found version {m.group(1)}.\n"
+                "  Install via: conda install -c conda-forge openjdk=21\n"
+                "  Or: sudo apt install openjdk-21-jre-headless",
+                err=True,
+            )
+    except FileNotFoundError:
+        click.echo(
+            "Error: Java not found. Neo4j requires Java 21+ to run.\n"
+            "Install via:\n"
+            "  conda install -c conda-forge openjdk=21\n"
+            "  Or: sudo apt install openjdk-21-jre-headless",
+            err=True,
+        )
+        raise SystemExit(1)
 
 
 def _find_conda_jar() -> Path | None:
