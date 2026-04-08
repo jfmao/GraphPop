@@ -1,5 +1,9 @@
 # GraphPop
 
+[![PyPI](https://img.shields.io/pypi/v/graphpop-cli)](https://pypi.org/project/graphpop-cli/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://github.com/jfmao/GraphPop/blob/main/LICENSE)
+[![Zenodo](https://zenodo.org/badge/DOI/10.5281/zenodo.19471963.svg)](https://doi.org/10.5281/zenodo.19471963)
+
 **Graph-native population genomics with annotation-conditioned queries**
 
 GraphPop is a population genomics platform that replaces the flat-file, matrix-based paradigm with a graph-native architecture. Variants, genotypes, genes, pathways, and computed statistics coexist as a single queryable structure within a Neo4j graph database. This enables three capabilities absent from classical tools: annotation-conditioned computation (any statistic restricted to a functional variant class in one parameter), a persistent analytical record (computed results stored as queryable node properties), and multi-statistic composition (cross-query independently computed statistics via graph traversal).
@@ -275,15 +279,27 @@ Benchmarked on 1000 Genomes chr22 (3,202 samples, 1,066,555 variants):
 
 Memory: GraphPop Neo4j path maintains constant ~160 MB regardless of analysis type.
 
+## Data Availability
+
+Pre-built Neo4j databases and analysis data are available on Zenodo:
+
+| Resource | DOI | Size |
+|----------|-----|------|
+| Analysis results, source data, scripts | [10.5281/zenodo.19471963](https://doi.org/10.5281/zenodo.19471963) | 29 MB |
+| Rice 3K pre-built database | [10.5281/zenodo.19471968](https://doi.org/10.5281/zenodo.19471968) | 14 GB |
+| Human 1000G pre-built database | [10.5281/zenodo.19472010](https://doi.org/10.5281/zenodo.19472010) | 31 GB |
+
 ## Citation
 
 If you use GraphPop in your research, please cite:
 
-> Mao, J. GraphPop: graph-native population genomics with annotation-conditioned queries. *Nature Methods* (2026). [in preparation]
+> Mao, J. GraphPop: graph-native population genomics with annotation-conditioned queries. *Preprint* (2026).
+
+Software: [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.19471963.svg)](https://doi.org/10.5281/zenodo.19471963)
 
 ## License
 
-MIT License. See individual component directories for details.
+MIT License. See [LICENSE](LICENSE) for details.
 
 ## Contributing
 

@@ -1,0 +1,32 @@
+cff-version: 1.2.0
+title: "GraphPop: graph-native population genomics with annotation-conditioned queries"
+message: "If you use GraphPop, please cite it using the metadata from this file."
+type: software
+version: 0.1.0
+date-released: "2026-04-08"
+license: MIT
+url: "https://github.com/jfmao/GraphPop"
+repository-code: "https://github.com/jfmao/GraphPop"
+authors:
+  - family-names: Mao
+    given-names: Jianfeng
+identifiers:
+  - type: doi
+    value: "10.5281/zenodo.19471963"
+    description: "Analysis results, source data, and scripts"
+  - type: doi
+    value: "10.5281/zenodo.19471968"
+    description: "Rice 3K pre-built Neo4j database"
+  - type: doi
+    value: "10.5281/zenodo.19472010"
+    description: "Human 1000 Genomes pre-built Neo4j database"
+  - type: url
+    value: "https://pypi.org/project/graphpop-cli/"
+    description: "PyPI package"
+keywords:
+  - population genomics
+  - graph database
+  - Neo4j
+  - bioinformatics
+  - population genetics
+  - annotation conditioning

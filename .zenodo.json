@@ -1,0 +1,44 @@
+{
+  "title": "GraphPop: graph-native population genomics with annotation-conditioned queries",
+  "upload_type": "software",
+  "description": "GraphPop is a graph database-native analytical engine for population genomics that reduces summary statistic complexity from O(V*N) to O(V*K), independent of sample count. Includes 12 stored procedures, a 60-command CLI, an import pipeline, and an MCP server for AI agent access.",
+  "creators": [
+    {
+      "name": "Mao, Jianfeng"
+    }
+  ],
+  "license": "MIT",
+  "keywords": [
+    "population genomics",
+    "graph database",
+    "Neo4j",
+    "bioinformatics",
+    "population genetics"
+  ],
+  "related_identifiers": [
+    {
+      "identifier": "10.5281/zenodo.19471963",
+      "relation": "isSupplementedBy",
+      "resource_type": "dataset",
+      "scheme": "doi"
+    },
+    {
+      "identifier": "10.5281/zenodo.19471968",
+      "relation": "isSupplementedBy",
+      "resource_type": "dataset",
+      "scheme": "doi"
+    },
+    {
+      "identifier": "10.5281/zenodo.19472010",
+      "relation": "isSupplementedBy",
+      "resource_type": "dataset",
+      "scheme": "doi"
+    },
+    {
+      "identifier": "https://pypi.org/project/graphpop-cli/",
+      "relation": "isIdenticalTo",
+      "resource_type": "software",
+      "scheme": "url"
+    }
+  ]
+}
