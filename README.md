@@ -230,8 +230,8 @@ Pre-built Neo4j graph databases with all computed statistics are available for d
 
 | Dataset | Samples | Variants | Size | Download |
 |---------|---------|----------|------|----------|
-| Human 1000 Genomes (22 autosomes) | 3,202 | 70.7M | ~31 GB | [Figshare/Zenodo] |
-| Rice 3K Genomes (12 chromosomes) | 3,024 | 29.6M | ~15 GB | [Figshare/Zenodo] |
+| Human 1000 Genomes (22 autosomes) | 3,202 | 70.7M | ~31 GB | [Zenodo](https://doi.org/10.5281/zenodo.19472010) |
+| Rice 3K Genomes (12 chromosomes) | 3,024 | 29.6M | ~15 GB | [Zenodo](https://doi.org/10.5281/zenodo.19471968) |
 
 Load a pre-built database:
 
