@@ -54,23 +54,15 @@ jobs run on ANY node and connect via network. CSV generation needs no database.
 
 ```bash
 # Load required modules (cluster-specific)
-module load java/21      # or java/openjdk-21
+module load java/21      # Required by Neo4j runtime (not for building GraphPop)
 module load miniconda3   # or anaconda3
 
 # Create conda environment
 conda create -n graphpop python=3.12 -y
 conda activate graphpop
 
-# Clone and install
-git clone https://github.com/jfmao/GraphPop.git
-cd GraphPop
-
-# Build Java procedures
-cd graphpop-procedures && mvn package -DskipTests && cd ..
-
-# Install Python components
-pip install -e graphpop-cli/
-pip install -e graphpop-import/
+# Install GraphPop CLI (no Java/Maven required)
+pip install graphpop-cli graphpop-import
 
 # Verify
 graphpop --version

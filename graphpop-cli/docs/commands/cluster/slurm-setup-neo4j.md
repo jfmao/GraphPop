@@ -61,9 +61,9 @@ warning with build instructions.
 
 ## Prerequisites
 
-- Java 21+ available via `module load java/21`
-- `graphpop` CLI installed (`pip install -e graphpop-cli/`)
-- GraphPop procedures JAR built (`cd graphpop-procedures && mvn package`)
+- Java 21+ available via `module load java/21` (required by Neo4j runtime)
+- `graphpop` CLI installed (`pip install graphpop-cli`)
+- The procedures plugin JAR is automatically downloaded during `graphpop setup` (no Maven build required)
 
 ## Examples
 

@@ -74,44 +74,55 @@ Two computational paths:
 
 ## Installation
 
-### Prerequisites
-
-- Java 21+ (for Neo4j stored procedures)
-- Python 3.10+ (for CLI and import pipeline)
-- Neo4j Community Edition 5.x (auto-installed by `graphpop setup`)
-
-### Install all components
+### Quick install (recommended — no Java or Maven required)
 
 ```bash
-# 1. Clone the repository
+pip install graphpop-cli                  # Install the CLI
+graphpop setup --password mypassword      # Downloads Neo4j + procedures plugin
+graphpop start                            # Start the database
+graphpop status                           # Verify
+```
+
+The `graphpop setup` command automatically downloads Neo4j Community Edition
+and the pre-compiled GraphPop procedures plugin from GitHub Releases.
+No Java, Maven, or admin privileges are required.
+
+### Conda install
+
+```bash
+conda env create -f environment.yml       # Creates 'graphpop' environment
+conda activate graphpop
+pip install -e graphpop-cli -e graphpop-import -e graphpop-mcp
+graphpop setup --password mypassword
+graphpop start
+```
+
+### Development install (from source, requires Java 21 + Maven)
+
+```bash
 git clone https://github.com/jfmao/GraphPop.git
 cd GraphPop
-
-# 2. Build the Java procedures (requires Maven)
-cd graphpop-procedures && mvn package -DskipTests && cd ..
-
-# 3. Install the CLI
-cd graphpop-cli && pip install -e . && cd ..
-
-# 4. Install the import pipeline
-cd graphpop-import && pip install -e . && cd ..
-
-# 5. Set up Neo4j and deploy the procedures plugin
+make install                              # Builds Java + installs all Python packages
 graphpop setup --password mypassword \
     --deploy-plugin graphpop-procedures/target/graphpop-procedures-0.1.0-SNAPSHOT.jar
-
-# 6. Start Neo4j
 graphpop start
+```
 
-# 7. Verify
-graphpop status
-graphpop --version
+Or step by step:
+
+```bash
+cd graphpop-procedures && ./mvnw package -DskipTests && cd ..
+cd graphpop-cli && pip install -e . && cd ..
+cd graphpop-import && pip install -e . && cd ..
+graphpop setup --password mypassword \
+    --deploy-plugin graphpop-procedures/target/graphpop-procedures-0.1.0-SNAPSHOT.jar
+graphpop start
 ```
 
 ### Install the MCP server (optional, for AI agent access)
 
 ```bash
-cd graphpop-mcp && pip install -e .
+pip install -e graphpop-mcp
 
 # Configure for Claude Desktop or other MCP clients
 export GRAPHPOP_URI=bolt://localhost:7687

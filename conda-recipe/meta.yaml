@@ -1,0 +1,62 @@
+{% set version = "0.1.0" %}
+{% set neo4j_version = "5.26.0" %}
+
+package:
+  name: graphpop
+  version: {{ version }}
+
+source:
+  url: https://github.com/jfmao/GraphPop/archive/refs/tags/v{{ version }}.tar.gz
+  # sha256 will be filled after release is created
+
+build:
+  number: 0
+  noarch: generic
+  script: bash ${RECIPE_DIR}/install.sh
+
+requirements:
+  host:
+    - python >=3.10
+    - pip
+    - setuptools
+    - openjdk >=21
+    - maven
+  run:
+    - python >=3.10
+    - click >=8.0
+    - neo4j-python-driver >=5.0
+    - pyyaml >=6.0
+    - openjdk >=21
+    # Optional but recommended for full functionality
+    - cyvcf2
+    - pandas
+    - numpy
+    - matplotlib-base >=3.5
+
+test:
+  commands:
+    - graphpop --help
+    - graphpop --version
+  imports:
+    - graphpop_cli
+
+about:
+  home: https://github.com/jfmao/GraphPop
+  license: MIT
+  license_file: LICENSE
+  summary: >
+    Graph database-native population genomics engine with O(V*K) complexity
+    for summary statistics, independent of sample count.
+  description: >
+    GraphPop is a graph database-native analytical engine for population
+    genomics that reduces the computational complexity of summary statistics
+    from O(V*N) to O(V*K) by pre-aggregating allele counts during import.
+    It provides 12 stored procedures for diversity, divergence, SFS,
+    selection scans, LD, and ROH, with annotation-conditioned queries,
+    persistent analytical records, and multi-statistic composition.
+  dev_url: https://github.com/jfmao/GraphPop
+  doc_url: https://github.com/jfmao/GraphPop#readme
+
+extra:
+  recipe-maintainers:
+    - jfmao

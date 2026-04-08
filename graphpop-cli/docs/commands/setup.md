@@ -6,9 +6,14 @@ Set Up Neo4j for GraphPop
 
 ## Description
 
-Downloads Neo4j Community Edition, configures memory settings, sets the initial
-database password, optionally deploys the GraphPop stored procedures plugin, and
-creates the GraphPop configuration file at `~/.graphpop/config.yaml`.
+Downloads Neo4j Community Edition, automatically downloads and deploys the
+pre-compiled GraphPop stored procedures plugin, configures memory settings,
+sets the initial database password, and creates the GraphPop configuration
+file at `~/.graphpop/config.yaml`.
+
+No Java or Maven installation is required — the procedures plugin JAR is
+downloaded as a pre-compiled binary from GitHub Releases. If installed via
+conda, the bundled JAR is used automatically.
 
 This is the first command you should run on a new machine. It is safe to re-run;
 if Neo4j is already installed it will prompt before overwriting.
@@ -32,7 +37,8 @@ This command takes no positional arguments.
 | `--heap` | TEXT | `4g` | JVM heap size for Neo4j (initial and max). |
 | `--password` | TEXT | *(prompted)* | Password for the `neo4j` user. Prompted interactively with confirmation if not supplied on the command line. |
 | `--skip-download` | FLAG | `false` | Skip downloading Neo4j. Use this when Neo4j is already installed at `--neo4j-home`. |
-| `--deploy-plugin` | PATH | *(none)* | Path to a `graphpop-procedures.jar` file to copy into the Neo4j `plugins/` directory. |
+| `--deploy-plugin` | PATH | *(none)* | Path to a local `graphpop-procedures.jar` file. Overrides the automatic download from GitHub Releases. |
+| `--skip-plugin` | FLAG | `false` | Skip deploying the GraphPop procedures plugin entirely. |
 
 ## Value
 
@@ -42,7 +48,8 @@ No return value. Side effects:
 - `neo4j.conf` updated with the specified memory settings and GraphPop-specific
   configuration (`dbms.security.procedures.unrestricted=graphpop.*`).
 - Initial password set via `neo4j-admin dbms set-initial-password`.
-- GraphPop procedures JAR deployed (if `--deploy-plugin` given).
+- GraphPop procedures JAR deployed (auto-downloaded from GitHub Releases,
+  or from conda bundle, or from `--deploy-plugin` path).
 - Configuration file written to `~/.graphpop/config.yaml` with URI, user,
   password, database, and neo4j_home.
 
@@ -109,10 +116,14 @@ graphpop setup \
 ### Re-deploy plugin without re-downloading Neo4j
 
 ```bash
-cd graphpop-procedures && mvn package -DskipTests
+# Re-download latest plugin from GitHub Releases:
+graphpop setup --skip-download --password mySecurePass123
+
+# Or deploy a locally built JAR (for developers):
+cd graphpop-procedures && ./mvnw package -DskipTests
 graphpop setup \
     --skip-download \
-    --deploy-plugin target/graphpop-procedures-1.0-SNAPSHOT.jar \
+    --deploy-plugin target/graphpop-procedures-0.1.0-SNAPSHOT.jar \
     --password mySecurePass123
 ```
 

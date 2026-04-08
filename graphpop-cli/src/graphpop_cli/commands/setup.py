@@ -18,6 +18,14 @@ NEO4J_DOWNLOAD_URL = (
     f"https://dist.neo4j.org/neo4j-community-{NEO4J_VERSION}-unix.tar.gz"
 )
 
+# GraphPop procedures plugin — auto-downloaded from GitHub Releases
+GRAPHPOP_PROCEDURES_VERSION = "0.1.0"
+GRAPHPOP_JAR_NAME = f"graphpop-procedures-{GRAPHPOP_PROCEDURES_VERSION}.jar"
+GRAPHPOP_JAR_URL = (
+    f"https://github.com/jfmao/GraphPop/releases/download/"
+    f"v{GRAPHPOP_PROCEDURES_VERSION}/{GRAPHPOP_JAR_NAME}"
+)
+
 
 @click.command()
 @click.option("--neo4j-home", type=click.Path(), default=str(DEFAULT_NEO4J_HOME),
@@ -31,20 +39,27 @@ NEO4J_DOWNLOAD_URL = (
               help="Neo4j password for the 'neo4j' user")
 @click.option("--skip-download", is_flag=True,
               help="Skip downloading Neo4j (use existing installation)")
-@click.option("--deploy-plugin", type=click.Path(exists=True),
-              help="Path to graphpop-procedures.jar to deploy")
-def setup(neo4j_home, pagecache, heap, password, skip_download, deploy_plugin):
+@click.option("--deploy-plugin", type=click.Path(exists=True), default=None,
+              help="Path to a local graphpop-procedures.jar (skips auto-download)")
+@click.option("--skip-plugin", is_flag=True,
+              help="Skip deploying the GraphPop procedures plugin")
+def setup(neo4j_home, pagecache, heap, password, skip_download, deploy_plugin,
+          skip_plugin):
     """Set up Neo4j for GraphPop.
 
-    Downloads Neo4j Community Edition, configures memory settings, sets the
-    initial password, deploys the GraphPop procedures plugin, and creates
-    the GraphPop config file.
+    Downloads Neo4j Community Edition, automatically downloads and deploys
+    the pre-compiled GraphPop procedures plugin, configures memory settings,
+    sets the initial password, and creates the GraphPop config file.
+
+    No Java or Maven installation is required — the plugin is downloaded as
+    a pre-compiled JAR from GitHub Releases.
 
     \b
     Examples:
       graphpop setup --password mypass
       graphpop setup --neo4j-home /opt/neo4j --pagecache 20g --heap 8g
-      graphpop setup --skip-download --deploy-plugin target/graphpop-procedures.jar
+      graphpop setup --deploy-plugin path/to/local/graphpop-procedures.jar
+      graphpop setup --skip-plugin --password mypass
     """
     neo4j_path = Path(neo4j_home)
 
@@ -74,11 +89,25 @@ def setup(neo4j_home, pagecache, heap, password, skip_download, deploy_plugin):
     _set_password(neo4j_path, password)
 
     # Step 4: Deploy GraphPop plugin
+    # Priority: user-provided JAR > conda-bundled JAR > GitHub download
+    plugin_dest = neo4j_path / "plugins" / "graphpop-procedures.jar"
     if deploy_plugin:
+        # Use user-provided local JAR
         click.echo(f"Deploying GraphPop plugin from {deploy_plugin}...")
-        plugin_dest = neo4j_path / "plugins" / "graphpop-procedures.jar"
         shutil.copy2(deploy_plugin, plugin_dest)
         click.echo(f"  Deployed to {plugin_dest}")
+    elif not skip_plugin:
+        # Check for conda-bundled JAR first
+        conda_jar = _find_conda_jar()
+        if conda_jar:
+            click.echo(f"Deploying conda-bundled GraphPop plugin...")
+            shutil.copy2(conda_jar, plugin_dest)
+            click.echo(f"  Deployed to {plugin_dest}")
+        else:
+            # Auto-download pre-compiled JAR from GitHub Releases
+            click.echo(f"Downloading GraphPop procedures plugin v{GRAPHPOP_PROCEDURES_VERSION}...")
+            _download_plugin(plugin_dest)
+            click.echo(f"  Deployed to {plugin_dest}")
 
     # Step 5: Create GraphPop config
     config_dir = Path.home() / ".graphpop"
@@ -104,7 +133,7 @@ Setup complete!
   Page cache:    {pagecache}
   Heap:          {heap}
   Config:        {config_path}
-  Plugin:        {'deployed' if deploy_plugin else 'not deployed (use --deploy-plugin)'}
+  Plugin:        {'deployed' if (deploy_plugin or not skip_plugin) else 'not deployed (use --deploy-plugin or remove --skip-plugin)'}
 
 Next steps:
   graphpop start                         # Start Neo4j
@@ -177,6 +206,44 @@ def _configure_neo4j(neo4j_home: Path, pagecache: str, heap: str):
     conf_path.write_text("\n".join(new_lines) + "\n")
     for k, v in settings.items():
         click.echo(f"  {k}={v}")
+
+
+def _find_conda_jar() -> Path | None:
+    """Look for a GraphPop JAR bundled by conda in the environment prefix."""
+    import sys
+    conda_prefix = Path(sys.prefix)
+    candidates = [
+        conda_prefix / "share" / "graphpop" / "plugins" / "graphpop-procedures.jar",
+        conda_prefix / "lib" / "graphpop" / "graphpop-procedures.jar",
+    ]
+    for p in candidates:
+        if p.exists():
+            return p
+    return None
+
+
+def _download_plugin(dest: Path):
+    """Download the pre-compiled GraphPop procedures JAR from GitHub Releases."""
+    import urllib.request
+
+    cache = Path(f"/tmp/{GRAPHPOP_JAR_NAME}")
+    if cache.exists():
+        click.echo(f"  Using cached plugin: {cache}")
+    else:
+        click.echo(f"  URL: {GRAPHPOP_JAR_URL}")
+        try:
+            urllib.request.urlretrieve(GRAPHPOP_JAR_URL, cache)
+        except Exception as e:
+            click.echo(f"  Error downloading plugin: {e}", err=True)
+            click.echo(
+                "  You can build locally instead:\n"
+                "    cd graphpop-procedures && ./mvnw package -DskipTests\n"
+                "    graphpop setup --deploy-plugin target/graphpop-procedures-0.1.0-SNAPSHOT.jar",
+                err=True,
+            )
+            raise SystemExit(1)
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copy2(cache, dest)
 
 
 def _set_password(neo4j_home: Path, password: str):

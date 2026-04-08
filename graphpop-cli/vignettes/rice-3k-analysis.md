@@ -249,7 +249,7 @@ Setup complete!
   Page cache:    20g
   Heap:          4g
   Config:        /home/user/.graphpop/config.yaml
-  Plugin:        not deployed (use --deploy-plugin)
+  Plugin:        deployed
 ```
 
 The `--pagecache 20g` setting tells Neo4j to keep up to 20 GB of graph

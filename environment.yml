@@ -1,0 +1,42 @@
+# GraphPop conda environment
+# Usage: conda env create -f environment.yml
+# Then:  conda activate graphpop
+#        cd GraphPop && pip install -e graphpop-cli -e graphpop-import -e graphpop-mcp
+#        graphpop setup --password mypass && graphpop start
+
+name: graphpop
+channels:
+  - conda-forge
+  - bioconda
+  - defaults
+
+dependencies:
+  # Core runtime
+  - python>=3.10,<3.13
+  - openjdk>=21
+  - maven
+
+  # GraphPop CLI dependencies
+  - click>=8.0
+  - pyyaml>=6.0
+  - neo4j-python-driver>=5.0
+
+  # Import pipeline dependencies
+  - cyvcf2
+  - pandas
+  - numpy
+
+  # Visualization (optional but recommended)
+  - matplotlib-base>=3.5
+  - scipy
+
+  # MCP server
+  - pip
+
+  # Validation tools (optional, for benchmarking)
+  # - bcftools
+  # - plink2
+  # - vcftools
+
+  - pip:
+    - mcp>=1.0
