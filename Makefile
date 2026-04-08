@@ -44,6 +44,7 @@ install-quick:  ## Quick install: Python packages only (auto-downloads JAR durin
 # ---------------------------------------------------------------------------
 
 build-jar:  ## Build the GraphPop procedures JAR
+	chmod +x graphpop-procedures/mvnw
 	cd graphpop-procedures && ./mvnw package -DskipTests -q
 	@echo "Built: graphpop-procedures/target/$(JAR_NAME)"
 
