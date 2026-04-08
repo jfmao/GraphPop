@@ -293,7 +293,7 @@ Pre-built Neo4j databases and analysis data are available on Zenodo:
 
 If you use GraphPop in your research, please cite:
 
-> Mao, J. GraphPop: graph-native population genomics with annotation-conditioned queries. *Preprint* (2026).
+> Mao, J. GraphPop: graph-native computation reduces population genomics complexity independent of sample count. *Preprint* (2026).
 
 Software: [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.19471963.svg)](https://doi.org/10.5281/zenodo.19471963)
 

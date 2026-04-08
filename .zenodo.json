@@ -1,5 +1,5 @@
 {
-  "title": "GraphPop: graph-native population genomics with annotation-conditioned queries",
+  "title": "GraphPop: graph-native computation reduces population genomics complexity independent of sample count",
   "upload_type": "software",
   "description": "GraphPop is a graph database-native analytical engine for population genomics that reduces summary statistic complexity from O(V*N) to O(V*K), independent of sample count. Includes 12 stored procedures, a 60-command CLI, an import pipeline, and an MCP server for AI agent access.",
   "creators": [

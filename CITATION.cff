@@ -1,5 +1,5 @@
 cff-version: 1.2.0
-title: "GraphPop: graph-native population genomics with annotation-conditioned queries"
+title: "GraphPop: graph-native computation reduces population genomics complexity independent of sample count"
 message: "If you use GraphPop, please cite it using the metadata from this file."
 type: software
 version: 0.1.0
