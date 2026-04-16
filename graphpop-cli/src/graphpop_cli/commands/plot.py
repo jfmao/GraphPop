@@ -8,6 +8,7 @@ from pathlib import Path
 import click
 
 from ..cli import pass_ctx
+from ..validators import validate_identifier
 
 try:
     import matplotlib
@@ -827,10 +828,15 @@ def chromosome(ctx, chrom, population, stats, output, title, width, height):
     _check_matplotlib()
     _apply_style()
 
+    # Validate identifiers used in dynamic property names
+    validate_identifier(population, "population")
+
     stat_list = [s.strip() for s in stats.split(",") if s.strip()]
     if not stat_list:
         click.echo("No statistics specified.", err=True)
         raise SystemExit(1)
+    for s in stat_list:
+        validate_identifier(s, "statistic")
 
     window_stats = {"fst", "pi", "theta_w", "tajima_d"}
     variant_stats = {"ihs", "xpehh"}

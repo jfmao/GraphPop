@@ -5,6 +5,7 @@ import click
 
 from ..cli import pass_ctx
 from ..formatters import format_output
+from ..validators import validate_identifier
 
 
 @click.command("filter")
@@ -44,6 +45,11 @@ def filter_results(ctx, statistic, chr, population, output_path, fmt,
       graphpop filter nsl chr1 GJ-tmp --gene GW5 --min-score 2.0
       graphpop filter h12 chr1 GJ-tmp --consequence missense_variant
     """
+    # Validate identifiers used in dynamic property names
+    validate_identifier(population, "population")
+    if pop2:
+        validate_identifier(pop2, "population")
+
     # Build the property name for this statistic
     if statistic == "xpehh" and pop2:
         prop = f"xpehh_{population}_{pop2}"

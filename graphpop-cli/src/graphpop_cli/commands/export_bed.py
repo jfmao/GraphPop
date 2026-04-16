@@ -4,6 +4,7 @@ from __future__ import annotations
 import click
 
 from ..cli import pass_ctx
+from ..validators import validate_identifier
 
 
 # Statistics stored on GenomicWindow nodes vs Variant nodes
@@ -41,6 +42,11 @@ def export_bed(ctx, stat, threshold, population, pop2, chromosome,
       graphpop export-bed --stat xpehh --threshold 3.0 --pop EUR --pop2 AFR -o xpehh.bed
       graphpop export-bed --stat tajima_d --threshold -2.0 --pop GJ-tmp -o tajimad.bed
     """
+    # Validate identifiers used in dynamic property names
+    validate_identifier(population, "population")
+    if pop2:
+        validate_identifier(pop2, "population")
+
     if stat == "xpehh" and not pop2:
         click.echo("Error: --pop2 is required for xpehh.", err=True)
         raise SystemExit(1)

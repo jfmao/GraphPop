@@ -1,8 +1,6 @@
 """graphpop export-windows — batch export GenomicWindow nodes to TSV."""
 from __future__ import annotations
 
-from pathlib import Path
-
 import click
 
 from ..cli import pass_ctx

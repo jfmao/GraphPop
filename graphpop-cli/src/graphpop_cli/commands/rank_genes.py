@@ -5,6 +5,7 @@ import click
 
 from ..cli import pass_ctx
 from ..formatters import format_output
+from ..validators import validate_identifier
 
 
 @click.command("rank-genes")
@@ -38,6 +39,11 @@ def rank_genes(ctx, population, pop2, chromosome, top, sort_by,
       graphpop rank-genes --pop GJ-tmp --pop2 GJ-trop --chr Chr01 --sort-by max_abs_ihs
       graphpop rank-genes --pop EUR --pop2 AFR --sort-by mean_fst --format json
     """
+    # Validate identifiers used in dynamic property names
+    population = validate_identifier(population, "population")
+    if pop2:
+        pop2 = validate_identifier(pop2, "population")
+
     # Dynamic property names cannot be parameterized — kept as f-strings.
     ihs_prop = f"ihs_{population}"
     xpehh_prop = f"xpehh_{population}_{pop2}" if pop2 else None

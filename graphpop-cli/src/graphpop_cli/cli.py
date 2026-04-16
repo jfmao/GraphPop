@@ -95,7 +95,7 @@ from .commands import (  # noqa: E402
     genome_scan, pop_summary,
     ld, ihs, xpehh, nsl, roh, garud_h,
     query, run_all, aggregate, export_windows,
-    setup, server, db, import_data, dump,
+    setup, server, doctor, db, import_data, dump,
     config_cmd, validate, filter_results, plot,
     lookup, converge, inventory, rank_genes,
     extract, export_bed, batch, compare,
@@ -128,6 +128,7 @@ main.add_command(setup.setup)
 main.add_command(server.start)
 main.add_command(server.stop)
 main.add_command(server.status)
+main.add_command(doctor.doctor)
 
 # Database management
 main.add_command(db.db)

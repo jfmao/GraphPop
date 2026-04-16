@@ -118,6 +118,11 @@ tectonic
 Thumbs.db
 desktop.ini
 
-# Environment
+# Environment and secrets
 .env
 .env.local
+*.pem
+*.key
+credentials*
+*.p12
+*.jks

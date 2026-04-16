@@ -5,6 +5,7 @@ import click
 
 from ..cli import pass_ctx
 from ..formatters import format_output
+from ..validators import validate_identifier
 
 
 # Statistics stored on Variant nodes vs GenomicWindow nodes
@@ -45,6 +46,11 @@ def converge(ctx, stats, thresholds, chromosome, population, pop2,
       graphpop converge --stats h12,fst --thresholds 0.3,0.5 --pop GJ-tmp --window 100000
       graphpop converge --stats ihs,xpehh,h12,fst --thresholds 2.0,2.0,0.3,0.5 --pop EUR --pop2 AFR
     """
+    # Validate identifiers used in dynamic property names
+    validate_identifier(population, "population")
+    if pop2:
+        validate_identifier(pop2, "population")
+
     stat_list = [s.strip() for s in stats.split(",")]
     thresh_list = [float(t.strip()) for t in thresholds.split(",")]
 

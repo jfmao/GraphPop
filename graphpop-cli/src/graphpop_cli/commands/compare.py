@@ -1,26 +1,11 @@
 """graphpop compare — compare statistics between two populations."""
 from __future__ import annotations
 
-import re
-
 import click
 
 from ..cli import pass_ctx
 from ..formatters import format_output
-
-# Allowed stat names — used to whitelist dynamic property access
-_VALID_STATS = {"pi", "theta_w", "tajima_d", "fst", "ihs"}
-_IDENT_RE = re.compile(r'^[A-Za-z0-9_-]+$')
-
-
-def _validate_identifier(value: str, label: str) -> str:
-    """Validate that a value is safe for use as a Cypher property name."""
-    if not _IDENT_RE.match(value):
-        raise click.BadParameter(
-            f"Invalid {label}: {value!r}. Only alphanumeric, hyphen, "
-            "and underscore characters are allowed."
-        )
-    return value
+from ..validators import validate_identifier
 
 
 @click.command("compare")
@@ -54,8 +39,8 @@ def compare(ctx, pop1, pop2, chr, stat, window_size, output_path, fmt, limit):
       graphpop compare EUR EAS chr22 --stat ihs -o ihs_diff.tsv
     """
     # Validate identifiers used in dynamic property names
-    pop1 = _validate_identifier(pop1, "population")
-    pop2 = _validate_identifier(pop2, "population")
+    pop1 = validate_identifier(pop1, "population")
+    pop2 = validate_identifier(pop2, "population")
 
     if stat == "ihs":
         records = _compare_variant_stat(ctx, pop1, pop2, chr, stat, limit)
