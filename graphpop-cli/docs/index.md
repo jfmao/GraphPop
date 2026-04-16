@@ -1,6 +1,6 @@
 # GraphPop CLI — User Manual
 
-Version 0.1.0 | 62 commands across 11 categories
+Version 0.1.1 | 62 commands across 11 categories
 
 ## Table of Contents
 

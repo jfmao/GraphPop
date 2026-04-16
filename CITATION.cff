@@ -2,7 +2,7 @@ cff-version: 1.2.0
 title: "GraphPop: graph-native computation decouples population genomics complexity from sample count"
 message: "If you use GraphPop, please cite it using the metadata from this file."
 type: software
-version: 0.1.0
+version: 0.1.1
 date-released: "2026-04-08"
 license: MIT
 url: "https://github.com/jfmao/GraphPop"
