@@ -18,10 +18,11 @@ Tables produced:
 
 import json
 import csv
+import os
 import sys
 from pathlib import Path
 
-ROOT = Path("/mnt/data/GraphPop")
+ROOT = Path(os.environ.get("GRAPHPOP_ROOT", Path(__file__).resolve().parents[1]))
 RESULTS_RICE = ROOT / "data" / "results" / "rice"
 INTERP_RICE = ROOT / "results" / "rice"
 OUT = ROOT / "paper" / "supplementary_tables"

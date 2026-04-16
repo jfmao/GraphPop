@@ -3,9 +3,11 @@
 # Run as: sudo bash scripts/dump_now.sh
 set -euo pipefail
 
+GRAPHPOP_ROOT="${GRAPHPOP_ROOT:-$(cd "$(dirname "$0")/.." && pwd)}"
+
 LABEL="human_1000g_v1"
 DATABASE="neo4j"
-SNAP_DIR="/mnt/data/GraphPop/data/snapshots"
+SNAP_DIR="${GRAPHPOP_ROOT}/data/snapshots"
 DUMP_FILE="$SNAP_DIR/graphpop_${LABEL}_$(date +%Y%m%d).dump"
 
 mkdir -p "$SNAP_DIR"
@@ -32,7 +34,7 @@ neo4j-admin database dump \
 echo "  Dump size: $(du -sh "$DUMP_FILE" | cut -f1)"
 
 # Patch dump filename into manifest
-/home/jfmao/miniconda3/envs/graphevo/bin/python - <<PYEOF
+python - <<PYEOF
 import json, os
 mf = "$SNAP_DIR/graphpop_${LABEL}_manifest.json"
 with open(mf) as f: m = json.load(f)

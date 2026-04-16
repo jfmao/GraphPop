@@ -28,6 +28,7 @@ Usage:
 import csv
 import gc
 import json
+import os
 import time
 import warnings
 from pathlib import Path
@@ -37,7 +38,8 @@ import numpy as np
 warnings.filterwarnings("ignore")
 
 # ── Config ────────────────────────────────────────────────────────────────────
-BASE_DIR     = Path("/mnt/data/GraphPop")
+_ROOT        = Path(os.environ.get("GRAPHPOP_ROOT", Path(__file__).resolve().parents[1]))
+BASE_DIR     = _ROOT
 RESULTS      = BASE_DIR / "data" / "results" / "rice"
 HAP_CACHE    = BASE_DIR / "data" / "rice_hap_cache"
 OUT_TSV      = RESULTS / "rice_inv20b_individual_trajectory_allchr.tsv"

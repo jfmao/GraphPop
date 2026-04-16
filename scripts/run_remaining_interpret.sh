@@ -4,7 +4,8 @@
 # Each subcommand has resume support, so this script is safe to re-run.
 
 set -euo pipefail
-cd /mnt/data/GraphPop
+GRAPHPOP_ROOT="${GRAPHPOP_ROOT:-$(cd "$(dirname "$0")/.." && pwd)}"
+cd "$GRAPHPOP_ROOT"
 
 log() { echo "$(date '+%Y-%m-%d %H:%M:%S') $*"; }
 

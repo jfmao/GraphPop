@@ -3,6 +3,8 @@
 # Run with: sudo bash /mnt/data/GraphPop/scripts/configure-neo4j.sh
 set -euo pipefail
 
+GRAPHPOP_ROOT="${GRAPHPOP_ROOT:-$(cd "$(dirname "$0")/.." && pwd)}"
+
 CONF="/etc/neo4j/neo4j.conf"
 
 echo "==> Backing up $CONF to ${CONF}.bak"
@@ -31,7 +33,7 @@ fi
 # 5. Set plugin directory to also look at our project output (symlink approach)
 echo ""
 echo "==> Creating symlink for graphpop-procedures plugin"
-ln -sf /mnt/data/GraphPop/graphpop-procedures/target/graphpop-procedures-0.1.0-SNAPSHOT.jar \
+ln -sf "${GRAPHPOP_ROOT}/graphpop-procedures/target/graphpop-procedures-0.1.0-SNAPSHOT.jar" \
        /var/lib/neo4j/plugins/graphpop-procedures.jar 2>/dev/null || true
 
 echo "==> Configuration applied. Key settings:"

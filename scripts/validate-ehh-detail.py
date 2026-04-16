@@ -5,6 +5,7 @@ Decomposes the correlation gap to show that the core EHH computation agrees
 closely, and most deviation comes from standardization on a sub-chromosomal region.
 """
 
+import os
 import subprocess
 import sys
 import time
@@ -64,7 +65,7 @@ def load_haplotypes(region, panel, pops):
 
 def query_gp(cypher):
     result = subprocess.run(
-        ["cypher-shell", "-u", "neo4j", "-p", "graphpop", "--format", "plain", cypher],
+        ["cypher-shell", "-u", "neo4j", "-p", os.environ.get("GRAPHPOP_PASSWORD", "graphpop"), "--format", "plain", cypher],
         capture_output=True, text=True, timeout=120,
     )
     return result.stdout.strip().split("\n")

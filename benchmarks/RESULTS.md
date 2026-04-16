@@ -110,6 +110,34 @@ GraphPop and PLINK2/vcftools agree within ~0.3%. scikit-allel uses a different e
 
 Note: sign convention differs — GraphPop computes log(iHH_ancestral/iHH_derived), scikit-allel computes log(iHH_1/iHH_0). The r=0.93 magnitude reflects minor differences in EHH truncation thresholds between implementations, which is typical for EHH-based statistics.
 
+## Full chr22 CEU benchmarks (Table 1 in paper)
+
+These are the benchmarks used in the manuscript Table 1 (CEU population, full chr22, 1,066,555 CEU-polymorphic variants out of 1,070,401 total). The medium-region benchmarks above use the AFR/EUR populations on smaller regions; these full-chromosome CEU benchmarks match the paper's Table 1 exactly.
+
+### FAST PATH (CEU, full chr22)
+
+| Statistic | GraphPop (s) | Competitor (s) | Tool | Speedup | Accuracy |
+|-----------|-------------|---------------|------|---------|----------|
+| pi/theta_W/Tajima's D | 12.1 | 1,757 | scikit-allel | 146x | < 0.000001% |
+| Fst/Dxy | 8.8 | 2,165 | scikit-allel | 245x | < 0.000001% |
+| SFS | 5.9 | 1,937 | scikit-allel | 327x | < 0.000001% |
+
+### FULL PATH (CEU, full chr22)
+
+| Statistic | GraphPop (s) | Competitor (s) | Tool | Speedup | Accuracy |
+|-----------|-------------|---------------|------|---------|----------|
+| iHS | 10.9 | 1,948 | scikit-allel | 179x | r = 0.999 |
+| XP-EHH | 16.7 | 2,280 | scikit-allel | 136x | r = 0.97 |
+| nSL* | 35 | 2,231 | scikit-allel | 63x | r = 0.9997 |
+| ROH* | 10.9 | 50 | bcftools | 4.6x | r = 0.96 |
+| LD (r2) | 6.4 | 1.1 | PLINK 2 | 0.17x | < 0.1% |
+
+\* GraphPop-numpy path. Graph database times: nSL 307s, ROH 128s.
+
+Note on ROH: The ROH benchmark in Table 1 compares GraphPop's numpy-accelerated ROH path (10.9s) against bcftools roh (50s), yielding 4.6x speedup. The PLINK 1.9 comparison above uses the graph database ROH path (47.2s vs PLINK 31.4s). The two comparisons use different GraphPop codepaths and different competitor tools.
+
+Note on iHS: The full-chr22 CEU benchmark (r = 0.999) shows higher correlation than the medium-region benchmark (|r| = 0.93) because full-chromosome standardization within allele-frequency bins corrects for sign-convention differences that affect medium-region results where bin sizes are smaller.
+
 ## XP-EHH — EUR vs AFR (medium region)
 
 | Region | Variants (scikit/GP) | GraphPop | scikit-allel | GP vs scikit | Correlation |
