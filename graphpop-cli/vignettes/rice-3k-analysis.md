@@ -266,6 +266,9 @@ the JVM heap for the stored procedure engine.
 # Start the database server
 graphpop start
 
+# Verify installation health
+graphpop doctor
+
 # Import the VCF with all annotations
 graphpop import --vcf NB_final_snp.vcf.gz --panel rice_3k_panel.txt \
     --database rice3k --vep rice_snpeff.vcf \

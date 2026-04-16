@@ -1,7 +1,7 @@
 {
-  "title": "GraphPop: graph-native computation reduces population genomics complexity independent of sample count",
+  "title": "GraphPop: graph-native computation decouples population genomics complexity from sample count",
   "upload_type": "software",
-  "description": "GraphPop is a graph database-native analytical engine for population genomics that reduces summary statistic complexity from O(V*N) to O(V*K), independent of sample count. Includes 12 stored procedures, a 60-command CLI, an import pipeline, and an MCP server for AI agent access.",
+  "description": "GraphPop is a graph database-native analytical engine for population genomics that reduces summary statistic complexity from O(V*N) to O(V*K), independent of sample count. Includes 12 stored procedures, a 62-command CLI, an import pipeline, and an MCP server for AI agent access. Companion platform: GraphMana (doi:10.64898/2026.04.11.717925).",
   "creators": [
     {
       "name": "Mao, Jianfeng"
@@ -39,6 +39,12 @@
       "relation": "isIdenticalTo",
       "resource_type": "software",
       "scheme": "url"
+    },
+    {
+      "identifier": "10.64898/2026.04.11.717925",
+      "relation": "isPartOf",
+      "resource_type": "publication-preprint",
+      "scheme": "doi"
     }
   ]
 }

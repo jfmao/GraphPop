@@ -7,9 +7,14 @@ graphpop
 │    ├── setup              Download, configure, and initialize Neo4j
 │    │                        --neo4j-home, --pagecache, --heap, --password
 │    │                        --deploy-plugin (GraphPop procedures JAR)
+│    │                        --bolt-port, --http-port (multi-instance)
+│    │                        --neo4j-tarball (offline/air-gapped install)
+│    │                        --adopt, --yes (adopt running instance)
 │    ├── start              Start the Neo4j database server
 │    ├── stop               Stop the Neo4j database server
-│    └── status             Check Neo4j status, version, plugin, config
+│    ├── status             Check Neo4j status, version, plugin, config
+│    └── doctor             Full installation health check (Java, Neo4j,
+│                             plugin, ports, config, connectivity)
 │
 ├─── DATABASE MANAGEMENT ───────────────────────────────────────────
 │    ├── db list            List all databases with sizes and status
@@ -245,6 +250,7 @@ graphpop
 # ─── First-time setup ───
 graphpop setup --password mypass
 graphpop start
+graphpop doctor                              # Verify installation
 
 # ─── Import data ───
 graphpop import --vcf rice.vcf.gz --panel panel.txt \
@@ -312,7 +318,7 @@ graphpop validate
 
 | Category | Commands |
 |----------|----------|
-| Setup & Server | 4 |
+| Setup & Server | 5 |
 | Database Management | 8 |
 | Configuration & Validation | 6 |
 | Procedures | 12 |
@@ -323,4 +329,4 @@ graphpop validate
 | Data Extraction & Export | 5 |
 | Visualization | 11 |
 | Utilities | 1 |
-| **Total** | **61** |
+| **Total** | **62** |

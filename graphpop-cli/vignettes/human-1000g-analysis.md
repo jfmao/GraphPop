@@ -166,6 +166,9 @@ Setup complete!
 ```bash
 graphpop start
 # Neo4j is running (PID 12847). Bolt URI: bolt://localhost:7687
+
+graphpop doctor
+# Verifies: Java, config, Neo4j home, plugin, ports, connectivity
 ```
 
 For a single chromosome (good for testing):

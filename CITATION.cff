@@ -1,5 +1,5 @@
 cff-version: 1.2.0
-title: "GraphPop: graph-native computation reduces population genomics complexity independent of sample count"
+title: "GraphPop: graph-native computation decouples population genomics complexity from sample count"
 message: "If you use GraphPop, please cite it using the metadata from this file."
 type: software
 version: 0.1.0
@@ -30,3 +30,21 @@ keywords:
   - bioinformatics
   - population genetics
   - annotation conditioning
+references:
+  - type: article
+    title: "GraphMana: graph-native data management for population genomics projects"
+    authors:
+      - family-names: Estaji
+        given-names: Elham
+      - family-names: Zhao
+        given-names: Shi-Wei
+      - family-names: Chen
+        given-names: Zi-Yue
+      - family-names: Nie
+        given-names: Shuai
+      - family-names: Mao
+        given-names: Jian-Feng
+    year: 2026
+    doi: "10.64898/2026.04.11.717925"
+    journal: bioRxiv
+    notes: "Companion data management platform"

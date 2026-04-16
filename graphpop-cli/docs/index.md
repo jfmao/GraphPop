@@ -1,6 +1,6 @@
 # GraphPop CLI — User Manual
 
-Version 0.1.0 | 61 commands across 11 categories
+Version 0.1.0 | 62 commands across 11 categories
 
 ## Table of Contents
 
@@ -9,6 +9,7 @@ Version 0.1.0 | 61 commands across 11 categories
 - [graphpop start](commands/start.md) — Start the Neo4j database server
 - [graphpop stop](commands/stop.md) — Stop the Neo4j database server
 - [graphpop status](commands/status.md) — Check server status and configuration
+- [graphpop doctor](commands/doctor.md) — Full installation health check
 
 ### Database Management
 - [graphpop db list](commands/db-list.md) — List all databases
@@ -50,6 +51,10 @@ Version 0.1.0 | 61 commands across 11 categories
 
 ### Annotation Lookup & Exploration
 - [graphpop lookup](commands/lookup.md) — Look up genes, pathways, variants, regions
+  - [graphpop lookup gene](commands/lookup-gene.md) — Gene annotation and variants
+  - [graphpop lookup pathway](commands/lookup-pathway.md) — Pathway member genes
+  - [graphpop lookup variant](commands/lookup-variant.md) — Full variant annotation
+  - [graphpop lookup region](commands/lookup-region.md) — Genes and stats in a region
 - [graphpop neighbors](commands/neighbors.md) — Explore graph neighborhood around a gene
 
 ### Multi-Statistic Integration
@@ -66,6 +71,9 @@ Version 0.1.0 | 61 commands across 11 categories
 
 ### Data Extraction
 - [graphpop extract](commands/extract.md) — Extract variants, samples, or genotypes
+  - [graphpop extract variants](commands/extract-variants.md) — Query variants with filters
+  - [graphpop extract samples](commands/extract-samples.md) — Export sample metadata
+  - [graphpop extract genotypes](commands/extract-genotypes.md) — Genotype matrix extraction
 - [graphpop export-bed](commands/export-bed.md) — Export regions as BED format
 
 ### Visualization

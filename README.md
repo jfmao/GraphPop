@@ -13,7 +13,7 @@ GraphPop is a population genomics platform that replaces the flat-file, matrix-b
 - **12 population genetics procedures** — diversity (π, θ_W, Tajima's D, Fay & Wu's H), divergence (Fst, D_xy, PBS), SFS, LD, iHS, XP-EHH, nSL, ROH, Garud's H, genome scan
 - **Annotation conditioning** — any procedure conditioned on VEP consequence, Reactome pathway, or gene via a single `--consequence` / `--pathway` / `--gene` parameter
 - **Persistent analytical record** — computed statistics written to graph nodes; multi-statistic convergence queries without re-computation
-- **60-command CLI** — complete command-line interface with default TSV output, no Python/Neo4j/Cypher knowledge required
+- **62-command CLI** — complete command-line interface with default TSV output, no Python/Neo4j/Cypher knowledge required
 - **11 visualization types** — publication-ready figures following Nature Methods guidelines
 - **MCP server** — 21 tools for AI agent access via the Model Context Protocol
 - **63–327× speedup** over scikit-allel; constant ~160 MB memory
@@ -84,7 +84,7 @@ Two computational paths:
 pip install graphpop-cli                  # Install the CLI
 graphpop setup --password mypassword      # Downloads Neo4j + procedures plugin
 graphpop start                            # Start the database
-graphpop status                           # Verify
+graphpop doctor                           # Verify installation health
 ```
 
 **Prerequisites:** Python 3.10+ and Java 21+ (required by Neo4j runtime).
@@ -93,54 +93,13 @@ privileges needed). The `graphpop setup` command automatically downloads
 Neo4j Community Edition and the pre-compiled GraphPop procedures plugin from
 GitHub Releases. No Maven or admin privileges are required.
 
-### Conda install
-
-```bash
-git clone https://github.com/jfmao/GraphPop.git
-cd GraphPop
-conda env create -f environment.yml       # Creates 'graphpop' environment with Java 21 + Python
-conda activate graphpop
-pip install -e graphpop-cli -e graphpop-import -e graphpop-mcp
-graphpop setup --password mypassword
-graphpop start
-```
-
-### Development install (from source, requires Java 21 + Maven)
-
-```bash
-git clone https://github.com/jfmao/GraphPop.git
-cd GraphPop
-make install                              # Builds Java + installs all Python packages
-graphpop setup --password mypassword \
-    --deploy-plugin graphpop-procedures/target/graphpop-procedures-0.1.0.jar
-graphpop start
-```
-
-Or step by step:
-
-```bash
-cd graphpop-procedures && ./mvnw package -DskipTests && cd ..
-cd graphpop-cli && pip install -e . && cd ..
-cd graphpop-import && pip install -e . && cd ..
-graphpop setup --password mypassword \
-    --deploy-plugin graphpop-procedures/target/graphpop-procedures-0.1.0.jar
-graphpop start
-```
-
-### Install the MCP server (optional, for AI agent access)
-
-```bash
-pip install -e graphpop-mcp
-
-# Configure for Claude Desktop or other MCP clients
-export GRAPHPOP_URI=bolt://localhost:7687
-export GRAPHPOP_PASSWORD=mypassword
-graphpop-mcp
-```
+For conda install, development install, Docker, HPC cluster deployment,
+using an existing Neo4j installation, offline/air-gapped install, and
+troubleshooting, see the **[full Installation Guide](docs/INSTALL.md)**.
 
 ## CLI Command Overview
 
-60 commands across 11 categories:
+62 commands across 11 categories:
 
 ```
 graphpop
@@ -220,7 +179,7 @@ graphpop dump --database rice3k -o rice3k_v1.dump
 | [Command reference](graphpop-cli/docs/index.md) | Per-command manuals (53 files, R-style format) |
 | [Rice 3K vignette](graphpop-cli/vignettes/rice-3k-analysis.md) | End-to-end tutorial: VCF → biological insight |
 | [Human 1000G vignette](graphpop-cli/vignettes/human-1000g-analysis.md) | Full-genome population genomics tutorial |
-| [Command tree](graphpop-cli/COMMANDS.md) | All 60 commands with options and examples |
+| [Command tree](graphpop-cli/COMMANDS.md) | All 62 commands with options and examples |
 | [MCP server](graphpop-cli/docs/commands/mcp-server.md) | AI agent access via Model Context Protocol |
 | [Design document](docs/GraphPop_Compiled_Holistic_Design.md) | Architecture and implementation details |
 
@@ -249,7 +208,7 @@ GraphPop/
 │   ├── src/main/java/      Procedure implementations + VectorOps SIMD kernels
 │   └── src/test/java/      147 unit tests
 ├── graphpop-cli/           Python CLI (pip install -e .)
-│   ├── src/graphpop_cli/   60 commands across 11 categories
+│   ├── src/graphpop_cli/   62 commands across 11 categories
 │   ├── docs/commands/      53 per-command manuals
 │   └── vignettes/          2 end-to-end tutorials (rice 3K + human 1000G)
 ├── graphpop-mcp/           MCP server for AI agent access
@@ -289,11 +248,17 @@ Pre-built Neo4j databases and analysis data are available on Zenodo:
 | Rice 3K pre-built database | [10.5281/zenodo.19471968](https://doi.org/10.5281/zenodo.19471968) | 14 GB |
 | Human 1000G pre-built database | [10.5281/zenodo.19472010](https://doi.org/10.5281/zenodo.19472010) | 31 GB |
 
+## Sister Project: GraphMana
+
+[**GraphMana**](https://github.com/jfmao/GraphMana) is the companion data management platform for population genomics projects. While GraphPop provides the compute engine (12 stored procedures, annotation conditioning, multi-statistic composition), GraphMana handles the project lifecycle: incremental sample addition, cohort management, data provenance, multi-format export (17 formats including TreeMix, EIGENSOFT, BayPass), and quality control.
+
+> Estaji, E., Zhao, S.-W., Chen, Z.-Y., Nie, S. & Mao, J.-F. GraphMana: graph-native data management for population genomics projects. *bioRxiv* (2026). [doi:10.64898/2026.04.11.717925](https://doi.org/10.64898/2026.04.11.717925)
+
 ## Citation
 
 If you use GraphPop in your research, please cite:
 
-> Mao, J. GraphPop: graph-native computation reduces population genomics complexity independent of sample count. *Preprint* (2026).
+> Mao, J.-F. GraphPop: graph-native computation decouples population genomics complexity from sample count. *Preprint* (2026).
 
 Software: [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.19471963.svg)](https://doi.org/10.5281/zenodo.19471963)
 
