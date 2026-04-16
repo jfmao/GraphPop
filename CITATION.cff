@@ -12,6 +12,9 @@ authors:
     given-names: Jianfeng
 identifiers:
   - type: doi
+    value: "10.64898/2026.04.11.717929"
+    description: "bioRxiv preprint"
+  - type: doi
     value: "10.5281/zenodo.19471963"
     description: "Analysis results, source data, and scripts"
   - type: doi

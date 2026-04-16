@@ -258,7 +258,7 @@ Pre-built Neo4j databases and analysis data are available on Zenodo:
 
 If you use GraphPop in your research, please cite:
 
-> Mao, J.-F. GraphPop: graph-native computation decouples population genomics complexity from sample count. *Preprint* (2026).
+> Mao, J.-F. GraphPop: graph-native computation decouples population genomics complexity from sample count. *bioRxiv* (2026). [doi:10.64898/2026.04.11.717929](https://doi.org/10.64898/2026.04.11.717929)
 
 Software: [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.19471963.svg)](https://doi.org/10.5281/zenodo.19471963)
 
