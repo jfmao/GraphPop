@@ -118,13 +118,34 @@ class BranchGrmComputerTest {
     }
 
     @Test
-    void rejectsLargeSampleCount() {
-        // 65 samples violates the 64-bit mask precondition.
+    void rejectsAboveConfigurableSoftCap() {
+        // The full-matrix path is memory-bounded (n^2). The default cap is
+        // BranchGrmComputer.DEFAULT_FULL_MATRIX_CAP, but callers can pass a
+        // smaller cap explicitly (which we exercise here for the test).
+        ARG arg = starTree(10, 1.0, 100L);
         IllegalArgumentException ex = assertThrows(
             IllegalArgumentException.class,
-            () -> BranchGrmComputer.compute(starTree(65, 1.0, 100L), 0L, 100L)
+            () -> BranchGrmComputer.compute(arg, 0L, 100L,
+                                            BranchWeightFn.UNIT, /*cap=*/5)
         );
-        assertTrue(ex.getMessage().contains("64"));
+        assertTrue(ex.getMessage().contains("branch_grm_apply"),
+            "exception should recommend branch_grm_apply for over-cap calls; got: "
+            + ex.getMessage());
+    }
+
+    @Test
+    void allowsSamplesAboveOldHardCap_n128() {
+        // Pre-step-6 the kernel rejected n>64. Now the BitSet path
+        // handles n=128 fine.
+        ARG arg = starTree(128, 1.0, 100L);
+        BranchGrmComputer.Result r = BranchGrmComputer.compute(arg, 0L, 100L);
+        assertEquals(128, r.n);
+        // Symmetry & post-centering row sum = 0 spot check.
+        for (int i = 0; i < 128; i++) {
+            double rowSum = 0;
+            for (int j = 0; j < 128; j++) rowSum += r.matrix[i][j];
+            assertEquals(0.0, rowSum, 1e-9, "row " + i + " sum non-zero");
+        }
     }
 
     /**

@@ -1,6 +1,7 @@
 package org.graphpop.procedures.pairwise;
 
 import java.util.Arrays;
+import java.util.BitSet;
 
 /**
  * Branch GRM (eGRM) computation on an in-memory {@link ARG}, matching
@@ -23,11 +24,21 @@ import java.util.Arrays;
  * double-centered (subtract column means, then subtract row means of the
  * result), matching {@code egrm.varGRM}'s output exactly.</p>
  *
- * <p>Limit: this v1 uses a 64-bit packed descendant-mask, restricting
- * sample count to {@code n ≤ 64}. The biobank-scale variant (Algorithm V
- * matrix–vector form, n &gt; 64) is M4.1 step 6.</p>
+ * <p>Soft cap: the full matrix is materialised as {@code double[n][n]},
+ * which scales as {@code O(n²)} memory. Above the runtime threshold
+ * (default {@value #DEFAULT_FULL_MATRIX_CAP}) the kernel throws and
+ * recommends {@code branch_grm_apply} (Algorithm V matrix–vector form;
+ * M4.1 step 6) for biobank-scale cohorts.</p>
  */
 public final class BranchGrmComputer {
+
+    /**
+     * Soft cap on {@code n_samples} for the full-matrix path.
+     * 5 000 haplotypes ⇒ 25 M cells × 8 bytes ≈ 200 MB. Set higher
+     * via {@link #compute(ARG, long, long, BranchWeightFn, int)} if
+     * the host has more heap.
+     */
+    public static final int DEFAULT_FULL_MATRIX_CAP = 5_000;
 
     private BranchGrmComputer() {}
 
@@ -65,11 +76,25 @@ public final class BranchGrmComputer {
      */
     public static Result compute(ARG arg, long regionStart, long regionEnd,
                                  BranchWeightFn weightFn) {
+        return compute(arg, regionStart, regionEnd, weightFn, DEFAULT_FULL_MATRIX_CAP);
+    }
+
+    /**
+     * Same as {@link #compute(ARG, long, long, BranchWeightFn)} but
+     * with a configurable soft cap on sample count for the full
+     * matrix path. Use {@link BranchGrmMatVec} for biobank scale
+     * (matrix-free).
+     */
+    public static Result compute(ARG arg, long regionStart, long regionEnd,
+                                 BranchWeightFn weightFn,
+                                 int fullMatrixCap) {
         final int n = arg.nSamples();
-        if (n > 64) {
+        if (n > fullMatrixCap) {
             throw new IllegalArgumentException(
-                "BranchGrmComputer (v1) requires n_samples <= 64; got " + n
-              + ". Use Algorithm V (M4.1 step 6) for larger cohorts.");
+                "BranchGrmComputer requires n_samples <= " + fullMatrixCap
+              + " for the full-matrix path; got " + n
+              + ". Use graphpop.kinship.branch_grm_apply (Algorithm V) "
+              + "for larger cohorts.");
         }
         if (n == 0) {
             return new Result(0, new double[0][0], 0.0);
@@ -100,7 +125,8 @@ public final class BranchGrmComputer {
 
         // Reusable per-tree buffers.
         final int[] parent = new int[nNodes];
-        final long[] descMask = new long[nNodes];
+        final BitSet[] descMask = new BitSet[nNodes];
+        for (int i = 0; i < nNodes; i++) descMask[i] = new BitSet(n);
 
         for (int k = 0; k < breakpoints.length - 1; k++) {
             final long b0 = breakpoints[k];
@@ -109,8 +135,6 @@ public final class BranchGrmComputer {
             if (intervalLen <= 0) continue;
 
             // Build the marginal-tree parent[] from edges active at pivot b0.
-            // (b0 is always inclusive; b1 is the next breakpoint, so any edge
-            //  active at b0 stays active throughout [b0, b1).)
             Arrays.fill(parent, -1);
             for (int e = 0; e < arg.nEdges; e++) {
                 if (arg.edgeStart[e] <= b0 && arg.edgeEnd[e] > b0) {
@@ -118,16 +142,13 @@ public final class BranchGrmComputer {
                 }
             }
 
-            // Compute descendant-sample-mask per node by walking each sample
+            // Compute descendant-sample-set per node by walking each sample
             // up to its (transitive) root, ORing its bit at every ancestor.
-            // Cost: O(n_samples * tree_height).
-            Arrays.fill(descMask, 0L);
+            for (int i = 0; i < nNodes; i++) descMask[i].clear();
             for (int sBit = 0; sBit < n; sBit++) {
-                final int sNode = arg.sampleNodes[sBit];
-                final long bit = 1L << sBit;
-                int cur = sNode;
+                int cur = arg.sampleNodes[sBit];
                 while (cur != -1) {
-                    descMask[cur] |= bit;
+                    descMask[cur].set(sBit);
                     cur = parent[cur];
                 }
             }
@@ -136,8 +157,8 @@ public final class BranchGrmComputer {
             for (int c = 0; c < nNodes; c++) {
                 final int p = parent[c];
                 if (p == -1) continue;  // root
-                final long mask = descMask[c];
-                final int nDesc = Long.bitCount(mask);
+                final BitSet mask = descMask[c];
+                final int nDesc = mask.cardinality();
                 if (nDesc == 0 || nDesc == n) continue;
 
                 final double branchLen = arg.time[p] - arg.time[c];
@@ -152,20 +173,16 @@ public final class BranchGrmComputer {
                 final double pFreq = (double) nDesc / (double) n;
                 final double weight = mu / (pFreq * (1.0 - pFreq));
 
-                // Iterate descendant-sample bits via mask traversal.
-                long m = mask;
+                // Materialise descendant indices once.
                 final int[] desc = new int[nDesc];
                 int di = 0;
-                while (m != 0L) {
-                    int bit = Long.numberOfTrailingZeros(m);
-                    desc[di++] = bit;
-                    m &= m - 1L;
+                for (int b = mask.nextSetBit(0); b >= 0; b = mask.nextSetBit(b + 1)) {
+                    desc[di++] = b;
                 }
 
                 // Outer-product update on the (descendants x descendants) sub-matrix.
                 for (int i = 0; i < nDesc; i++) {
-                    int row = desc[i];
-                    double[] r = egrm[row];
+                    double[] r = egrm[desc[i]];
                     for (int j = 0; j < nDesc; j++) {
                         r[desc[j]] += weight;
                     }

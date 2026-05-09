@@ -946,6 +946,63 @@ to every TreeNode via majority-vote DFS over descendants and emits
 fractional probabilities for mixed nodes (preserving the partition
 property).
 
+### 13.1.4 Algorithm V matrix-vector form (M4.1 step 6)
+
+`graphpop.kinship.branch_grm_apply(run_id, vector, options)` computes
+`G · v` without materialising the full `n × n` GRM, using the
+node-centric Algorithm V from Tang & Chiang 2025.
+
+For each marginal-tree branch with descendants `D`:
+
+```
+α_branch = mu / (p · (1 − p))
+s_branch = Σ_{j ∈ D} v[j]                      -- O(|D|)
+(G v)[i] += α_branch · s_branch    for i ∈ D    -- O(|D|)
+```
+
+Total per-`G · v` cost: `O(T · N log N)` for ARGs with balanced
+trees and `T` marginal trees over `N` haplotypes. Centring matches
+the full-matrix path: input vector pre-centred by mean subtraction;
+output post-centred by subtracting `mean(G v)`.
+
+This unblocks UK-Biobank-class cohorts (n ≫ 5 000) and provides the
+primitive that downstream procedures (HE-regression heritability,
+Lanczos / power-iteration PCA, polygenic-score evaluation) compose
+on top of without leaving Cypher. Conditional predicates from
+§ 13.1.1 compose unchanged.
+
+A multi-vector `vectors: List[List[Double]]` option supports stacked
+Lanczos / randomised SVD: each input column produces one tagged
+output column. The full-matrix `branch_grm` procedure remains
+available with a configurable soft cap (default 5 000 haplotypes);
+above that the procedure throws and recommends `branch_grm_apply`.
+
+Validation: numeric agreement with Java in-memory
+`BranchGrmComputer · v` to relative error < 10⁻⁶ on the 20-sample
+msprime fixture.
+
+### 13.1.5 IBS matrix (M4.2)
+
+`graphpop.kinship.ibs(chr, pop, options)` returns identity-by-state
+pairwise values on packed genotypes — sibling of `kinship.king`,
+matrix-only, no ARG required. For samples *i*, *j* and variant *v*:
+
+```
+ibs(i, j, v) = (2 − |gt_i(v) − gt_j(v)|) / 2     ∈ {0, 0.5, 1}
+IBS_ij = (2·ibs2 + ibs1) / (2 · n_used)
+```
+
+Auxiliary counters: `ibs0` (opposite homozygotes), `ibs2` (identical
+genotypes), `n_used` (variants where neither sample is missing). Self
+pairs are always 1; symmetric. Result rows reuse the
+{@code KinshipResult} POJO with `phi = IBS`, `ibs0` and `het_het =
+ibs2`, and `method = "ibs"`.
+
+Validation: hand-computed unit tests on a 4-sample × 8-variant
+fixture (every cell of the 4×4 matrix verified). Cross-tool
+validation against PLINK2 `--genome` is recorded in PR descriptions
+(deferred from CI; PLINK normalisation differs slightly).
+
 ### 13.2 Procedures (planned)
 
 | Procedure | Path | Validation baseline |

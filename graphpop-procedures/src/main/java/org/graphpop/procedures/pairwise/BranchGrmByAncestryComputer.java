@@ -1,6 +1,7 @@
 package org.graphpop.procedures.pairwise;
 
 import java.util.Arrays;
+import java.util.BitSet;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
@@ -81,9 +82,12 @@ public final class BranchGrmByAncestryComputer {
                                   BranchWeightFn weightFn,
                                   Map<Integer, List<AncestryAssignment>> paintingByTskitId) {
         final int n = arg.nSamples();
-        if (n > 64) {
+        if (n > BranchGrmComputer.DEFAULT_FULL_MATRIX_CAP) {
             throw new IllegalArgumentException(
-                "BranchGrmByAncestryComputer (v1) requires n_samples <= 64; got " + n);
+                "BranchGrmByAncestryComputer requires n_samples <= "
+              + BranchGrmComputer.DEFAULT_FULL_MATRIX_CAP
+              + " for the full-matrix path; got " + n
+              + ". Use a matrix-vector form for larger cohorts.");
         }
         if (n == 0) {
             return new Result(0, List.of(), Map.of(), 0.0);
@@ -124,7 +128,8 @@ public final class BranchGrmByAncestryComputer {
 
         double totalMu = 0.0;
         final int[] parent = new int[nNodes];
-        final long[] descMask = new long[nNodes];
+        final BitSet[] descMask = new BitSet[nNodes];
+        for (int i = 0; i < nNodes; i++) descMask[i] = new BitSet(n);
 
         for (int k = 0; k < breakpoints.length - 1; k++) {
             final long b0 = breakpoints[k];
@@ -139,12 +144,11 @@ public final class BranchGrmByAncestryComputer {
                 }
             }
 
-            Arrays.fill(descMask, 0L);
+            for (int i = 0; i < nNodes; i++) descMask[i].clear();
             for (int sBit = 0; sBit < n; sBit++) {
                 int cur = arg.sampleNodes[sBit];
-                long bit = 1L << sBit;
                 while (cur != -1) {
-                    descMask[cur] |= bit;
+                    descMask[cur].set(sBit);
                     cur = parent[cur];
                 }
             }
@@ -152,8 +156,8 @@ public final class BranchGrmByAncestryComputer {
             for (int c = 0; c < nNodes; c++) {
                 final int p = parent[c];
                 if (p == -1) continue;
-                final long mask = descMask[c];
-                final int nDesc = Long.bitCount(mask);
+                final BitSet mask = descMask[c];
+                final int nDesc = mask.cardinality();
                 if (nDesc == 0 || nDesc == n) continue;
 
                 final double branchLen = arg.time[p] - arg.time[c];
@@ -176,12 +180,10 @@ public final class BranchGrmByAncestryComputer {
                                 childTskitId, Collections.emptyList());
                 if (assignments.isEmpty()) continue;
 
-                long m = mask;
                 int[] desc = new int[nDesc];
                 int di = 0;
-                while (m != 0L) {
-                    desc[di++] = Long.numberOfTrailingZeros(m);
-                    m &= m - 1L;
+                for (int b = mask.nextSetBit(0); b >= 0; b = mask.nextSetBit(b + 1)) {
+                    desc[di++] = b;
                 }
 
                 for (AncestryAssignment a : assignments) {

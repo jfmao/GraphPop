@@ -70,6 +70,52 @@ def king(ctx, chr, population, start, end, min_snp, min_phi, include_self,
                   {"chr": chr, "pop": population})
 
 
+@kinship.command("ibs")
+@click.argument("chr")
+@click.argument("population")
+@click.option("--start", type=int, default=1, show_default=True)
+@click.option("--end", type=int, default=None,
+              help="End position (default: end of chromosome)")
+@click.option("--min-snp", type=int, default=1000, show_default=True)
+@click.option("--min-ibs", type=float, default=0.0, show_default=True)
+@click.option("--include-self", is_flag=True)
+@click.option("--samples", multiple=True,
+              help="Restrict to a subset of sample IDs")
+@click.option("-o", "--output", "output_path",
+              help="Output file (default: stdout)")
+@click.option("--format", "fmt", default="tsv",
+              type=click.Choice(["tsv", "csv", "json"]))
+@pass_ctx
+def ibs(ctx, chr, population, start, end, min_snp, min_ibs, include_self,
+        samples, output_path, fmt):
+    """Identity-by-state pairwise statistic on packed genotypes (M4.2).
+
+    Matrix-only sibling of `kinship king`; no ARG required. IBS is in
+    [0, 1]; identical samples = 1, opposite homozygotes average toward 0.
+    """
+    opts: dict[str, object] = {
+        "min_snp": min_snp,
+        "min_ibs": min_ibs,
+        "include_self": include_self,
+        "start": start,
+    }
+    if end is not None:
+        opts["end"] = end
+    if samples:
+        opts["samples"] = list(samples)
+
+    cypher = build_cypher(
+        "graphpop.kinship.ibs",
+        [f"'{chr}'", f"'{population}'"],
+        options=opts,
+        yield_cols=["sample_a", "sample_b", "phi", "ibs0", "het_het",
+                    "n_snp", "n_aa_min", "method"],
+    )
+    records = ctx.run(cypher)
+    format_output(records, output_path, fmt, "kinship-ibs",
+                  {"chr": chr, "pop": population})
+
+
 @kinship.command("bgrm")
 @click.argument("run_id")
 @click.option("--start", type=int, default=None,
@@ -146,6 +192,67 @@ def bgrm(ctx, run_id, start, end, no_self, pathway, consequence,
     records = ctx.run(cypher)
     format_output(records, output_path, fmt, "kinship-bgrm",
                   {"run_id": run_id})
+
+
+@kinship.command("bgrm-apply")
+@click.argument("run_id")
+@click.argument("vector_tsv", type=click.Path(exists=True, dir_okay=False))
+@click.option("--start", type=int, default=None)
+@click.option("--end", type=int, default=None)
+@click.option("--pathway",
+              help="Restrict to branches whose mutations land in this Pathway")
+@click.option("--consequence",
+              help="Restrict to branches whose mutations have this consequence")
+@click.option("--time-window-start", type=float)
+@click.option("--time-window-end", type=float)
+@click.option("-o", "--output", "output_path",
+              help="Output file (default: stdout)")
+@click.option("--format", "fmt", default="tsv",
+              type=click.Choice(["tsv", "csv", "json"]))
+@pass_ctx
+def bgrm_apply(ctx, run_id, vector_tsv, start, end,
+                pathway, consequence,
+                time_window_start, time_window_end,
+                output_path, fmt):
+    """Apply the branch GRM to a vector via Algorithm V (G * v).
+
+    Vector TSV: one float per line, length = number of samples in the
+    run (haplotype-ordered). Conditional predicates compose unchanged.
+
+    Tractable at biobank scale; no full matrix is materialised.
+    """
+    v: list[float] = []
+    with open(vector_tsv) as fh:
+        for lineno, raw in enumerate(fh, start=1):
+            line = raw.strip()
+            if not line or line.startswith("#"):
+                continue
+            try:
+                v.append(float(line))
+            except ValueError as exc:
+                raise click.ClickException(
+                    f"line {lineno}: not a float: {raw!r}") from exc
+
+    opts: dict[str, object] = {}
+    if start is not None:
+        opts["start"] = start
+    if end is not None:
+        opts["end"] = end
+    if pathway:
+        opts["restrict_to_pathway"] = pathway
+    if consequence:
+        opts["mutation_filter"] = consequence
+    if (time_window_start is None) ^ (time_window_end is None):
+        raise click.ClickException(
+            "--time-window-start and --time-window-end must be set together")
+    if time_window_start is not None and time_window_end is not None:
+        opts["time_window"] = [time_window_start, time_window_end]
+
+    cypher = ("CALL graphpop.kinship.branch_grm_apply($run_id, $v, $opts) "
+              "YIELD sample_id, col, value, n_branches, method")
+    records = ctx.run(cypher, {"run_id": run_id, "v": v, "opts": opts})
+    format_output(records, output_path, fmt, "kinship-bgrm-apply",
+                  {"run_id": run_id, "vector_length": len(v)})
 
 
 @kinship.command("bgrm-by-ancestry")

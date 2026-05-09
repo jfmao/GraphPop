@@ -1427,6 +1427,101 @@ def graphpop_kinship_branch_grm_by_ancestry(
     return json.dumps(results)
 
 
+@mcp.tool()
+def graphpop_kinship_branch_grm_apply(
+    run_id: str,
+    vector: list[float],
+    start: int | None = None,
+    end: int | None = None,
+    restrict_to_pathway: str | None = None,
+    mutation_filter: str | None = None,
+    time_window: list[float] | None = None,
+) -> str:
+    """Apply branch GRM to a vector via Algorithm V (G·v, biobank-scale).
+
+    Returns G · v without materialising G, in O(T · N log N) per
+    multiplication. Conditional predicates from branch_grm compose
+    unchanged. Vector length must equal the number of samples in the
+    :ARGRun.
+
+    Args:
+        run_id: :ARGRun.runId.
+        vector: Length-n_samples list of floats (haplotype-ordered).
+        start, end: Region bounds (bp).
+        restrict_to_pathway: G2 predicate.
+        mutation_filter: G2 predicate.
+        time_window: [t_lo, t_hi] in generations.
+
+    Returns JSON array: sample_id, col, value, n_branches, method.
+    """
+    opts: dict = {}
+    if start is not None:
+        opts["start"] = start
+    if end is not None:
+        opts["end"] = end
+    if restrict_to_pathway:
+        opts["restrict_to_pathway"] = restrict_to_pathway
+    if mutation_filter:
+        opts["mutation_filter"] = mutation_filter
+    if time_window is not None:
+        opts["time_window"] = list(time_window)
+    cypher = ("CALL graphpop.kinship.branch_grm_apply"
+              "($run_id, $vector, $options)")
+    results = _run_procedure(
+        cypher,
+        {"run_id": run_id, "vector": list(vector), "options": opts}
+    )
+    return json.dumps(results)
+
+
+@mcp.tool()
+def graphpop_kinship_ibs(
+    chr: str,
+    pop: str,
+    start: int | None = None,
+    end: int | None = None,
+    min_snp: int | None = None,
+    min_ibs: float | None = None,
+    include_self: bool = False,
+    samples: list[str] | None = None,
+) -> str:
+    """Identity-by-state pairwise statistic on packed genotypes (M4.2).
+
+    Matrix-only sibling of kinship.king; no ARG required. IBS is in
+    [0, 1]; identical samples = 1, opposite homozygotes average toward 0.
+
+    Args:
+        chr: Chromosome ID.
+        pop: Population name.
+        start, end: Region bounds (bp).
+        min_snp: Skip pairs with fewer informative variants (default 1000).
+        min_ibs: Skip pairs with IBS below this threshold (default 0.0).
+        include_self: Emit (s, s) self-pair rows (default False).
+        samples: Restrict to a subset of sample IDs.
+
+    Returns JSON array: sample_a, sample_b, phi (= IBS), ibs0,
+    het_het (= ibs2), n_snp (= n variants used), n_aa_min, method.
+    """
+    opts: dict = {}
+    if start is not None:
+        opts["start"] = start
+    if end is not None:
+        opts["end"] = end
+    if min_snp is not None:
+        opts["min_snp"] = min_snp
+    if min_ibs is not None:
+        opts["min_ibs"] = min_ibs
+    if include_self:
+        opts["include_self"] = True
+    if samples:
+        opts["samples"] = samples
+    cypher = "CALL graphpop.kinship.ibs($chr, $pop, $options)"
+    results = _run_procedure(
+        cypher, {"chr": chr, "pop": pop, "options": opts}
+    )
+    return json.dumps(results)
+
+
 def main():
     """Entry point for the graphpop-mcp command."""
     mcp.run()
