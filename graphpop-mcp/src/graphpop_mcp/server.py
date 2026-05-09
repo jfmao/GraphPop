@@ -1146,18 +1146,34 @@ def graphpop_kinship_branch_grm(
     start: int | None = None,
     end: int | None = None,
     include_self: bool = True,
+    restrict_to_pathway: str | None = None,
+    mutation_filter: str | None = None,
+    time_window: list[float] | None = None,
 ) -> str:
-    """Unconditional branch GRM (Fan, Mancuso & Chiang 2022) via ARG traversal.
+    """Branch GRM via ARG traversal (Fan, Mancuso & Chiang 2022).
 
-    Validates against the ``egrm.varGRM`` Python reference to relative
-    error < 1e-6. Requires the named :ARGRun to already be ingested
-    (see graphpop_arg_ingest).
+    Unconditional mode validates against the ``egrm.varGRM`` Python
+    reference to relative error < 1e-6. Conditional predicates close
+    open ARG-literature gaps:
+
+    * ``restrict_to_pathway`` (G2) — branches counted only if they
+      carry mutations in the named :Pathway.
+    * ``mutation_filter`` (G2) — branches counted only if they carry
+      mutations with the named :HAS_CONSEQUENCE.consequence.
+    * ``time_window`` — geometric branch-time truncation to
+      [t_lo, t_hi] in generations (lineage-time stratification).
+
+    All three compose multiplicatively. Requires :ARGRun(run_id) to be
+    ingested (see graphpop_arg_ingest).
 
     Args:
         run_id: :ARGRun.runId identifying which inferred ARG to use.
         start: Region start in bp (default 0).
         end: Region end in bp (default end-of-ARG-sequence).
         include_self: Emit (s, s) self-pair rows (default True).
+        restrict_to_pathway: :Pathway.pathwayId to restrict to.
+        mutation_filter: HAS_CONSEQUENCE.consequence string to restrict to.
+        time_window: Two-element [t_lo, t_hi] in generations.
 
     Returns JSON array with one row per pair: sample_a, sample_b, phi
     (= B_ij), n_snp (= n_trees that contributed), method ("branch_grm").
@@ -1169,6 +1185,14 @@ def graphpop_kinship_branch_grm(
         opts["end"] = end
     if not include_self:
         opts["include_self"] = False
+    if restrict_to_pathway:
+        opts["restrict_to_pathway"] = restrict_to_pathway
+    if mutation_filter:
+        opts["mutation_filter"] = mutation_filter
+    if time_window is not None:
+        if len(time_window) != 2:
+            return json.dumps({"error": "time_window must be [t_lo, t_hi]"})
+        opts["time_window"] = list(time_window)
     cypher = "CALL graphpop.kinship.branch_grm($run_id, $options)"
     results = _run_procedure(
         cypher, {"run_id": run_id, "options": opts}

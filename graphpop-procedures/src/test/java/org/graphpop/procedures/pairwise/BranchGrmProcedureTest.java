@@ -129,8 +129,58 @@ class BranchGrmProcedureTest {
                            "sid", sampleId(sampleNodeId),
                            "rid", RUN_ID));
             }
+
+            // ---- Synthetic annotation layer for step-4 conditional tests ----
+            // First MID=20 mutations are "lit" (in pathway P_test, consequence
+            // missense). The remaining 21 are "dark" (in G_other, synonymous).
+            session.run("CREATE (:Pathway {pathwayId: 'P_test', name: 'test pathway'})");
+            session.run("CREATE (:Pathway {pathwayId: 'P_other', name: 'other pathway'})");
+            session.run(
+                "MATCH (p:Pathway {pathwayId: 'P_test'}) "
+              + "CREATE (g:Gene {geneId: 'G_test', symbol: 'GTEST'})-[:IN_PATHWAY]->(p)");
+            session.run(
+                "MATCH (p:Pathway {pathwayId: 'P_other'}) "
+              + "CREATE (g:Gene {geneId: 'G_other', symbol: 'GOTHER'})-[:IN_PATHWAY]->(p)");
+
+            JsonNode muts = arg.get("mutations");
+            for (int i = 0; i < muts.size(); i++) {
+                JsonNode m = muts.get(i);
+                long pos = m.get("position").asLong();
+                int childNodeId = m.get("child_node_id").asInt();
+                String vid = "chr1:" + pos + ":A:T";
+                String gene = (i < MID) ? "G_test" : "G_other";
+                String consequence = (i < MID) ? "missense_variant"
+                                                : "synonymous_variant";
+                Map<String, Object> p = new HashMap<>();
+                p.put("vid", vid);
+                p.put("pos", pos);
+                p.put("rid", RUN_ID);
+                p.put("tid", RUN_ID + ":" + childNodeId);
+                p.put("gene", gene);
+                p.put("conseq", consequence);
+                p.put("derived", m.get("derived_state").asText());
+                session.run(
+                    "MERGE (v:Variant {variantId: $vid}) "
+                  + "ON CREATE SET v.chr = 'chr1', v.pos = $pos, v.ref = 'A', v.alt = 'T' "
+                  + "WITH v "
+                  + "MATCH (tn:TreeNode {treeNodeId: $tid}) "
+                  + "CREATE (v)-[:MUTATED_ON {runId: $rid, parent_node_id: -1, "
+                  + "derived_state: $derived}]->(tn) "
+                  + "WITH v "
+                  + "MATCH (g:Gene {geneId: $gene}) "
+                  + "CREATE (v)-[:HAS_CONSEQUENCE {consequence: $conseq, impact: 'MODERATE'}]->(g)",
+                    p);
+            }
         }
     }
+
+    /**
+     * Index of the first {@code MID} mutations that are tagged as
+     * &quot;lit&quot; (in pathway {@code P_test} and consequence
+     * {@code missense_variant}).  Must match the constant in
+     * {@code build_egrm_fixture.py}.
+     */
+    private static final int MID = 20;
 
     @AfterAll
     static void tearDown() {
@@ -143,11 +193,15 @@ class BranchGrmProcedureTest {
     }
 
     private static double[][] runProcedureMatrix() {
+        return runProcedureMatrix(Map.of());
+    }
+
+    private static double[][] runProcedureMatrix(Map<String, Object> options) {
         try (Session session = driver.session()) {
             List<Record> rows = session.run(
-                "CALL graphpop.kinship.branch_grm($rid) "
+                "CALL graphpop.kinship.branch_grm($rid, $opts) "
               + "YIELD sample_a, sample_b, phi RETURN sample_a, sample_b, phi",
-                Map.of("rid", RUN_ID)).list();
+                Map.of("rid", RUN_ID, "opts", options)).list();
 
             double[][] m = new double[nSamples][nSamples];
             for (Record r : rows) {
@@ -158,6 +212,55 @@ class BranchGrmProcedureTest {
                 m[b][a] = v;  // procedure emits upper-triangular only
             }
             return m;
+        }
+    }
+
+    private static double[][] loadExpectedMatrix(String resourceName) throws Exception {
+        ObjectMapper mapper = new ObjectMapper();
+        try (InputStream is = BranchGrmProcedureTest.class.getResourceAsStream(
+                "/" + resourceName)) {
+            assertNotNull(is, "missing resource: " + resourceName);
+            JsonNode root = mapper.readTree(is);
+            JsonNode mat = root.get("matrix");
+            int n = mat.size();
+            double[][] m = new double[n][n];
+            for (int i = 0; i < n; i++) {
+                for (int j = 0; j < n; j++) {
+                    m[i][j] = mat.get(i).get(j).asDouble();
+                }
+            }
+            return m;
+        }
+    }
+
+    private static void assertMatricesAgree(double[][] expected, double[][] actual,
+                                            double relTol, double absTol,
+                                            String label) {
+        double maxAbs = 0;
+        double maxRel = 0;
+        int maxI = -1, maxJ = -1;
+        for (int i = 0; i < expected.length; i++) {
+            for (int j = 0; j < expected.length; j++) {
+                double diff = Math.abs(expected[i][j] - actual[i][j]);
+                double denom = Math.max(Math.abs(expected[i][j]), 1e-12);
+                double rel = diff / denom;
+                if (diff > maxAbs) {
+                    maxAbs = diff; maxRel = rel; maxI = i; maxJ = j;
+                }
+            }
+        }
+        assertTrue(maxRel < relTol && maxAbs < absTol,
+            String.format(
+                "%s mismatch at (%d,%d): expected=%.10f actual=%.10f rel=%.3e abs=%.3e",
+                label, maxI, maxJ,
+                expected[maxI][maxJ], actual[maxI][maxJ], maxRel, maxAbs));
+    }
+
+    private static double readJsonDouble(String resourceName, String key) throws Exception {
+        ObjectMapper mapper = new ObjectMapper();
+        try (InputStream is = BranchGrmProcedureTest.class.getResourceAsStream(
+                "/" + resourceName)) {
+            return mapper.readTree(is).get(key).asDouble();
         }
     }
 
@@ -288,5 +391,69 @@ class BranchGrmProcedureTest {
             ).single().get("c").asLong();
             assertEquals((long) nSamples * (nSamples + 1) / 2, c);
         }
+    }
+
+    // ---- Step 4 conditional predicates ---------------------------------
+
+    @Test
+    void timeWindow_matchesReference() throws Exception {
+        double tLo = readJsonDouble("egrm_expected_time_window.json", "t_lo");
+        double tHi = readJsonDouble("egrm_expected_time_window.json", "t_hi");
+        double[][] expected = loadExpectedMatrix("egrm_expected_time_window.json");
+        double[][] actual = runProcedureMatrix(Map.of(
+            "time_window", List.of(tLo, tHi)));
+        assertMatricesAgree(expected, actual, 1e-6, 1e-9, "time_window");
+    }
+
+    @Test
+    void pathway_matchesReference() throws Exception {
+        double[][] expected = loadExpectedMatrix("egrm_expected_pathway_half.json");
+        double[][] actual = runProcedureMatrix(Map.of(
+            "restrict_to_pathway", "P_test"));
+        assertMatricesAgree(expected, actual, 1e-6, 1e-9, "restrict_to_pathway");
+    }
+
+    @Test
+    void mutationFilter_matchesReference() throws Exception {
+        double[][] expected = loadExpectedMatrix(
+            "egrm_expected_consequence_missense.json");
+        double[][] actual = runProcedureMatrix(Map.of(
+            "mutation_filter", "missense_variant"));
+        assertMatricesAgree(expected, actual, 1e-6, 1e-9, "mutation_filter");
+    }
+
+    @Test
+    void composition_pathwayAndTimeWindow_matchesReference() throws Exception {
+        double tLo = readJsonDouble(
+            "egrm_expected_composed_pathway_time.json", "t_lo");
+        double tHi = readJsonDouble(
+            "egrm_expected_composed_pathway_time.json", "t_hi");
+        double[][] expected = loadExpectedMatrix(
+            "egrm_expected_composed_pathway_time.json");
+        Map<String, Object> opts = new HashMap<>();
+        opts.put("restrict_to_pathway", "P_test");
+        opts.put("time_window", List.of(tLo, tHi));
+        double[][] actual = runProcedureMatrix(opts);
+        assertMatricesAgree(expected, actual, 1e-6, 1e-9, "composed");
+    }
+
+    @Test
+    void pathway_unknownReturnsZeroMatrix() {
+        double[][] m = runProcedureMatrix(Map.of(
+            "restrict_to_pathway", "P_does_not_exist"));
+        for (int i = 0; i < nSamples; i++)
+            for (int j = 0; j < nSamples; j++)
+                assertEquals(0.0, m[i][j], 1e-12,
+                    "non-existent pathway must yield zero entry [" + i + "," + j + "]");
+    }
+
+    @Test
+    void mutationFilter_unknownReturnsZeroMatrix() {
+        double[][] m = runProcedureMatrix(Map.of(
+            "mutation_filter", "frameshift_variant"));
+        for (int i = 0; i < nSamples; i++)
+            for (int j = 0; j < nSamples; j++)
+                assertEquals(0.0, m[i][j], 1e-12,
+                    "non-existent consequence must yield zero entry [" + i + "," + j + "]");
     }
 }

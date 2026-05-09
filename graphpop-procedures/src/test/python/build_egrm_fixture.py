@@ -32,6 +32,15 @@ TREES_PATH = OUT_DIR / "egrm_fixture_20samples.trees"
 JSON_PATH = OUT_DIR / "egrm_expected_20samples.json"
 ARG_JSON_PATH = OUT_DIR / "egrm_fixture_20samples_arg.json"
 
+TIME_WINDOW_PATH = OUT_DIR / "egrm_expected_time_window.json"
+PATHWAY_PATH = OUT_DIR / "egrm_expected_pathway_half.json"
+CONSEQUENCE_PATH = OUT_DIR / "egrm_expected_consequence_missense.json"
+COMPOSED_PATH = OUT_DIR / "egrm_expected_composed_pathway_time.json"
+
+# Deterministic mutation partitions for the conditional-predicate fixtures.
+# Mutations 0..MID-1 are "in pathway P_test" / "missense"; the rest are not.
+MID = 20  # fixture has 41 mutations; 20 are "lit", 21 are "dark"
+
 # ---------------------------------------------------------------------------
 # Simulate
 # ---------------------------------------------------------------------------
@@ -134,6 +143,192 @@ arg_payload = {
         for edge in ts.edges()
     ],
     "samples": list(map(int, ts.samples())),
+    "mutations": [
+        {
+            "index": idx,
+            "position": int(site.position),
+            "child_node_id": int(mutation.node),
+            "derived_state": str(mutation.derived_state),
+        }
+        for site in ts.sites()
+        for idx, mutation in enumerate(site.mutations)
+        # NB: enumerate restarts per-site so this is wrong for multi-mutation
+        # sites; the fixture has at most one mutation per site (infinite-sites
+        # default), so it's fine here.
+    ],
+    # Convenience: monotonic mutation index across the whole tree sequence.
+    "mutation_count": int(ts.num_mutations),
 }
+# Replace the per-site index with a global mutation index for unambiguous
+# downstream referencing.
+mut_global_idx = 0
+for m in arg_payload["mutations"]:
+    m["index"] = mut_global_idx
+    mut_global_idx += 1
 ARG_JSON_PATH.write_text(json.dumps(arg_payload, indent=2))
 print(f"  -> {ARG_JSON_PATH}")
+
+# ---------------------------------------------------------------------------
+# Conditional eGRM reference (mirrors egrm.varGRM source, plus per-branch
+# weight). Used by BranchGrmProcedureTest to validate time_window /
+# restrict_to_pathway / mutation_filter / composed predicates.
+# ---------------------------------------------------------------------------
+
+
+def conditional_egrm(ts, branch_weight_fn):
+    """eGRM with a per-branch weight multiplier in [0, 1].
+
+    Mirrors egrm.varGRM exactly when branch_weight_fn returns 1
+    (gmap = identity, var=False, rlim=0, alim=inf, left=0, right=inf).
+    """
+    N = ts.num_samples
+    mat = np.zeros([N, N])
+    total_mu = 0.0
+
+    for tree in ts.trees():
+        if tree.total_branch_length == 0:
+            continue
+        interval_l = tree.interval[1] - tree.interval[0]
+        if interval_l <= 0:
+            continue
+        for c in tree.nodes():
+            descendants = list(tree.samples(c))
+            n = len(descendants)
+            if n == 0 or n == N:
+                continue
+            parent_c = tree.parent(c)
+            if parent_c == -1:
+                continue  # root
+            parent_time = tree.time(parent_c)
+            child_time = tree.time(c)
+            t = parent_time - child_time
+            if t <= 0:
+                continue
+            w = branch_weight_fn(parent_c, c, parent_time, child_time,
+                                 tree.interval[0], tree.interval[1])
+            if w <= 0:
+                continue
+            mu = interval_l * t * w * 1e-8
+            p = n / N
+            mat[np.ix_(descendants, descendants)] += mu / (p * (1.0 - p))
+            total_mu += mu
+
+    if total_mu == 0:
+        return np.zeros((N, N)), 0.0
+
+    mat /= total_mu
+    mat -= mat.mean(axis=0)
+    mat -= mat.mean(axis=1, keepdims=True)
+    return mat, total_mu
+
+
+def time_window_weight(t_lo, t_hi):
+    def fn(p, c, pt, ct, s, e):
+        denom = pt - ct
+        if denom <= 0:
+            return 0.0
+        overlap = min(pt, t_hi) - max(ct, t_lo)
+        return max(0.0, overlap) / denom
+    return fn
+
+
+def lit_child_weight(lit_child_set):
+    def fn(p, c, pt, ct, s, e):
+        return 1.0 if c in lit_child_set else 0.0
+    return fn
+
+
+def product(*fns):
+    def fn(*args):
+        w = 1.0
+        for f in fns:
+            w *= f(*args)
+            if w <= 0:
+                return 0.0
+        return w
+    return fn
+
+
+def dump_conditional(path, label, t_lo=None, t_hi=None,
+                     pathway_lit_children=None,
+                     consequence_lit_children=None,
+                     extra_meta=None):
+    fns = []
+    if t_lo is not None and t_hi is not None:
+        fns.append(time_window_weight(t_lo, t_hi))
+    if pathway_lit_children is not None:
+        fns.append(lit_child_weight(pathway_lit_children))
+    if consequence_lit_children is not None:
+        fns.append(lit_child_weight(consequence_lit_children))
+    if not fns:
+        fns.append(lambda *_: 1.0)
+    weight_fn = product(*fns)
+
+    mat, tmu = conditional_egrm(ts, weight_fn)
+    sym = (mat + mat.T) / 2.0
+    payload = {
+        "schema_version": 1,
+        "label": label,
+        "n_samples": int(ts.num_samples),
+        "egrm_total_mu": float(tmu),
+        "matrix": [[float(x) for x in row] for row in sym],
+    }
+    if extra_meta:
+        payload.update(extra_meta)
+    path.write_text(json.dumps(payload, indent=2))
+    print(f"  -> {path}  (total_mu={tmu:.4e})")
+
+
+# Pick a time window that splits internal-node times roughly in half.
+internal_times = sorted(
+    [n.time for i, n in enumerate(ts.nodes()) if n.time > 0])
+T_HI = float(internal_times[len(internal_times) // 2]) if internal_times else 0.5
+T_LO = 0.0
+print(f"\nConditional fixtures (time_window upper = median internal time = {T_HI:.4g})")
+
+# Map mutation index -> child tskit node id (the branch the mutation lands on).
+mut_to_child = []
+for site in ts.sites():
+    for mutation in site.mutations:
+        mut_to_child.append(int(mutation.node))
+
+pathway_lit = {mut_to_child[i] for i in range(min(MID, len(mut_to_child)))}
+consequence_lit = pathway_lit  # same partition for the missense fixture
+
+dump_conditional(
+    TIME_WINDOW_PATH,
+    label="time_window",
+    t_lo=T_LO, t_hi=T_HI,
+    extra_meta={"t_lo": T_LO, "t_hi": T_HI},
+)
+dump_conditional(
+    PATHWAY_PATH,
+    label="restrict_to_pathway=P_test",
+    pathway_lit_children=pathway_lit,
+    extra_meta={
+        "pathway_id": "P_test",
+        "lit_mutation_indices": list(range(MID)),
+        "lit_child_node_ids": sorted(pathway_lit),
+    },
+)
+dump_conditional(
+    CONSEQUENCE_PATH,
+    label="mutation_filter=missense_variant",
+    consequence_lit_children=consequence_lit,
+    extra_meta={
+        "consequence": "missense_variant",
+        "lit_mutation_indices": list(range(MID)),
+        "lit_child_node_ids": sorted(consequence_lit),
+    },
+)
+dump_conditional(
+    COMPOSED_PATH,
+    label="restrict_to_pathway=P_test & time_window",
+    t_lo=T_LO, t_hi=T_HI,
+    pathway_lit_children=pathway_lit,
+    extra_meta={
+        "pathway_id": "P_test",
+        "t_lo": T_LO, "t_hi": T_HI,
+        "lit_child_node_ids": sorted(pathway_lit),
+    },
+)

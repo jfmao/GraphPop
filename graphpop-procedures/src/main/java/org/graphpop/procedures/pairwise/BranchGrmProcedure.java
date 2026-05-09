@@ -55,8 +55,9 @@ public class BranchGrmProcedure {
         ARG arg = ARGTraversal.load(tx, runId, start, end);
         if (arg.nNodes == 0 || arg.nSamples() == 0) return Stream.empty();
 
+        BranchWeightFn weight = BranchGrmConditioning.fromOptions(tx, runId, options);
         BranchGrmComputer.Result result =
-                BranchGrmComputer.compute(arg, start, end);
+                BranchGrmComputer.compute(arg, start, end, weight);
 
         String[] sampleIds = resolveSampleIds(tx, runId, arg);
         long nTrees = countTrees(arg, start, end);

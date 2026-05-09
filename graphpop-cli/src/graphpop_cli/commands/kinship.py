@@ -78,17 +78,41 @@ def king(ctx, chr, population, start, end, min_snp, min_phi, include_self,
               help="Region end in bp (default: full ARG sequence)")
 @click.option("--no-self", is_flag=True,
               help="Omit (s, s) self-pair rows from output")
+@click.option("--pathway",
+              help="Restrict to branches whose mutations land in this Pathway "
+                   "(closes G2: annotation co-residence)")
+@click.option("--consequence",
+              help="Restrict to branches whose mutations have this consequence "
+                   "(e.g. 'missense_variant'; closes G2)")
+@click.option("--time-window-start", type=float,
+              help="Lower bound (generations) of the time window")
+@click.option("--time-window-end", type=float,
+              help="Upper bound (generations) of the time window. Both "
+                   "--time-window-start and --time-window-end must be set.")
 @click.option("-o", "--output", "output_path",
               help="Output file (default: stdout)")
 @click.option("--format", "fmt", default="tsv",
               type=click.Choice(["tsv", "csv", "json"]))
 @pass_ctx
-def bgrm(ctx, run_id, start, end, no_self, output_path, fmt):
+def bgrm(ctx, run_id, start, end, no_self, pathway, consequence,
+         time_window_start, time_window_end, output_path, fmt):
     """Branch GRM via ARG traversal (Fan, Mancuso & Chiang 2022).
 
-    Validation baseline: matches the egrm.varGRM Python package element-wise
-    to relative error < 1e-6. Requires an :ARGRun with the given RUN_ID
-    already ingested via ``graphpop arg ingest``.
+    Unconditional mode validates against egrm.varGRM (rel err < 1e-6).
+    Conditional predicates (pathway / consequence / time-window) are the
+    GraphPop-novel statistics that close gaps G1 (time-stratification)
+    and G2 (annotation co-residence) in the ARG literature.
+
+    Examples:
+
+      graphpop kinship bgrm tsinfer_chr22_v1
+      graphpop kinship bgrm tsinfer_chr22_v1 --pathway GO:0006281
+      graphpop kinship bgrm tsinfer_chr22_v1 --consequence missense_variant
+      graphpop kinship bgrm tsinfer_chr22_v1 --time-window-start 0 --time-window-end 1000
+      graphpop kinship bgrm tsinfer_chr22_v1 --pathway P_test --time-window-start 0 --time-window-end 0.5
+
+    Requires an :ARGRun with the given RUN_ID already ingested via
+    ``graphpop arg ingest``.
     """
     opts: dict[str, object] = {}
     if start is not None:
@@ -97,6 +121,20 @@ def bgrm(ctx, run_id, start, end, no_self, output_path, fmt):
         opts["end"] = end
     if no_self:
         opts["include_self"] = False
+    if pathway:
+        opts["restrict_to_pathway"] = pathway
+    if consequence:
+        opts["mutation_filter"] = consequence
+    if (time_window_start is None) ^ (time_window_end is None):
+        raise click.ClickException(
+            "--time-window-start and --time-window-end must be set together"
+        )
+    if time_window_start is not None and time_window_end is not None:
+        if time_window_end <= time_window_start:
+            raise click.ClickException(
+                "--time-window-end must be greater than --time-window-start"
+            )
+        opts["time_window"] = [time_window_start, time_window_end]
 
     cypher = build_cypher(
         "graphpop.kinship.branch_grm",

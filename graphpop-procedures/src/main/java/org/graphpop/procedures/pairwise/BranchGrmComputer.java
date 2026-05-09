@@ -48,9 +48,23 @@ public final class BranchGrmComputer {
     /**
      * Compute the unconditional eGRM over the region {@code [regionStart,
      * regionEnd)} (bp). Pass {@code 0} and {@link Long#MAX_VALUE} for the
-     * full ARG.
+     * full ARG. Equivalent to
+     * {@link #compute(ARG, long, long, BranchWeightFn)} with
+     * {@link BranchWeightFn#UNIT}.
      */
     public static Result compute(ARG arg, long regionStart, long regionEnd) {
+        return compute(arg, regionStart, regionEnd, BranchWeightFn.UNIT);
+    }
+
+    /**
+     * Compute the conditional eGRM with a per-branch weight multiplier
+     * {@code weightFn}. Used by step 4 conditional predicates
+     * ({@code restrict_to_pathway}, {@code mutation_filter},
+     * {@code time_window}). The unit weight reproduces the unconditional
+     * matrix exactly.
+     */
+    public static Result compute(ARG arg, long regionStart, long regionEnd,
+                                 BranchWeightFn weightFn) {
         final int n = arg.nSamples();
         if (n > 64) {
             throw new IllegalArgumentException(
@@ -129,7 +143,12 @@ public final class BranchGrmComputer {
                 final double branchLen = arg.time[p] - arg.time[c];
                 if (branchLen <= 0.0) continue;
 
-                final double mu = intervalLen * branchLen * 1e-8;
+                final double w = weightFn.weight(
+                        arg.tskitNodeId[p], arg.tskitNodeId[c],
+                        arg.time[p], arg.time[c], b0, b1);
+                if (w <= 0.0) continue;
+
+                final double mu = intervalLen * branchLen * w * 1e-8;
                 final double pFreq = (double) nDesc / (double) n;
                 final double weight = mu / (pFreq * (1.0 - pFreq));
 

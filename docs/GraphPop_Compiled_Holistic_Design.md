@@ -839,6 +839,27 @@ keep traversal sub-linear in the multi-posterior case (one `:ARGRun` per
 SINGER posterior sample). Schema declarations live in
 `graphpop-import/src/graphpop_import/arg_schema.py`.
 
+### 13.1.1 Conditional branch GRM (M4.1 step 4)
+
+`graphpop.kinship.branch_grm` accepts three composable predicates that
+filter or weight per-branch contributions. Unconditional matches the
+`egrm.varGRM` Python reference (Fan, Mancuso & Chiang 2022) to
+relative error < 10⁻⁶. Conditional variants are GraphPop-unique
+statistics that close open gaps in the ARG literature:
+
+| Option | Closes | Semantics |
+|--------|--------|-----------|
+| `restrict_to_pathway: <pathwayId>` | G2 | branch counts iff its child node carries a `:MUTATED_ON` from a `:Variant` reaching the named `:Pathway` (`Variant→HAS_CONSEQUENCE→Gene→IN_PATHWAY→Pathway`) |
+| `mutation_filter: <consequence>` | G2 | branch counts iff its child node carries a `:MUTATED_ON` from a `:Variant` whose `:HAS_CONSEQUENCE.consequence` matches |
+| `time_window: [t_lo, t_hi]` | G1 (lineage-time) | branch contribution scaled by the overlap fraction `max(0, min(parent_time, t_hi) − max(child_time, t_lo)) / (parent_time − child_time)` |
+
+Predicates compose by multiplication. Each conditional matrix is
+double-centered after its own `total_mu` normalisation, so it is a
+*proper* eGRM under the predicate, not a simple subset of the
+unconditional contributions. Validated to rel err < 10⁻⁶ against a
+Python reference reimplementation (`build_egrm_fixture.py`) that
+mirrors `egrm.varGRM`'s code path with a per-branch weight multiplier.
+
 ### 13.2 Procedures (planned)
 
 | Procedure | Path | Validation baseline |
