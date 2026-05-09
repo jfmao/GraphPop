@@ -16,15 +16,15 @@ package org.graphpop.procedures;
  * <p>Array sizes for N samples: gt_packed = ceil(N/4) bytes, phase_packed = ceil(N/8) bytes.
  * For 3,202 samples: 801 + 401 = 1,202 bytes per variant.</p>
  */
-final class PackedGenotypeReader {
+public final class PackedGenotypeReader {
 
     private PackedGenotypeReader() {}
 
     // ---- Genotype constants (2-bit encoding) ----
-    static final int GT_HOM_REF = 0;
-    static final int GT_HET     = 1;
-    static final int GT_HOM_ALT = 2;
-    static final int GT_MISSING = 3;
+    public static final int GT_HOM_REF = 0;
+    public static final int GT_HET     = 1;
+    public static final int GT_HOM_ALT = 2;
+    public static final int GT_MISSING = 3;
 
     /**
      * Extract the 2-bit genotype for sample {@code sampleIdx} from a packed gt array.
@@ -33,7 +33,7 @@ final class PackedGenotypeReader {
      * @param sampleIdx 0-based sample index (matching Sample.packed_index)
      * @return genotype value: 0=HomRef, 1=Het, 2=HomAlt, 3=Missing
      */
-    static int genotype(byte[] gtPacked, int sampleIdx) {
+    public static int genotype(byte[] gtPacked, int sampleIdx) {
         int byteIdx = sampleIdx >> 2;          // sampleIdx / 4
         int bitShift = (sampleIdx & 3) << 1;   // (sampleIdx % 4) * 2
         return (gtPacked[byteIdx] >> bitShift) & 0x03;
@@ -46,7 +46,7 @@ final class PackedGenotypeReader {
      * @param sampleIdx 0-based sample index
      * @return phase value: 0 or 1 (which haplotype carries ALT)
      */
-    static int phase(byte[] phasePacked, int sampleIdx) {
+    public static int phase(byte[] phasePacked, int sampleIdx) {
         int byteIdx = sampleIdx >> 3;          // sampleIdx / 8
         int bitIdx = sampleIdx & 7;            // sampleIdx % 8
         return (phasePacked[byteIdx] >> bitIdx) & 0x01;
@@ -57,21 +57,21 @@ final class PackedGenotypeReader {
     /**
      * Compute the byte array size needed for gt_packed with the given sample count.
      */
-    static int gtPackedLength(int nSamples) {
+    public static int gtPackedLength(int nSamples) {
         return (nSamples + 3) >> 2;  // ceil(nSamples / 4)
     }
 
     /**
      * Compute the byte array size needed for phase_packed with the given sample count.
      */
-    static int phasePackedLength(int nSamples) {
+    public static int phasePackedLength(int nSamples) {
         return (nSamples + 7) >> 3;  // ceil(nSamples / 8)
     }
 
     /**
      * Set a 2-bit genotype value for sample {@code sampleIdx} in a packed gt array.
      */
-    static void setGenotype(byte[] gtPacked, int sampleIdx, int gt) {
+    public static void setGenotype(byte[] gtPacked, int sampleIdx, int gt) {
         int byteIdx = sampleIdx >> 2;
         int bitShift = (sampleIdx & 3) << 1;
         gtPacked[byteIdx] = (byte) ((gtPacked[byteIdx] & ~(0x03 << bitShift))
@@ -81,7 +81,7 @@ final class PackedGenotypeReader {
     /**
      * Set a 1-bit phase value for sample {@code sampleIdx} in a packed phase array.
      */
-    static void setPhase(byte[] phasePacked, int sampleIdx, int phase) {
+    public static void setPhase(byte[] phasePacked, int sampleIdx, int phase) {
         int byteIdx = sampleIdx >> 3;
         int bitIdx = sampleIdx & 7;
         if (phase != 0) {
@@ -100,7 +100,7 @@ final class PackedGenotypeReader {
      * @param sampleIdx 0-based sample index
      * @return 1 if haploid, 0 if diploid
      */
-    static int ploidy(byte[] ploidyPacked, int sampleIdx) {
+    public static int ploidy(byte[] ploidyPacked, int sampleIdx) {
         if (ploidyPacked == null || ploidyPacked.length == 0) return 0;
         int byteIdx = sampleIdx >> 3;
         if (byteIdx >= ploidyPacked.length) return 0;
@@ -128,7 +128,7 @@ final class PackedGenotypeReader {
      * Compute the byte array size needed for ploidy_packed with the given sample count.
      * Same layout as phase_packed: 1 bit per sample.
      */
-    static int ploidyPackedLength(int nSamples) {
+    public static int ploidyPackedLength(int nSamples) {
         return (nSamples + 7) >> 3;  // ceil(nSamples / 8)
     }
 }

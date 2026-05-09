@@ -987,6 +987,57 @@ def graphpop_inventory() -> str:
     return json.dumps(inventory, indent=2)
 
 
+@mcp.tool()
+def graphpop_kinship_king(
+    chr: str,
+    pop: str,
+    start: int | None = None,
+    end: int | None = None,
+    min_snp: int | None = None,
+    min_phi: float | None = None,
+    include_self: bool = False,
+    samples: list[str] | None = None,
+) -> str:
+    """KING-robust pairwise kinship (Manichaikul 2010) for samples in a population.
+
+    Validation baseline of the GraphPop kinship suite — agrees with PLINK2
+    --make-king to r >= 0.999. For graph-native, ARG-based kinship (the
+    branch-GRM family that closes the open gaps in the literature) use
+    graphpop_kinship_branch_grm once the M4.A ARG layer is in place.
+
+    Args:
+        chr: Chromosome ID.
+        pop: Population name.
+        start: Start position in bp (default 1).
+        end: End position in bp (default end-of-chromosome).
+        min_snp: Skip pairs with fewer informative variants (default 1000).
+        min_phi: Skip pairs with kinship below this threshold (default -0.5).
+        include_self: Emit (s, s) self-pair rows (default False).
+        samples: Restrict to a subset of sample IDs (overrides ``pop``).
+
+    Returns JSON array with one row per pair: sample_a, sample_b, phi, ibs0,
+    het_het, n_snp, n_aa_min, method.
+    """
+    opts: dict = {}
+    if start is not None:
+        opts["start"] = start
+    if end is not None:
+        opts["end"] = end
+    if min_snp is not None:
+        opts["min_snp"] = min_snp
+    if min_phi is not None:
+        opts["min_phi"] = min_phi
+    if include_self:
+        opts["include_self"] = True
+    if samples:
+        opts["samples"] = samples
+    cypher = "CALL graphpop.kinship.king($chr, $pop, $options)"
+    results = _run_procedure(
+        cypher, {"chr": chr, "pop": pop, "options": opts}
+    )
+    return json.dumps(results)
+
+
 def main():
     """Entry point for the graphpop-mcp command."""
     mcp.run()

@@ -9,7 +9,7 @@ import java.util.*;
 /**
  * Builds sample indices and packed_index mappings for genotype access.
  */
-final class GenotypeLoader {
+public final class GenotypeLoader {
 
     private GenotypeLoader() {}
 
@@ -17,7 +17,7 @@ final class GenotypeLoader {
      * Build sample index: maps sampleId → array position for a given population.
      * The order is deterministic (sorted by sampleId).
      */
-    static Map<String, Integer> buildSampleIndex(Transaction tx, String population) {
+    public static Map<String, Integer> buildSampleIndex(Transaction tx, String population) {
         var result = tx.execute(
                 "MATCH (s:Sample)-[:IN_POPULATION]->(:Population {populationId: $pop}) " +
                 "RETURN s.sampleId AS sid ORDER BY sid",
@@ -41,7 +41,7 @@ final class GenotypeLoader {
      * Queries Sample nodes by ID, preserving the order of the input list.
      * Unknown sample IDs are silently skipped.
      */
-    static Map<String, Integer> buildSampleIndex(Transaction tx, List<String> sampleIds) {
+    public static Map<String, Integer> buildSampleIndex(Transaction tx, List<String> sampleIds) {
         Map<String, Integer> index = new LinkedHashMap<>();
         var result = tx.execute(
                 "MATCH (s:Sample) WHERE s.sampleId IN $sids RETURN s.sampleId AS sid",
@@ -78,7 +78,7 @@ final class GenotypeLoader {
      * @param sampleIndex sampleId → matrix position (from buildSampleIndex)
      * @return int array where result[matrixPos] = packed_index for that sample
      */
-    static int[] buildPackedIndices(Transaction tx, Map<String, Integer> sampleIndex) {
+    public static int[] buildPackedIndices(Transaction tx, Map<String, Integer> sampleIndex) {
         int nSamples = sampleIndex.size();
         int[] packedIndices = new int[nSamples];
         // Default to -1 (not found)
