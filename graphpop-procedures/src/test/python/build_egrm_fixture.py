@@ -332,3 +332,158 @@ dump_conditional(
         "lit_child_node_ids": sorted(pathway_lit),
     },
 )
+
+# ---------------------------------------------------------------------------
+# M4.B + step 7: ancestry-decomposed eGRM reference.
+# Synthetic painting: samples 0-9 = EUR, 10-19 = AFR. Internal nodes
+# painted via majority-vote DFS over descendants.
+# ---------------------------------------------------------------------------
+
+PAINTING_PATH = OUT_DIR / "egrm_by_ancestry_fixture_painting.json"
+DECOMP_EUR_PATH = OUT_DIR / "egrm_by_ancestry_expected_EUR.json"
+DECOMP_AFR_PATH = OUT_DIR / "egrm_by_ancestry_expected_AFR.json"
+DECOMP_PATHWAY_EUR_PATH = OUT_DIR / "egrm_by_ancestry_pathway_expected_EUR.json"
+DECOMP_PATHWAY_AFR_PATH = OUT_DIR / "egrm_by_ancestry_pathway_expected_AFR.json"
+
+
+def propagate_painting_majority(treeseq, sample_to_anc):
+    """Majority-vote DFS propagation matching AncestryIngester."""
+    from collections import Counter
+
+    children = {}
+    for edge in treeseq.edges():
+        children.setdefault(int(edge.parent), []).append(int(edge.child))
+    is_sample = {i: bool(node.flags & 1) for i, node in enumerate(treeseq.nodes())}
+
+    desc_counts = {}
+
+    def dfs(n):
+        if n in desc_counts:
+            return desc_counts[n]
+        if is_sample.get(n, False):
+            anc = sample_to_anc.get(n)
+            counter = Counter()
+            if anc is not None:
+                counter[anc] = 1
+            desc_counts[n] = counter
+            return counter
+        counter = Counter()
+        for c in children.get(n, []):
+            counter.update(dfs(c))
+        desc_counts[n] = counter
+        return counter
+
+    # Emit ALL label probabilities (fractional painting) so the
+    # decomposition partition Σ_a prob_a(node) = 1 is preserved.
+    painting = {}
+    for i in range(treeseq.num_nodes):
+        dfs(i)
+    for i in range(treeseq.num_nodes):
+        counts = desc_counts[i]
+        if not counts:
+            continue
+        total = sum(counts.values())
+        painting[i] = [(label, counts[label] / total)
+                        for label in sorted(counts)]
+    return painting
+
+
+def decompose_egrm_by_ancestry(treeseq, painting, branch_weight_fn):
+    """Bucketed per-ancestry egrm; shared total_mu denominator.
+
+    Mirrors the Java BranchGrmByAncestryComputer kernel.
+    """
+    N = treeseq.num_samples
+    ancestries = sorted({a for entries in painting.values() for a, _ in entries})
+    mats = {a: np.zeros([N, N]) for a in ancestries}
+    total_mu = 0.0
+
+    for tree in treeseq.trees():
+        if tree.total_branch_length == 0:
+            continue
+        l = tree.interval[1] - tree.interval[0]
+        if l <= 0:
+            continue
+        for c in tree.nodes():
+            descendants = list(tree.samples(c))
+            n = len(descendants)
+            if n == 0 or n == N:
+                continue
+            parent_c = tree.parent(c)
+            if parent_c == -1:
+                continue
+            t = tree.time(parent_c) - tree.time(c)
+            if t <= 0:
+                continue
+            w = branch_weight_fn(parent_c, c, tree.time(parent_c), tree.time(c),
+                                 tree.interval[0], tree.interval[1])
+            if w <= 0:
+                continue
+            mu = l * t * w * 1e-8
+            p = n / N
+            update = mu / (p * (1 - p))
+
+            child_paint = painting.get(c)
+            if child_paint is not None:
+                for anc, prob in child_paint:
+                    if anc in mats and prob > 0:
+                        mats[anc][np.ix_(descendants, descendants)] += prob * update
+
+            total_mu += mu
+
+    if total_mu == 0:
+        return {a: np.zeros((N, N)) for a in ancestries}
+
+    out = {}
+    for a, m in mats.items():
+        m /= total_mu
+        m -= m.mean(axis=0)
+        m -= m.mean(axis=1, keepdims=True)
+        out[a] = (m + m.T) / 2.0
+    return out
+
+
+def dump_decomp(path, label, matrix, ancestry, n_runs=1):
+    payload = {
+        "schema_version": 1,
+        "label": label,
+        "ancestry": ancestry,
+        "n_runs": n_runs,
+        "n_samples": int(matrix.shape[0]),
+        "matrix": [[float(v) for v in row] for row in matrix],
+    }
+    path.write_text(json.dumps(payload, indent=2))
+    print(f"  -> {path.name}")
+
+
+# Synthetic haplotype-ancestry partition (samples 0-9 = EUR, 10-19 = AFR).
+sample_to_anc = {i: ("EUR" if i < 10 else "AFR") for i in range(20)}
+painting = propagate_painting_majority(ts, sample_to_anc)
+
+# Dump painting for the Java integration test setUp.
+_painting_rows = [
+    {"tskit_node_id": int(nid), "population_id": label, "posterior_prob": float(prob)}
+    for nid in sorted(painting)
+    for label, prob in painting[nid]
+]
+PAINTING_PATH.write_text(json.dumps({
+    "schema_version": 1,
+    "run_id": "egrm_fixture_20samples",
+    "painter": "majority_vote",
+    "rows": _painting_rows,
+}, indent=2))
+print(f"  -> {PAINTING_PATH.name}  ({len(painting)} nodes painted, "
+      f"{len(_painting_rows)} edges)")
+
+# Unconditional decomposition.
+mats = decompose_egrm_by_ancestry(ts, painting, lambda *_: 1.0)
+dump_decomp(DECOMP_EUR_PATH, "egrm_by_ancestry uncond", mats["EUR"], "EUR")
+dump_decomp(DECOMP_AFR_PATH, "egrm_by_ancestry uncond", mats["AFR"], "AFR")
+
+# Pathway-restricted decomposition.
+pathway_w = lit_child_weight(pathway_lit)
+mats_p = decompose_egrm_by_ancestry(ts, painting, pathway_w)
+dump_decomp(DECOMP_PATHWAY_EUR_PATH, "egrm_by_ancestry pathway",
+            mats_p["EUR"], "EUR")
+dump_decomp(DECOMP_PATHWAY_AFR_PATH, "egrm_by_ancestry pathway",
+            mats_p["AFR"], "AFR")

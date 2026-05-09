@@ -148,6 +148,76 @@ def bgrm(ctx, run_id, start, end, no_self, pathway, consequence,
                   {"run_id": run_id})
 
 
+@kinship.command("bgrm-by-ancestry")
+@click.argument("run_id")
+@click.option("--start", type=int, default=None,
+              help="Region start in bp")
+@click.option("--end", type=int, default=None,
+              help="Region end in bp")
+@click.option("--no-self", is_flag=True,
+              help="Omit (s, s) self-pair rows")
+@click.option("--painter", default=None,
+              help="Painter id (e.g. 'majority_vote', 'rfmix') when "
+                   "the run has multiple paintings")
+@click.option("--pathway",
+              help="Restrict to branches whose mutations land in this Pathway")
+@click.option("--consequence",
+              help="Restrict to branches whose mutations have this consequence")
+@click.option("--time-window-start", type=float)
+@click.option("--time-window-end", type=float)
+@click.option("-o", "--output", "output_path",
+              help="Output file (default: stdout)")
+@click.option("--format", "fmt", default="tsv",
+              type=click.Choice(["tsv", "csv", "json"]))
+@pass_ctx
+def bgrm_by_ancestry(ctx, run_id, start, end, no_self, painter,
+                      pathway, consequence,
+                      time_window_start, time_window_end,
+                      output_path, fmt):
+    """Branch GRM decomposed by local ancestry painting (closes G3).
+
+    Returns one row per (sample_a, sample_b, ancestry) triple. Sum
+    across ancestries reproduces the unconditional branch_grm matrix
+    (modulo unpainted nodes). Conditional predicates (pathway,
+    consequence, time_window) compose unchanged.
+
+    Requires :HAS_ANCESTRY edges ingested via ``graphpop ancestry
+    ingest`` or ``graphpop ancestry ingest-from-samples``.
+    """
+    opts: dict[str, object] = {}
+    if start is not None:
+        opts["start"] = start
+    if end is not None:
+        opts["end"] = end
+    if no_self:
+        opts["include_self"] = False
+    if painter:
+        opts["painter"] = painter
+    if pathway:
+        opts["restrict_to_pathway"] = pathway
+    if consequence:
+        opts["mutation_filter"] = consequence
+    if (time_window_start is None) ^ (time_window_end is None):
+        raise click.ClickException(
+            "--time-window-start and --time-window-end must be set together")
+    if time_window_start is not None and time_window_end is not None:
+        if time_window_end <= time_window_start:
+            raise click.ClickException(
+                "--time-window-end must be greater than --time-window-start")
+        opts["time_window"] = [time_window_start, time_window_end]
+
+    cypher = build_cypher(
+        "graphpop.kinship.branch_grm_by_ancestry",
+        [f"'{run_id}'"],
+        options=opts if opts else None,
+        yield_cols=["sample_a", "sample_b", "ancestry",
+                    "b_ij_component", "n_branches", "method"],
+    )
+    records = ctx.run(cypher)
+    format_output(records, output_path, fmt, "kinship-bgrm-by-ancestry",
+                  {"run_id": run_id})
+
+
 @kinship.command("bgrm-posterior")
 @click.argument("run_ids", nargs=-1, required=True)
 @click.option("--start", type=int, default=None,

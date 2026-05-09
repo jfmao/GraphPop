@@ -1,0 +1,337 @@
+{
+  "schema_version": 1,
+  "run_id": "egrm_fixture_20samples",
+  "painter": "majority_vote",
+  "rows": [
+    {
+      "tskit_node_id": 0,
+      "population_id": "EUR",
+      "posterior_prob": 1.0
+    },
+    {
+      "tskit_node_id": 1,
+      "population_id": "EUR",
+      "posterior_prob": 1.0
+    },
+    {
+      "tskit_node_id": 2,
+      "population_id": "EUR",
+      "posterior_prob": 1.0
+    },
+    {
+      "tskit_node_id": 3,
+      "population_id": "EUR",
+      "posterior_prob": 1.0
+    },
+    {
+      "tskit_node_id": 4,
+      "population_id": "EUR",
+      "posterior_prob": 1.0
+    },
+    {
+      "tskit_node_id": 5,
+      "population_id": "EUR",
+      "posterior_prob": 1.0
+    },
+    {
+      "tskit_node_id": 6,
+      "population_id": "EUR",
+      "posterior_prob": 1.0
+    },
+    {
+      "tskit_node_id": 7,
+      "population_id": "EUR",
+      "posterior_prob": 1.0
+    },
+    {
+      "tskit_node_id": 8,
+      "population_id": "EUR",
+      "posterior_prob": 1.0
+    },
+    {
+      "tskit_node_id": 9,
+      "population_id": "EUR",
+      "posterior_prob": 1.0
+    },
+    {
+      "tskit_node_id": 10,
+      "population_id": "AFR",
+      "posterior_prob": 1.0
+    },
+    {
+      "tskit_node_id": 11,
+      "population_id": "AFR",
+      "posterior_prob": 1.0
+    },
+    {
+      "tskit_node_id": 12,
+      "population_id": "AFR",
+      "posterior_prob": 1.0
+    },
+    {
+      "tskit_node_id": 13,
+      "population_id": "AFR",
+      "posterior_prob": 1.0
+    },
+    {
+      "tskit_node_id": 14,
+      "population_id": "AFR",
+      "posterior_prob": 1.0
+    },
+    {
+      "tskit_node_id": 15,
+      "population_id": "AFR",
+      "posterior_prob": 1.0
+    },
+    {
+      "tskit_node_id": 16,
+      "population_id": "AFR",
+      "posterior_prob": 1.0
+    },
+    {
+      "tskit_node_id": 17,
+      "population_id": "AFR",
+      "posterior_prob": 1.0
+    },
+    {
+      "tskit_node_id": 18,
+      "population_id": "AFR",
+      "posterior_prob": 1.0
+    },
+    {
+      "tskit_node_id": 19,
+      "population_id": "AFR",
+      "posterior_prob": 1.0
+    },
+    {
+      "tskit_node_id": 20,
+      "population_id": "AFR",
+      "posterior_prob": 0.5
+    },
+    {
+      "tskit_node_id": 20,
+      "population_id": "EUR",
+      "posterior_prob": 0.5
+    },
+    {
+      "tskit_node_id": 21,
+      "population_id": "EUR",
+      "posterior_prob": 1.0
+    },
+    {
+      "tskit_node_id": 22,
+      "population_id": "AFR",
+      "posterior_prob": 1.0
+    },
+    {
+      "tskit_node_id": 23,
+      "population_id": "AFR",
+      "posterior_prob": 0.5
+    },
+    {
+      "tskit_node_id": 23,
+      "population_id": "EUR",
+      "posterior_prob": 0.5
+    },
+    {
+      "tskit_node_id": 24,
+      "population_id": "AFR",
+      "posterior_prob": 0.3333333333333333
+    },
+    {
+      "tskit_node_id": 24,
+      "population_id": "EUR",
+      "posterior_prob": 0.6666666666666666
+    },
+    {
+      "tskit_node_id": 25,
+      "population_id": "AFR",
+      "posterior_prob": 0.5
+    },
+    {
+      "tskit_node_id": 25,
+      "population_id": "EUR",
+      "posterior_prob": 0.5
+    },
+    {
+      "tskit_node_id": 26,
+      "population_id": "AFR",
+      "posterior_prob": 0.5
+    },
+    {
+      "tskit_node_id": 26,
+      "population_id": "EUR",
+      "posterior_prob": 0.5
+    },
+    {
+      "tskit_node_id": 27,
+      "population_id": "AFR",
+      "posterior_prob": 0.5
+    },
+    {
+      "tskit_node_id": 27,
+      "population_id": "EUR",
+      "posterior_prob": 0.5
+    },
+    {
+      "tskit_node_id": 28,
+      "population_id": "AFR",
+      "posterior_prob": 0.5
+    },
+    {
+      "tskit_node_id": 28,
+      "population_id": "EUR",
+      "posterior_prob": 0.5
+    },
+    {
+      "tskit_node_id": 29,
+      "population_id": "AFR",
+      "posterior_prob": 0.75
+    },
+    {
+      "tskit_node_id": 29,
+      "population_id": "EUR",
+      "posterior_prob": 0.25
+    },
+    {
+      "tskit_node_id": 30,
+      "population_id": "AFR",
+      "posterior_prob": 0.8
+    },
+    {
+      "tskit_node_id": 30,
+      "population_id": "EUR",
+      "posterior_prob": 0.2
+    },
+    {
+      "tskit_node_id": 31,
+      "population_id": "AFR",
+      "posterior_prob": 0.4
+    },
+    {
+      "tskit_node_id": 31,
+      "population_id": "EUR",
+      "posterior_prob": 0.6
+    },
+    {
+      "tskit_node_id": 32,
+      "population_id": "AFR",
+      "posterior_prob": 0.8333333333333334
+    },
+    {
+      "tskit_node_id": 32,
+      "population_id": "EUR",
+      "posterior_prob": 0.16666666666666666
+    },
+    {
+      "tskit_node_id": 33,
+      "population_id": "AFR",
+      "posterior_prob": 0.3333333333333333
+    },
+    {
+      "tskit_node_id": 33,
+      "population_id": "EUR",
+      "posterior_prob": 0.6666666666666666
+    },
+    {
+      "tskit_node_id": 34,
+      "population_id": "AFR",
+      "posterior_prob": 0.25
+    },
+    {
+      "tskit_node_id": 34,
+      "population_id": "EUR",
+      "posterior_prob": 0.75
+    },
+    {
+      "tskit_node_id": 35,
+      "population_id": "AFR",
+      "posterior_prob": 0.5
+    },
+    {
+      "tskit_node_id": 35,
+      "population_id": "EUR",
+      "posterior_prob": 0.5
+    },
+    {
+      "tskit_node_id": 36,
+      "population_id": "AFR",
+      "posterior_prob": 0.5
+    },
+    {
+      "tskit_node_id": 36,
+      "population_id": "EUR",
+      "posterior_prob": 0.5
+    },
+    {
+      "tskit_node_id": 37,
+      "population_id": "AFR",
+      "posterior_prob": 0.5263157894736842
+    },
+    {
+      "tskit_node_id": 37,
+      "population_id": "EUR",
+      "posterior_prob": 0.47368421052631576
+    },
+    {
+      "tskit_node_id": 38,
+      "population_id": "AFR",
+      "posterior_prob": 0.4
+    },
+    {
+      "tskit_node_id": 38,
+      "population_id": "EUR",
+      "posterior_prob": 0.6
+    },
+    {
+      "tskit_node_id": 39,
+      "population_id": "AFR",
+      "posterior_prob": 0.44
+    },
+    {
+      "tskit_node_id": 39,
+      "population_id": "EUR",
+      "posterior_prob": 0.56
+    },
+    {
+      "tskit_node_id": 40,
+      "population_id": "AFR",
+      "posterior_prob": 0.4482758620689655
+    },
+    {
+      "tskit_node_id": 40,
+      "population_id": "EUR",
+      "posterior_prob": 0.5517241379310345
+    },
+    {
+      "tskit_node_id": 41,
+      "population_id": "AFR",
+      "posterior_prob": 0.4444444444444444
+    },
+    {
+      "tskit_node_id": 41,
+      "population_id": "EUR",
+      "posterior_prob": 0.5555555555555556
+    },
+    {
+      "tskit_node_id": 42,
+      "population_id": "AFR",
+      "posterior_prob": 0.4492753623188406
+    },
+    {
+      "tskit_node_id": 42,
+      "population_id": "EUR",
+      "posterior_prob": 0.5507246376811594
+    },
+    {
+      "tskit_node_id": 43,
+      "population_id": "AFR",
+      "posterior_prob": 0.4444444444444444
+    },
+    {
+      "tskit_node_id": 43,
+      "population_id": "EUR",
+      "posterior_prob": 0.5555555555555556
+    }
+  ]
+}

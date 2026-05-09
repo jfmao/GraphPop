@@ -898,6 +898,54 @@ The procedure requires every run to expose the same ordered set of
 use — SINGER inputs the same phased haplotype matrix to every chain,
 so this is by construction satisfied.
 
+### 13.1.3 Ancestry-decomposed branch GRM (M4.B + step 7)
+
+`graphpop.kinship.branch_grm_by_ancestry(run_id, options)` decomposes
+the unconditional branch GRM by local-ancestry painting. Each branch's
+contribution is bucketed by the ancestry painted on its child node;
+the per-ancestry sub-matrices share the unconditional `total_mu`
+denominator and are double-centered independently. The partition
+property holds:
+
+```
+Σ_a B_ij^a == B_ij^uncond                  (modulo unpainted nodes)
+```
+
+Probabilistic painting is supported natively: a child node may have
+multiple `:HAS_ANCESTRY` edges with `posterior_prob` summing to ≤ 1,
+and contributions are split fractionally. The `painter` option
+selects which painting to use when a run has multiple
+(e.g. RFMix vs Flare for sensitivity analysis).
+
+Result rows: `{sample_a, sample_b, ancestry, b_ij_component,
+n_branches, method}`. Output cardinality is up to *N(N+1)/2 × K* for
+*N* samples and *K* ancestries.
+
+The conditional predicates from § 13.1.1 compose unchanged — the
+user can ask "decompose pathway-restricted kinship by ancestry":
+
+```cypher
+CALL graphpop.kinship.branch_grm_by_ancestry('singer_chr22_run_001', {
+  restrict_to_pathway: 'GO:0006281',
+  painter: 'majority_vote'
+}) YIELD sample_a, sample_b, ancestry, b_ij_component
+```
+
+This closes literature gap G3 (local-ancestry × ARG topology
+co-inference). Tang & Chiang 2025 (*Genetics*) introduced an
+admixture-aware eGRM but no query primitive exposed it. GraphPop is
+the first to surface the decomposition as a single Cypher / CLI / MCP
+call composable with G2 annotation predicates and G1 posterior
+aggregation.
+
+Painting is ingested via the M4.B `AncestryIngester` (`graphpop
+ancestry ingest|ingest-from-samples`), which writes
+`(:TreeNode)-[:HAS_ANCESTRY {runId, posterior_prob, painter}]->(:Population)`
+edges. The `ingest-from-samples` mode propagates sample-level ancestry
+to every TreeNode via majority-vote DFS over descendants and emits
+fractional probabilities for mixed nodes (preserving the partition
+property).
+
 ### 13.2 Procedures (planned)
 
 | Procedure | Path | Validation baseline |

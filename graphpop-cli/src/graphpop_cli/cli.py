@@ -102,6 +102,7 @@ from .commands import (  # noqa: E402
     report, neighbors,
     kinship,
     arg,
+    ancestry,
 )
 
 # Individual procedures (12)
@@ -123,6 +124,9 @@ main.add_command(kinship.kinship)
 
 # ARG ingest and management (Phase 4 / M4.A)
 main.add_command(arg.arg)
+
+# Local-ancestry painting management (Phase 4 / M4.B)
+main.add_command(ancestry.ancestry)
 
 # Orchestration and export
 main.add_command(run_all.run_all)

@@ -1256,6 +1256,177 @@ def graphpop_kinship_branch_grm_posterior(
     return json.dumps(results)
 
 
+@mcp.tool()
+def graphpop_ancestry_ingest(
+    run_id: str,
+    painting: list[dict],
+    painter: str = "manual",
+    replace: bool = False,
+) -> str:
+    """Ingest per-TreeNode ancestry painting (M4.B).
+
+    Each painting row is a dict with keys ``tskit_node_id`` (int),
+    ``population_id`` (str), and optional ``posterior_prob`` (float,
+    default 1.0). Multiple rows per node are allowed for probabilistic
+    painting (probs should sum to 1).
+
+    Args:
+        run_id: :ARGRun.runId to attach the painting to.
+        painting: List of {tskit_node_id, population_id, posterior_prob}.
+        painter: Identifier of the painting source.
+        replace: Delete prior painting for (run_id, painter) before insert.
+
+    Returns JSON with the ingest summary.
+    """
+    from graphpop_import.ancestry_ingester import (
+        AncestryIngester, PaintingRow,
+    )
+
+    rows = [
+        PaintingRow(
+            tskit_node_id=int(p["tskit_node_id"]),
+            population_id=str(p["population_id"]),
+            posterior_prob=float(p.get("posterior_prob", 1.0)),
+        )
+        for p in painting
+    ]
+    ing = AncestryIngester(_get_driver())
+    summary = ing.ingest(run_id, rows, painter=painter, replace=replace)
+    return json.dumps({
+        "run_id": summary.run_id,
+        "painter": summary.painter,
+        "n_painted_nodes": summary.n_painted_nodes,
+        "n_edges": summary.n_edges,
+        "n_populations": summary.n_populations,
+        "created_at": summary.created_at.isoformat(),
+    })
+
+
+@mcp.tool()
+def graphpop_ancestry_ingest_from_samples(
+    run_id: str,
+    sample_ancestry: dict[str, str],
+    painter: str = "majority_vote",
+    replace: bool = False,
+) -> str:
+    """Propagate sample-level ancestry to every TreeNode via majority-vote DFS.
+
+    Args:
+        run_id: :ARGRun.runId to paint.
+        sample_ancestry: dict mapping :Sample.sampleId -> population_id.
+        painter: Identifier of the painting source.
+        replace: Delete prior painting for (run_id, painter) before insert.
+
+    Returns JSON with the ingest summary.
+    """
+    from graphpop_import.ancestry_ingester import AncestryIngester
+
+    ing = AncestryIngester(_get_driver())
+    summary = ing.ingest_from_samples(
+        run_id, sample_ancestry, painter=painter, replace=replace)
+    return json.dumps({
+        "run_id": summary.run_id,
+        "painter": summary.painter,
+        "n_painted_nodes": summary.n_painted_nodes,
+        "n_edges": summary.n_edges,
+        "n_populations": summary.n_populations,
+        "created_at": summary.created_at.isoformat(),
+    })
+
+
+@mcp.tool()
+def graphpop_ancestry_list(run_id: str | None = None) -> str:
+    """List paintings in the database, optionally filtered by run_id.
+
+    Returns JSON array of {run_id, painter, n_painted_nodes, n_edges,
+    n_populations}.
+    """
+    from graphpop_import.ancestry_ingester import AncestryIngester
+
+    ing = AncestryIngester(_get_driver())
+    paintings = ing.list_paintings(run_id=run_id)
+    return json.dumps([
+        {
+            "run_id": p.run_id,
+            "painter": p.painter,
+            "n_painted_nodes": p.n_painted_nodes,
+            "n_edges": p.n_edges,
+            "n_populations": p.n_populations,
+        }
+        for p in paintings
+    ])
+
+
+@mcp.tool()
+def graphpop_ancestry_delete(run_id: str, painter: str) -> str:
+    """Delete every :HAS_ANCESTRY edge for a (run_id, painter) pair.
+
+    Returns JSON {run_id, painter, n_edges_deleted}.
+    """
+    from graphpop_import.ancestry_ingester import AncestryIngester
+
+    ing = AncestryIngester(_get_driver())
+    n = ing.delete_painting(run_id, painter)
+    return json.dumps({"run_id": run_id, "painter": painter,
+                        "n_edges_deleted": n})
+
+
+@mcp.tool()
+def graphpop_kinship_branch_grm_by_ancestry(
+    run_id: str,
+    painter: str | None = None,
+    start: int | None = None,
+    end: int | None = None,
+    include_self: bool = True,
+    restrict_to_pathway: str | None = None,
+    mutation_filter: str | None = None,
+    time_window: list[float] | None = None,
+) -> str:
+    """Ancestry-decomposed branch GRM (closes G3).
+
+    Returns one row per (sample_a, sample_b, ancestry) triple. Sum
+    across ancestries reproduces the unconditional branch_grm matrix
+    (modulo unpainted nodes). Conditional predicates compose
+    unchanged. Requires :HAS_ANCESTRY edges ingested via the
+    graphpop_ancestry_ingest* tools.
+
+    Args:
+        run_id: :ARGRun.runId to use.
+        painter: Painter id (e.g. "majority_vote", "rfmix") when the
+            run has multiple paintings; omit for any.
+        start, end: Region bounds (bp).
+        include_self: Emit (s, s) rows (default True).
+        restrict_to_pathway: G2 predicate.
+        mutation_filter: G2 predicate.
+        time_window: G1 lineage-time slice [t_lo, t_hi].
+
+    Returns JSON array of rows: sample_a, sample_b, ancestry,
+    b_ij_component, n_branches, method.
+    """
+    opts: dict = {}
+    if painter:
+        opts["painter"] = painter
+    if start is not None:
+        opts["start"] = start
+    if end is not None:
+        opts["end"] = end
+    if not include_self:
+        opts["include_self"] = False
+    if restrict_to_pathway:
+        opts["restrict_to_pathway"] = restrict_to_pathway
+    if mutation_filter:
+        opts["mutation_filter"] = mutation_filter
+    if time_window is not None:
+        if len(time_window) != 2:
+            return json.dumps({"error": "time_window must be [t_lo, t_hi]"})
+        opts["time_window"] = list(time_window)
+    cypher = "CALL graphpop.kinship.branch_grm_by_ancestry($run_id, $options)"
+    results = _run_procedure(
+        cypher, {"run_id": run_id, "options": opts}
+    )
+    return json.dumps(results)
+
+
 def main():
     """Entry point for the graphpop-mcp command."""
     mcp.run()
