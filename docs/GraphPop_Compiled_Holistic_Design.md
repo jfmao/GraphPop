@@ -860,6 +860,44 @@ unconditional contributions. Validated to rel err < 10⁻⁶ against a
 Python reference reimplementation (`build_egrm_fixture.py`) that
 mirrors `egrm.varGRM`'s code path with a per-branch weight multiplier.
 
+### 13.1.2 Posterior branch GRM (M4.1 step 5)
+
+`graphpop.kinship.branch_grm_posterior(posterior_run_ids, options)`
+aggregates `branch_grm` over a posterior set of `:ARGRun`s (e.g.
+M=100 SINGER samples) with element-wise Welford running statistics:
+
+```
+B_ij^post = (1/M) · Σ_m B_ij^(m)
+SE(B_ij)  = sqrt[ M2 / (M · (M − 1)) ]      (NaN for M < 2)
+```
+
+Result rows: `{sample_a, sample_b, b_ij_mean, b_ij_sd, n_runs, method}`.
+Multiply `b_ij_sd` by 1.96 for a Wald 95 % credible interval on the
+posterior mean.
+
+The same conditional predicates from § 13.1.1 compose unchanged: the
+predicate is rebuilt per run (lit-child masks may differ between
+posterior samples because mutations land on different branches), then
+the conditional matrix is folded into Welford. The user-facing query
+shape is one Cypher call:
+
+```cypher
+CALL graphpop.kinship.branch_grm_posterior(
+  ['singer_chr22_run_001', ..., 'singer_chr22_run_100'],
+  {restrict_to_pathway: 'GO:0006281', time_window: [0, 1000]}
+) YIELD sample_a, sample_b, b_ij_mean, b_ij_sd, n_runs, method
+```
+
+This closes literature gap G1 (ARG-inference uncertainty
+propagation): SINGER (Deng, Nielsen & Song 2025 *Nat Genet*) emits a
+posterior of M ARGs but no kinship/GRM tool consumed it; GraphPop is
+the first.
+
+The procedure requires every run to expose the same ordered set of
+`:Sample.sampleId`s (resolved per run via `:REPRESENTS`). Practical
+use — SINGER inputs the same phased haplotype matrix to every chain,
+so this is by construction satisfied.
+
 ### 13.2 Procedures (planned)
 
 | Procedure | Path | Validation baseline |

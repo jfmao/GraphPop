@@ -150,13 +150,77 @@ def bgrm(ctx, run_id, start, end, no_self, pathway, consequence,
 
 @kinship.command("bgrm-posterior")
 @click.argument("run_ids", nargs=-1, required=True)
-def bgrm_posterior(run_ids):
+@click.option("--start", type=int, default=None,
+              help="Region start in bp (same for every run)")
+@click.option("--end", type=int, default=None,
+              help="Region end in bp (same for every run)")
+@click.option("--no-self", is_flag=True,
+              help="Omit (s, s) self-pair rows from output")
+@click.option("--pathway",
+              help="Restrict to branches whose mutations land in this Pathway")
+@click.option("--consequence",
+              help="Restrict to branches whose mutations have this consequence")
+@click.option("--time-window-start", type=float,
+              help="Lower bound (generations) of the time window")
+@click.option("--time-window-end", type=float,
+              help="Upper bound (generations) of the time window")
+@click.option("-o", "--output", "output_path",
+              help="Output file (default: stdout)")
+@click.option("--format", "fmt", default="tsv",
+              type=click.Choice(["tsv", "csv", "json"]))
+@pass_ctx
+def bgrm_posterior(ctx, run_ids, start, end, no_self, pathway, consequence,
+                    time_window_start, time_window_end, output_path, fmt):
     """Posterior-aware branch GRM over multiple ARG runs (e.g. SINGER posterior).
 
-    Not yet implemented — pending the M4.A ARG ingest and the
-    branch_grm primary implementation.
+    Aggregates per-run branch_grm with element-wise Welford. Returns
+    posterior mean and standard error of the mean. Conditional
+    predicates (pathway / consequence / time-window) compose unchanged
+    — the posterior is computed *after* the predicate.
+
+    Closes the ARG-inference uncertainty (G1) gap. Combine with
+    --pathway to get "posterior-mean kinship through pathway X with
+    credible interval" — the GraphPop v2 paper's headline statistic.
+
+    Run IDs may be supplied either positionally or comma-separated:
+
+      graphpop kinship bgrm-posterior r0 r1 r2 r3 r4
+      graphpop kinship bgrm-posterior r0,r1,r2,r3,r4
     """
-    raise click.ClickException(
-        "graphpop.kinship.branch_grm_posterior is not yet implemented. "
-        "Awaiting M4.A and branch_grm; see tasks/phase4_pairwise_plan.md."
+    expanded: list[str] = []
+    for rid in run_ids:
+        expanded.extend(p for p in rid.split(",") if p)
+    if not expanded:
+        raise click.ClickException("at least one run-id required")
+
+    opts: dict[str, object] = {}
+    if start is not None:
+        opts["start"] = start
+    if end is not None:
+        opts["end"] = end
+    if no_self:
+        opts["include_self"] = False
+    if pathway:
+        opts["restrict_to_pathway"] = pathway
+    if consequence:
+        opts["mutation_filter"] = consequence
+    if (time_window_start is None) ^ (time_window_end is None):
+        raise click.ClickException(
+            "--time-window-start and --time-window-end must be set together")
+    if time_window_start is not None and time_window_end is not None:
+        if time_window_end <= time_window_start:
+            raise click.ClickException(
+                "--time-window-end must be greater than --time-window-start")
+        opts["time_window"] = [time_window_start, time_window_end]
+
+    rids_literal = "[" + ",".join(f"'{r}'" for r in expanded) + "]"
+    cypher = build_cypher(
+        "graphpop.kinship.branch_grm_posterior",
+        [rids_literal],
+        options=opts if opts else None,
+        yield_cols=["sample_a", "sample_b", "b_ij_mean", "b_ij_sd",
+                    "n_runs", "method"],
     )
+    records = ctx.run(cypher)
+    format_output(records, output_path, fmt, "kinship-bgrm-posterior",
+                  {"n_runs": len(expanded)})

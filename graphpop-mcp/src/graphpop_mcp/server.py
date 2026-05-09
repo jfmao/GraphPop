@@ -1200,6 +1200,62 @@ def graphpop_kinship_branch_grm(
     return json.dumps(results)
 
 
+@mcp.tool()
+def graphpop_kinship_branch_grm_posterior(
+    posterior_run_ids: list[str],
+    start: int | None = None,
+    end: int | None = None,
+    include_self: bool = True,
+    restrict_to_pathway: str | None = None,
+    mutation_filter: str | None = None,
+    time_window: list[float] | None = None,
+) -> str:
+    """Posterior-aware branch GRM over multiple :ARGRun (closes G1 in full).
+
+    Aggregates element-wise per-run branch_grm via Welford. Returns
+    posterior mean and standard error of the mean. Conditional
+    predicates (restrict_to_pathway, mutation_filter, time_window)
+    compose unchanged — combine with restrict_to_pathway to get
+    "posterior-mean kinship through pathway X with credible interval"
+    in a single query (the GraphPop v2 paper headline).
+
+    Args:
+        posterior_run_ids: List of :ARGRun.runId values from the
+            posterior set (e.g. SINGER's M=100 samples).
+        start, end: Region bounds (bp); same across all runs.
+        include_self: Emit (s, s) self-pair rows (default True).
+        restrict_to_pathway: :Pathway.pathwayId (G2).
+        mutation_filter: HAS_CONSEQUENCE.consequence string (G2).
+        time_window: Two-element [t_lo, t_hi] in generations.
+
+    Returns JSON array with one row per pair:
+    sample_a, sample_b, b_ij_mean, b_ij_sd (NaN when n_runs < 2),
+    n_runs, method.
+    """
+    opts: dict = {}
+    if start is not None:
+        opts["start"] = start
+    if end is not None:
+        opts["end"] = end
+    if not include_self:
+        opts["include_self"] = False
+    if restrict_to_pathway:
+        opts["restrict_to_pathway"] = restrict_to_pathway
+    if mutation_filter:
+        opts["mutation_filter"] = mutation_filter
+    if time_window is not None:
+        if len(time_window) != 2:
+            return json.dumps({"error": "time_window must be [t_lo, t_hi]"})
+        opts["time_window"] = list(time_window)
+    cypher = ("CALL graphpop.kinship.branch_grm_posterior("
+              "$posterior_run_ids, $options)")
+    results = _run_procedure(
+        cypher,
+        {"posterior_run_ids": list(posterior_run_ids), "options": opts}
+    )
+    return json.dumps(results)
+
+
 def main():
     """Entry point for the graphpop-mcp command."""
     mcp.run()
