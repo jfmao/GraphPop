@@ -101,6 +101,7 @@ from .commands import (  # noqa: E402
     extract, export_bed, batch, compare,
     report, neighbors,
     kinship,
+    arg,
 )
 
 # Individual procedures (12)
@@ -119,6 +120,9 @@ main.add_command(garud_h.garud_h)
 
 # Kinship suite (Phase 4): king + bgrm + bgrm-posterior
 main.add_command(kinship.kinship)
+
+# ARG ingest and management (Phase 4 / M4.A)
+main.add_command(arg.arg)
 
 # Orchestration and export
 main.add_command(run_all.run_all)

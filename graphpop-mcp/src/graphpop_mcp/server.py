@@ -1038,6 +1038,108 @@ def graphpop_kinship_king(
     return json.dumps(results)
 
 
+@mcp.tool()
+def graphpop_arg_ingest(
+    tree_sequence_path: str,
+    run_id: str,
+    source: str = "tsinfer",
+    params: dict | None = None,
+    sample_id_map: dict[int, str] | None = None,
+) -> str:
+    """Ingest a tskit TreeSequence into the GraphPop ARG layer (M4.A).
+
+    Additive: leaves existing :Variant, :Sample, :Population nodes
+    untouched. Creates one :ARGRun + many :TreeNode + :PARENT_OF +
+    :REPRESENTS + :MUTATED_ON in a single online-Cypher pass. The agent
+    must specify a server-side path to a .trees file (paths are not
+    transmitted as content over MCP).
+
+    Args:
+        tree_sequence_path: Server-side filesystem path to the .trees file.
+        run_id: Globally unique identifier for this run.
+        source: Inferer that produced the ARG ("tsinfer", "tsdate",
+            "singer", "relate", "msprime").
+        params: Free-form parameter dict serialised onto the :ARGRun node.
+        sample_id_map: Optional dict mapping tskit sample index (int) to
+            existing :Sample.sampleId. Defaults to identity ("sample_{i}").
+
+    Returns JSON of the resulting ARGRunSummary.
+    """
+    try:
+        import tskit  # type: ignore
+    except ImportError:
+        return json.dumps({
+            "error": "tskit is not installed in the MCP server environment; "
+                     "install graphpop-mcp[arg]"
+        })
+    from graphpop_import.arg_importer import ARGIngester
+
+    treeseq = tskit.load(tree_sequence_path)
+    ingester = ARGIngester(_get_driver())
+    sample_id_callable = (
+        (lambda i: sample_id_map[i]) if sample_id_map else None
+    )
+    summary = ingester.ingest(
+        treeseq,
+        run_id=run_id,
+        source=source,
+        params=params,
+        sample_id_map=sample_id_callable,
+    )
+    return json.dumps({
+        "run_id": summary.run_id,
+        "source": summary.source,
+        "n_samples": summary.n_samples,
+        "sequence_length": summary.sequence_length,
+        "n_trees": summary.n_trees,
+        "n_nodes": summary.n_nodes,
+        "n_edges": summary.n_edges,
+        "n_mutations": summary.n_mutations,
+        "created_at": summary.created_at.isoformat(),
+    })
+
+
+@mcp.tool()
+def graphpop_arg_list_runs() -> str:
+    """List every :ARGRun currently stored in the database.
+
+    Returns JSON array of run summaries (run_id, source, n_samples,
+    sequence_length, n_trees, n_nodes, n_edges, n_mutations, created_at).
+    """
+    from graphpop_import.arg_importer import ARGIngester
+
+    ingester = ARGIngester(_get_driver())
+    runs = ingester.list_runs()
+    return json.dumps([
+        {
+            "run_id": r.run_id,
+            "source": r.source,
+            "n_samples": r.n_samples,
+            "sequence_length": r.sequence_length,
+            "n_trees": r.n_trees,
+            "n_nodes": r.n_nodes,
+            "n_edges": r.n_edges,
+            "n_mutations": r.n_mutations,
+            "created_at": r.created_at.isoformat() if r.created_at else None,
+        }
+        for r in runs
+    ])
+
+
+@mcp.tool()
+def graphpop_arg_delete_run(run_id: str) -> str:
+    """Delete an :ARGRun and every :TreeNode + relationship that references it.
+
+    Other runs in the database are left untouched. Returns JSON
+    {"run_id": ..., "n_tree_nodes_deleted": N}.
+    """
+    from graphpop_import.arg_importer import ARGIngester
+
+    ingester = ARGIngester(_get_driver())
+    n = ingester.delete_run(run_id)
+    return json.dumps({"run_id": run_id, "n_tree_nodes_deleted": n})
+
+
 def main():
     """Entry point for the graphpop-mcp command."""
     mcp.run()

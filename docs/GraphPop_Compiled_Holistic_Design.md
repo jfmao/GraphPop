@@ -815,27 +815,29 @@ Added on the `develop` branch (post-bioRxiv-v5.2 work). ARGs are stored
 extends the core thesis (every population genomics computation is a graph
 operation) to coalescent-genealogy inference.
 
-### 13.1 Schema additions
+### 13.1 Schema additions (locked by M4.A)
 
 **Nodes**
 
-- `(:TreeNode {id, time, is_sample, run_id})` — coalescent tree nodes
-  (samples at `time = 0`, internal coalescent events at `time > 0`). The
-  `run_id` foreign-keys back to a `:ARGRun` node.
-- `(:ARGRun {run_id, source, params, n_samples, sequence_length, created_at})`
-  where `source ∈ {"tsinfer","tsdate","relate","singer","msprime"}`.
+| Label | Unique key | Properties | Index/constraint |
+|-------|------------|------------|------------------|
+| `:ARGRun` | `runId` (STRING) | `source` ∈ {"tsinfer","tsdate","singer","relate","msprime"}, `params` (STRING, JSON), `n_samples` (INT), `sequence_length` (LONG), `n_trees` (INT), `n_nodes` (INT), `n_edges` (INT), `n_mutations` (INT), `created_at` (DATETIME) | constraint `arg_run_id` (`runId IS UNIQUE`) |
+| `:TreeNode` | `treeNodeId` (STRING, format `"{runId}:{tskit_node_id}"`) | `runId`, `nodeId` (INT), `time` (FLOAT, generations), `is_sample` (BOOL), `flags` (INT, tskit node flags) | constraint `tree_node_id`; indices `tree_node_run` on `(runId)` and `tree_node_run_sample` on `(runId, is_sample)` |
 
 **Relationships**
 
-- `(:TreeNode)-[:PARENT_OF {start, end, run_id}]->(:TreeNode)` — ARG edges
-  carrying the genomic interval (in bp) over which the parent–child
-  relationship holds. Indexed on `(run_id, start)` and `(run_id, end)` for
-  positional traversal.
-- `(:TreeNode)-[:REPRESENTS]->(:Sample)` — for `is_sample = true` leaves;
-  ties the ARG into the existing Sample layer.
-- `(:Variant)-[:MUTATED_ON {run_id, parent_id, child_id}]->(:TreeNode)` — the
-  child node of the edge on which the mutation arose. Use the corresponding
-  `:PARENT_OF` edge's interval to recover the genomic context.
+| Type | Source → Target | Properties | Index |
+|------|-----------------|------------|-------|
+| `:PARENT_OF` | `:TreeNode → :TreeNode` (parent → child) | `runId`, `start` (LONG bp), `end` (LONG bp) | `parent_of_run_start` on `(runId, start)`, `parent_of_run_end` on `(runId, end)` |
+| `:REPRESENTS` | `:TreeNode → :Sample` | `runId`, `haplotype` (INT, 0 or 1) | `represents_run` on `(runId)` |
+| `:MUTATED_ON` | `:Variant → :TreeNode` | `runId`, `parent_node_id` (INT), `derived_state` (STRING) | `mutated_on_run` on `(runId)` |
+| `:HAS_ANCESTRY` | `:TreeNode → :Population` | `runId`, `posterior_prob` (FLOAT), `painter` (STRING, "rfmix"\|"mosaic"\|…) | `has_ancestry_run` on `(runId)` — populated by a separate post-ingest tool, may be empty |
+
+The `runId` property repeated on every relationship is intentional: queries
+typically filter by run first, and per-relationship `(runId, …)` indices
+keep traversal sub-linear in the multi-posterior case (one `:ARGRun` per
+SINGER posterior sample). Schema declarations live in
+`graphpop-import/src/graphpop_import/arg_schema.py`.
 
 ### 13.2 Procedures (planned)
 
