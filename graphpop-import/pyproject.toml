@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "graphpop-import"
-version = "0.1.0"
+version = "0.2.0.dev0"
 description = "VCF to Neo4j import pipeline for GraphPop"
 requires-python = ">=3.11"
 dependencies = [
@@ -17,6 +17,11 @@ dependencies = [
 dev = [
     "pytest",
     "ruff",
+]
+arg = [
+    "tskit>=0.6",
+    "tsinfer>=0.4",
+    "tsdate>=0.2",
 ]
 
 [project.scripts]

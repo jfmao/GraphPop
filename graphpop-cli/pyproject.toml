@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "graphpop-cli"
-version = "0.1.1"
+version = "0.2.0.dev0"
 description = "Graph database-native population genomics CLI with O(V*K) complexity"
 readme = "README.md"
 license = {text = "MIT"}
@@ -32,6 +32,11 @@ dependencies = [
 plot = [
     "matplotlib>=3.5",
     "numpy>=1.22",
+]
+arg = [
+    "tskit>=0.6",
+    "tsinfer>=0.4",
+    "tsdate>=0.2",
 ]
 
 [project.urls]

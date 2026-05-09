@@ -805,3 +805,57 @@ SFS = degree distribution of Variant nodes. Heterozygosity = degree distribution
 **GraphPop occupies a unique niche:** the only system that natively represents the relational structure of population variation and computes evolutionary statistics directly from that structure. Hail can compute Tajima's D faster on a Spark cluster, but it cannot answer "find all individuals sharing an IBD segment overlapping a high-F_ST missense variant in a drought-response pathway" without building an ad-hoc pipeline for each such query.
 
 No one is building this. That is both the opportunity and the risk.
+
+---
+
+## 13. Phase 4 — Ancestral Recombination Graph (ARG) Layer
+
+Added on the `develop` branch (post-bioRxiv-v5.2 work). ARGs are stored
+**natively in Neo4j** rather than projected to variant-level summaries; this
+extends the core thesis (every population genomics computation is a graph
+operation) to coalescent-genealogy inference.
+
+### 13.1 Schema additions
+
+**Nodes**
+
+- `(:TreeNode {id, time, is_sample, run_id})` — coalescent tree nodes
+  (samples at `time = 0`, internal coalescent events at `time > 0`). The
+  `run_id` foreign-keys back to a `:ARGRun` node.
+- `(:ARGRun {run_id, source, params, n_samples, sequence_length, created_at})`
+  where `source ∈ {"tsinfer","tsdate","relate","singer","msprime"}`.
+
+**Relationships**
+
+- `(:TreeNode)-[:PARENT_OF {start, end, run_id}]->(:TreeNode)` — ARG edges
+  carrying the genomic interval (in bp) over which the parent–child
+  relationship holds. Indexed on `(run_id, start)` and `(run_id, end)` for
+  positional traversal.
+- `(:TreeNode)-[:REPRESENTS]->(:Sample)` — for `is_sample = true` leaves;
+  ties the ARG into the existing Sample layer.
+- `(:Variant)-[:MUTATED_ON {run_id, parent_id, child_id}]->(:TreeNode)` — the
+  child node of the edge on which the mutation arose. Use the corresponding
+  `:PARENT_OF` edge's interval to recover the genomic context.
+
+### 13.2 Procedures (planned)
+
+| Procedure | Path | Validation baseline |
+|-----------|------|---------------------|
+| `graphpop.arg.tmrca(sample_a, sample_b, position)` | ARG traversal | `tskit.TreeSequence.tmrca` |
+| `graphpop.arg.coalescence_rate(pop, time_bins)` | ARG aggregation | `tskit.TreeSequence.coalescence_rate` |
+| `graphpop.arg.branch_diversity(pop, mode)` | edge-length sum over windows | `tskit.TreeSequence.diversity(mode="branch")` |
+| `graphpop.arg.allele_age(variant_id)` | edge timing for `MUTATED_ON` edge | tsdate posterior |
+
+### 13.3 Ingest
+
+`graphpop-import/arg_importer.py` reads a tskit `TreeSequence` and emits CSVs
+for `neo4j-admin database import` following the existing `csv_emitter.py`
+patterns. One ingest per `(:ARGRun)`; multiple ARG runs per database are
+allowed (e.g., tsinfer vs Relate side-by-side comparison).
+
+### 13.4 Validation strategy
+
+Ground truth: msprime-simulated tree sequences with known coalescent times.
+Empirical: re-infer 1000G chr22 ARG with tsinfer + tsdate, ingest, and
+require relative error < 1e-6 against tskit's branch-length statistics for
+the same tree sequence.

@@ -269,3 +269,22 @@ MIT License. See [LICENSE](LICENSE) for details.
 ## Contributing
 
 Contributions are welcome. Please open an issue for bug reports or feature requests, or submit a pull request for code contributions.
+
+### Branch policy
+
+The repository uses a two-branch model while the Phase 1 manuscript is under
+peer review:
+
+- **`main`** — paper-revision-only. Manuscript edits, figure scripts coupled
+  to the manuscript, doc fixes, and hotfixes to procedures already cited in
+  the bioRxiv preprint. Versioned `0.1.x`.
+- **`develop`** — all new feature work (pairwise statistics, ARG layer,
+  schema extensions, new CLI commands). Versioned `0.2.0.dev*` /
+  `0.2.0-SNAPSHOT`.
+
+The exact code state corresponding to bioRxiv v5.2 is preserved by the
+annotated tag `v0.1.1-bioRxiv` on `main`. At paper acceptance, `main` will
+be tagged `v1.0.0` and `develop` merged in.
+
+Open pull requests against `develop` unless the change is a paper-revision
+hotfix.
