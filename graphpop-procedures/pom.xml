@@ -44,6 +44,14 @@
             <version>${junit.version}</version>
             <scope>test</scope>
         </dependency>
+        <!-- Jackson (test-only): used by BranchGrmProcedureTest to load
+             the eGRM reference fixture from JSON. -->
+        <dependency>
+            <groupId>com.fasterxml.jackson.core</groupId>
+            <artifactId>jackson-databind</artifactId>
+            <version>2.18.2</version>
+            <scope>test</scope>
+        </dependency>
     </dependencies>
 
     <build>

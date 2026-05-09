@@ -40,14 +40,19 @@ def tiny_ts():
 
 @pytest.fixture
 def small_ts():
-    """A 20-sample (10-diploid), 5kb, recombining tree sequence."""
+    """A 20-sample (10-diploid), 50kb, recombining tree sequence with mutations.
+
+    Bumped from 5 kb / mu=1e-5 in step 1 of M4.1 step 3: at 50 kb / mu=1e-4
+    we get >100 mutations and multiple marginal trees, sufficient for eGRM
+    validation downstream.
+    """
     ts = msprime.sim_ancestry(
         samples=10,
-        sequence_length=5_000,
-        recombination_rate=1e-4,
+        sequence_length=50_000,
+        recombination_rate=1e-5,
         random_seed=43,
     )
-    ts = msprime.sim_mutations(ts, rate=1e-5, random_seed=43)
+    ts = msprime.sim_mutations(ts, rate=1e-4, random_seed=43)
     return ts
 
 

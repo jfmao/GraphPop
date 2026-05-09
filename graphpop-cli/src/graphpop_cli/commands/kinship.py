@@ -72,15 +72,42 @@ def king(ctx, chr, population, start, end, min_snp, min_phi, include_self,
 
 @kinship.command("bgrm")
 @click.argument("run_id")
-def bgrm(run_id):
-    """Branch GRM via ARG traversal (Phase 4 ARG layer required).
+@click.option("--start", type=int, default=None,
+              help="Region start in bp (default: 0)")
+@click.option("--end", type=int, default=None,
+              help="Region end in bp (default: full ARG sequence)")
+@click.option("--no-self", is_flag=True,
+              help="Omit (s, s) self-pair rows from output")
+@click.option("-o", "--output", "output_path",
+              help="Output file (default: stdout)")
+@click.option("--format", "fmt", default="tsv",
+              type=click.Choice(["tsv", "csv", "json"]))
+@pass_ctx
+def bgrm(ctx, run_id, start, end, no_self, output_path, fmt):
+    """Branch GRM via ARG traversal (Fan, Mancuso & Chiang 2022).
 
-    Not yet implemented — pending the M4.A ARG ingest milestone.
+    Validation baseline: matches the egrm.varGRM Python package element-wise
+    to relative error < 1e-6. Requires an :ARGRun with the given RUN_ID
+    already ingested via ``graphpop arg ingest``.
     """
-    raise click.ClickException(
-        "graphpop.kinship.branch_grm is not yet implemented. "
-        "Awaiting M4.A (ARG ingest); see tasks/phase4_pairwise_plan.md."
+    opts: dict[str, object] = {}
+    if start is not None:
+        opts["start"] = start
+    if end is not None:
+        opts["end"] = end
+    if no_self:
+        opts["include_self"] = False
+
+    cypher = build_cypher(
+        "graphpop.kinship.branch_grm",
+        [f"'{run_id}'"],
+        options=opts if opts else None,
+        yield_cols=["sample_a", "sample_b", "phi", "ibs0", "het_het",
+                    "n_snp", "n_aa_min", "method"],
     )
+    records = ctx.run(cypher)
+    format_output(records, output_path, fmt, "kinship-bgrm",
+                  {"run_id": run_id})
 
 
 @kinship.command("bgrm-posterior")

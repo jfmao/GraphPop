@@ -1,0 +1,630 @@
+{
+  "schema_version": 1,
+  "run_id": "egrm_fixture_20samples",
+  "source": "msprime",
+  "n_samples": 20,
+  "n_trees": 6,
+  "n_edges": 55,
+  "n_mutations": 41,
+  "sequence_length": 50000,
+  "nodes": [
+    {
+      "id": 0,
+      "time": 0.0,
+      "is_sample": true,
+      "flags": 1
+    },
+    {
+      "id": 1,
+      "time": 0.0,
+      "is_sample": true,
+      "flags": 1
+    },
+    {
+      "id": 2,
+      "time": 0.0,
+      "is_sample": true,
+      "flags": 1
+    },
+    {
+      "id": 3,
+      "time": 0.0,
+      "is_sample": true,
+      "flags": 1
+    },
+    {
+      "id": 4,
+      "time": 0.0,
+      "is_sample": true,
+      "flags": 1
+    },
+    {
+      "id": 5,
+      "time": 0.0,
+      "is_sample": true,
+      "flags": 1
+    },
+    {
+      "id": 6,
+      "time": 0.0,
+      "is_sample": true,
+      "flags": 1
+    },
+    {
+      "id": 7,
+      "time": 0.0,
+      "is_sample": true,
+      "flags": 1
+    },
+    {
+      "id": 8,
+      "time": 0.0,
+      "is_sample": true,
+      "flags": 1
+    },
+    {
+      "id": 9,
+      "time": 0.0,
+      "is_sample": true,
+      "flags": 1
+    },
+    {
+      "id": 10,
+      "time": 0.0,
+      "is_sample": true,
+      "flags": 1
+    },
+    {
+      "id": 11,
+      "time": 0.0,
+      "is_sample": true,
+      "flags": 1
+    },
+    {
+      "id": 12,
+      "time": 0.0,
+      "is_sample": true,
+      "flags": 1
+    },
+    {
+      "id": 13,
+      "time": 0.0,
+      "is_sample": true,
+      "flags": 1
+    },
+    {
+      "id": 14,
+      "time": 0.0,
+      "is_sample": true,
+      "flags": 1
+    },
+    {
+      "id": 15,
+      "time": 0.0,
+      "is_sample": true,
+      "flags": 1
+    },
+    {
+      "id": 16,
+      "time": 0.0,
+      "is_sample": true,
+      "flags": 1
+    },
+    {
+      "id": 17,
+      "time": 0.0,
+      "is_sample": true,
+      "flags": 1
+    },
+    {
+      "id": 18,
+      "time": 0.0,
+      "is_sample": true,
+      "flags": 1
+    },
+    {
+      "id": 19,
+      "time": 0.0,
+      "is_sample": true,
+      "flags": 1
+    },
+    {
+      "id": 20,
+      "time": 0.016761058115618066,
+      "is_sample": false,
+      "flags": 0
+    },
+    {
+      "id": 21,
+      "time": 0.03445373836142679,
+      "is_sample": false,
+      "flags": 0
+    },
+    {
+      "id": 22,
+      "time": 0.04216993125090236,
+      "is_sample": false,
+      "flags": 0
+    },
+    {
+      "id": 23,
+      "time": 0.06122407283174474,
+      "is_sample": false,
+      "flags": 0
+    },
+    {
+      "id": 24,
+      "time": 0.06152994507530668,
+      "is_sample": false,
+      "flags": 0
+    },
+    {
+      "id": 25,
+      "time": 0.09130377035707779,
+      "is_sample": false,
+      "flags": 0
+    },
+    {
+      "id": 26,
+      "time": 0.10743137285546628,
+      "is_sample": false,
+      "flags": 0
+    },
+    {
+      "id": 27,
+      "time": 0.10756644701011349,
+      "is_sample": false,
+      "flags": 0
+    },
+    {
+      "id": 28,
+      "time": 0.12391735230965334,
+      "is_sample": false,
+      "flags": 0
+    },
+    {
+      "id": 29,
+      "time": 0.13317213314968593,
+      "is_sample": false,
+      "flags": 0
+    },
+    {
+      "id": 30,
+      "time": 0.1682028855388471,
+      "is_sample": false,
+      "flags": 0
+    },
+    {
+      "id": 31,
+      "time": 0.31842481912520604,
+      "is_sample": false,
+      "flags": 0
+    },
+    {
+      "id": 32,
+      "time": 0.32673420817164295,
+      "is_sample": false,
+      "flags": 0
+    },
+    {
+      "id": 33,
+      "time": 0.36690931308274377,
+      "is_sample": false,
+      "flags": 0
+    },
+    {
+      "id": 34,
+      "time": 0.3678034848143833,
+      "is_sample": false,
+      "flags": 0
+    },
+    {
+      "id": 35,
+      "time": 0.38750256039922576,
+      "is_sample": false,
+      "flags": 0
+    },
+    {
+      "id": 36,
+      "time": 0.4350504236569825,
+      "is_sample": false,
+      "flags": 0
+    },
+    {
+      "id": 37,
+      "time": 0.4635702118428152,
+      "is_sample": false,
+      "flags": 0
+    },
+    {
+      "id": 38,
+      "time": 0.5133764221619721,
+      "is_sample": false,
+      "flags": 0
+    },
+    {
+      "id": 39,
+      "time": 0.6313338160032227,
+      "is_sample": false,
+      "flags": 0
+    },
+    {
+      "id": 40,
+      "time": 0.750811828471296,
+      "is_sample": false,
+      "flags": 0
+    },
+    {
+      "id": 41,
+      "time": 1.6216896952048279,
+      "is_sample": false,
+      "flags": 0
+    },
+    {
+      "id": 42,
+      "time": 1.8852415762535657,
+      "is_sample": false,
+      "flags": 0
+    },
+    {
+      "id": 43,
+      "time": 3.3566590589812293,
+      "is_sample": false,
+      "flags": 0
+    }
+  ],
+  "edges": [
+    {
+      "parent": 20,
+      "child": 0,
+      "start": 0,
+      "end": 50000
+    },
+    {
+      "parent": 20,
+      "child": 16,
+      "start": 0,
+      "end": 50000
+    },
+    {
+      "parent": 21,
+      "child": 8,
+      "start": 0,
+      "end": 50000
+    },
+    {
+      "parent": 21,
+      "child": 9,
+      "start": 0,
+      "end": 50000
+    },
+    {
+      "parent": 22,
+      "child": 18,
+      "start": 0,
+      "end": 50000
+    },
+    {
+      "parent": 22,
+      "child": 19,
+      "start": 0,
+      "end": 50000
+    },
+    {
+      "parent": 23,
+      "child": 5,
+      "start": 0,
+      "end": 50000
+    },
+    {
+      "parent": 23,
+      "child": 17,
+      "start": 0,
+      "end": 50000
+    },
+    {
+      "parent": 24,
+      "child": 1,
+      "start": 0,
+      "end": 50000
+    },
+    {
+      "parent": 24,
+      "child": 20,
+      "start": 0,
+      "end": 50000
+    },
+    {
+      "parent": 25,
+      "child": 2,
+      "start": 0,
+      "end": 50000
+    },
+    {
+      "parent": 25,
+      "child": 15,
+      "start": 0,
+      "end": 50000
+    },
+    {
+      "parent": 26,
+      "child": 7,
+      "start": 0,
+      "end": 50000
+    },
+    {
+      "parent": 26,
+      "child": 14,
+      "start": 0,
+      "end": 50000
+    },
+    {
+      "parent": 27,
+      "child": 3,
+      "start": 36250,
+      "end": 50000
+    },
+    {
+      "parent": 27,
+      "child": 11,
+      "start": 36250,
+      "end": 50000
+    },
+    {
+      "parent": 28,
+      "child": 6,
+      "start": 0,
+      "end": 50000
+    },
+    {
+      "parent": 28,
+      "child": 10,
+      "start": 0,
+      "end": 50000
+    },
+    {
+      "parent": 29,
+      "child": 22,
+      "start": 0,
+      "end": 50000
+    },
+    {
+      "parent": 29,
+      "child": 28,
+      "start": 0,
+      "end": 50000
+    },
+    {
+      "parent": 30,
+      "child": 12,
+      "start": 0,
+      "end": 50000
+    },
+    {
+      "parent": 30,
+      "child": 29,
+      "start": 0,
+      "end": 50000
+    },
+    {
+      "parent": 31,
+      "child": 24,
+      "start": 0,
+      "end": 38061
+    },
+    {
+      "parent": 31,
+      "child": 26,
+      "start": 0,
+      "end": 38061
+    },
+    {
+      "parent": 32,
+      "child": 13,
+      "start": 0,
+      "end": 50000
+    },
+    {
+      "parent": 32,
+      "child": 30,
+      "start": 0,
+      "end": 50000
+    },
+    {
+      "parent": 33,
+      "child": 3,
+      "start": 0,
+      "end": 36250
+    },
+    {
+      "parent": 33,
+      "child": 31,
+      "start": 0,
+      "end": 36250
+    },
+    {
+      "parent": 34,
+      "child": 21,
+      "start": 26985,
+      "end": 50000
+    },
+    {
+      "parent": 34,
+      "child": 25,
+      "start": 26985,
+      "end": 50000
+    },
+    {
+      "parent": 35,
+      "child": 4,
+      "start": 0,
+      "end": 50000
+    },
+    {
+      "parent": 35,
+      "child": 11,
+      "start": 0,
+      "end": 36250
+    },
+    {
+      "parent": 35,
+      "child": 27,
+      "start": 36250,
+      "end": 50000
+    },
+    {
+      "parent": 36,
+      "child": 23,
+      "start": 0,
+      "end": 26985
+    },
+    {
+      "parent": 36,
+      "child": 25,
+      "start": 0,
+      "end": 26985
+    },
+    {
+      "parent": 37,
+      "child": 26,
+      "start": 38061,
+      "end": 50000
+    },
+    {
+      "parent": 37,
+      "child": 31,
+      "start": 36250,
+      "end": 38061
+    },
+    {
+      "parent": 37,
+      "child": 32,
+      "start": 0,
+      "end": 50000
+    },
+    {
+      "parent": 37,
+      "child": 33,
+      "start": 0,
+      "end": 36250
+    },
+    {
+      "parent": 38,
+      "child": 23,
+      "start": 43069,
+      "end": 50000
+    },
+    {
+      "parent": 38,
+      "child": 24,
+      "start": 43069,
+      "end": 50000
+    },
+    {
+      "parent": 39,
+      "child": 21,
+      "start": 0,
+      "end": 26985
+    },
+    {
+      "parent": 39,
+      "child": 34,
+      "start": 26985,
+      "end": 50000
+    },
+    {
+      "parent": 39,
+      "child": 37,
+      "start": 0,
+      "end": 50000
+    },
+    {
+      "parent": 40,
+      "child": 36,
+      "start": 0,
+      "end": 15345
+    },
+    {
+      "parent": 40,
+      "child": 39,
+      "start": 0,
+      "end": 15345
+    },
+    {
+      "parent": 41,
+      "child": 23,
+      "start": 26985,
+      "end": 43069
+    },
+    {
+      "parent": 41,
+      "child": 36,
+      "start": 15345,
+      "end": 26985
+    },
+    {
+      "parent": 41,
+      "child": 38,
+      "start": 43069,
+      "end": 50000
+    },
+    {
+      "parent": 41,
+      "child": 39,
+      "start": 15345,
+      "end": 50000
+    },
+    {
+      "parent": 42,
+      "child": 35,
+      "start": 0,
+      "end": 50000
+    },
+    {
+      "parent": 42,
+      "child": 40,
+      "start": 0,
+      "end": 15345
+    },
+    {
+      "parent": 42,
+      "child": 41,
+      "start": 15345,
+      "end": 50000
+    },
+    {
+      "parent": 43,
+      "child": 24,
+      "start": 38061,
+      "end": 43069
+    },
+    {
+      "parent": 43,
+      "child": 42,
+      "start": 38061,
+      "end": 43069
+    }
+  ],
+  "samples": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11,
+    12,
+    13,
+    14,
+    15,
+    16,
+    17,
+    18,
+    19
+  ]
+}

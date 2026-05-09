@@ -1140,6 +1140,42 @@ def graphpop_arg_delete_run(run_id: str) -> str:
     return json.dumps({"run_id": run_id, "n_tree_nodes_deleted": n})
 
 
+@mcp.tool()
+def graphpop_kinship_branch_grm(
+    run_id: str,
+    start: int | None = None,
+    end: int | None = None,
+    include_self: bool = True,
+) -> str:
+    """Unconditional branch GRM (Fan, Mancuso & Chiang 2022) via ARG traversal.
+
+    Validates against the ``egrm.varGRM`` Python reference to relative
+    error < 1e-6. Requires the named :ARGRun to already be ingested
+    (see graphpop_arg_ingest).
+
+    Args:
+        run_id: :ARGRun.runId identifying which inferred ARG to use.
+        start: Region start in bp (default 0).
+        end: Region end in bp (default end-of-ARG-sequence).
+        include_self: Emit (s, s) self-pair rows (default True).
+
+    Returns JSON array with one row per pair: sample_a, sample_b, phi
+    (= B_ij), n_snp (= n_trees that contributed), method ("branch_grm").
+    """
+    opts: dict = {}
+    if start is not None:
+        opts["start"] = start
+    if end is not None:
+        opts["end"] = end
+    if not include_self:
+        opts["include_self"] = False
+    cypher = "CALL graphpop.kinship.branch_grm($run_id, $options)"
+    results = _run_procedure(
+        cypher, {"run_id": run_id, "options": opts}
+    )
+    return json.dumps(results)
+
+
 def main():
     """Entry point for the graphpop-mcp command."""
     mcp.run()
