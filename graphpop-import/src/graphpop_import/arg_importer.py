@@ -375,20 +375,20 @@ class ARGIngester:
 
     @staticmethod
     def _delete_run(tx: "ManagedTransaction", run_id: str) -> int:
-        # Detach-delete every TreeNode for the run; relationships drop
-        # automatically. Then delete the ARGRun.
+        # Three explicit-tx steps. CALL { ... } IN TRANSACTIONS requires an
+        # implicit (auto-commit) transaction, so we keep delete in a single
+        # explicit tx -- fine for 1000G-class scale (a few million edges).
         result = tx.run(
-            "MATCH (n:TreeNode {runId: $runId}) "
-            "WITH count(n) AS n_nodes "
-            "CALL { "
-            "  MATCH (n:TreeNode {runId: $runId}) DETACH DELETE n "
-            "} IN TRANSACTIONS OF 10000 ROWS "
-            "RETURN n_nodes",
+            "MATCH (n:TreeNode {runId: $runId}) RETURN count(n) AS n_nodes",
             runId=run_id,
         )
-        n_nodes = result.single()["n_nodes"]
+        n_nodes = int(result.single()["n_nodes"])
+        tx.run(
+            "MATCH (n:TreeNode {runId: $runId}) DETACH DELETE n",
+            runId=run_id,
+        )
         tx.run("MATCH (r:ARGRun {runId: $runId}) DETACH DELETE r", runId=run_id)
-        return int(n_nodes)
+        return n_nodes
 
 
 # ---------------------------------------------------------------------------
