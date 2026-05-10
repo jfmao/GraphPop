@@ -1625,6 +1625,65 @@ def graphpop_ibd_delete(source: str) -> str:
     return json.dumps({"source": source, "n_edges_deleted": n})
 
 
+@mcp.tool()
+def graphpop_kinship_branch_grm_pca(
+    run_id: str,
+    k: int,
+    n_iter: int = 0,
+    seed: int = 42,
+    restrict_to_pathway: str | None = None,
+    mutation_filter: str | None = None,
+    time_window: list[float] | None = None,
+) -> str:
+    """Top-K PCs of branch GRM via Lanczos (M4.4).
+
+    Tractable at biobank scale (no full matrix materialised).
+    Conditional predicates compose. Returns one row per (sample, pc).
+    """
+    opts: dict = {"seed": seed}
+    if n_iter > 0:
+        opts["n_iter"] = n_iter
+    if restrict_to_pathway:
+        opts["restrict_to_pathway"] = restrict_to_pathway
+    if mutation_filter:
+        opts["mutation_filter"] = mutation_filter
+    if time_window is not None:
+        opts["time_window"] = list(time_window)
+    cypher = ("CALL graphpop.kinship.branch_grm_pca("
+              "$run_id, $k, $options)")
+    return json.dumps(_run_procedure(
+        cypher, {"run_id": run_id, "k": k, "options": opts}))
+
+
+@mcp.tool()
+def graphpop_kinship_branch_grm_he(
+    run_id: str,
+    phenotype: list[float],
+    n_hutchinson: int = 50,
+    seed: int = 42,
+    restrict_to_pathway: str | None = None,
+    mutation_filter: str | None = None,
+    time_window: list[float] | None = None,
+) -> str:
+    """Haseman-Elston heritability via Algorithm V + Hutchinson trace.
+
+    Single-component RHE-mc (Pazokitoroudi et al. 2020).
+    Conditional predicates compose. Returns h2, se, num, tr_g_sq.
+    """
+    opts: dict = {"n_hutchinson": n_hutchinson, "seed": seed}
+    if restrict_to_pathway:
+        opts["restrict_to_pathway"] = restrict_to_pathway
+    if mutation_filter:
+        opts["mutation_filter"] = mutation_filter
+    if time_window is not None:
+        opts["time_window"] = list(time_window)
+    cypher = ("CALL graphpop.kinship.branch_grm_he("
+              "$run_id, $phenotype, $options)")
+    return json.dumps(_run_procedure(
+        cypher, {"run_id": run_id, "phenotype": list(phenotype),
+                 "options": opts}))
+
+
 def main():
     """Entry point for the graphpop-mcp command."""
     mcp.run()

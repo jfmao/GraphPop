@@ -52,6 +52,14 @@
             <version>2.18.2</version>
             <scope>test</scope>
         </dependency>
+        <!-- Apache Commons Math 3: small dense symmetric eigensolver
+             used by BranchGrmLanczos for the K x K tridiagonal solve
+             and by HE-regression for Rademacher random vectors. -->
+        <dependency>
+            <groupId>org.apache.commons</groupId>
+            <artifactId>commons-math3</artifactId>
+            <version>3.6.1</version>
+        </dependency>
     </dependencies>
 
     <build>

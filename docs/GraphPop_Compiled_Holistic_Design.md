@@ -1047,6 +1047,44 @@ information natively from the ingested ARG and exposes it as a
 single Cypher query, with TMRCA conditioning, per-runId provenance,
 and idempotent re-runs.
 
+### 13.1.7 PCA via Lanczos (M4.4)
+
+`graphpop.kinship.branch_grm_pca(run_id, k, options)` returns the
+top-K eigenpairs of the branch GRM via Lanczos iteration with full
+re-orthogonalisation. Uses `BranchGrmMatVec.apply` as the only
+access to G, so memory is O(K · n) and runtime is O(n_iter · T · N
+log N). The K × K tridiagonal subproblem is solved by Apache
+Commons Math 3's `EigenDecomposition`.
+
+Default `n_iter = 3·K` (Demmel's rule); cap `min(50, n − 1)`. The
+random starting vector is centred Gaussian, seeded for
+deterministic output.
+
+Validates against full-matrix Commons Math eigendecomposition on the
+20-sample fixture: top-3 eigenvalues match to relative error < 10⁻⁴;
+top eigenvector matches up to sign with `|v_lanczos · v_full| >
+0.999`. Conditional predicates from § 13.1.1 compose unchanged.
+
+### 13.1.8 HE-regression heritability
+
+`graphpop.kinship.branch_grm_he(run_id, phenotype, options)`
+implements Pazokitoroudi et al. 2020 single-component RHE-mc:
+
+```
+num     = y_c' · G · y_c                       (one mat-vec)
+tr(G²)  ≈ (1/M) Σ ||G · u_k||², u_k ~ Rademacher (M mat-vecs)
+ĥ²      = num / tr(G²)
+SE(ĥ²)  ≈ √(2 / tr(G²))                        (Wald)
+```
+
+Default Hutchinson sample count `M = 50`; 100+ recommended for
+biobanks. Recovers simulated `h² = 0.5` within ±0.25 on the
+20-sample fixture (small-sample noise is large; tolerance shrinks
+proportionally to 1/√n on real cohorts). Conditional predicates
+from § 13.1.1 compose unchanged — combine with `restrict_to_pathway`
+to get *partitioned heritability* per pathway in a single Cypher
+call.
+
 ### 13.2 Procedures (planned)
 
 | Procedure | Path | Validation baseline |

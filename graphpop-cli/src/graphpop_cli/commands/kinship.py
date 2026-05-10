@@ -255,6 +255,100 @@ def bgrm_apply(ctx, run_id, vector_tsv, start, end,
                   {"run_id": run_id, "vector_length": len(v)})
 
 
+@kinship.command("bgrm-pca")
+@click.argument("run_id")
+@click.argument("k", type=int)
+@click.option("--n-iter", type=int, default=0,
+              help="Lanczos iterations (default 3*k)")
+@click.option("--seed", type=int, default=42, show_default=True)
+@click.option("--pathway", help="restrict_to_pathway predicate")
+@click.option("--consequence", help="mutation_filter predicate")
+@click.option("--time-window-start", type=float)
+@click.option("--time-window-end", type=float)
+@click.option("-o", "--output", "output_path",
+              help="Output file (default: stdout)")
+@click.option("--format", "fmt", default="tsv",
+              type=click.Choice(["tsv", "csv", "json"]))
+@pass_ctx
+def bgrm_pca(ctx, run_id, k, n_iter, seed, pathway, consequence,
+             time_window_start, time_window_end, output_path, fmt):
+    """Top-K PCs of branch GRM via Lanczos (M4.4).
+
+    Returns one row per (sample, pc). Tractable at biobank scale; no
+    full matrix is materialised. Conditional predicates compose.
+    """
+    opts: dict[str, object] = {"seed": seed}
+    if n_iter > 0:
+        opts["n_iter"] = n_iter
+    if pathway:
+        opts["restrict_to_pathway"] = pathway
+    if consequence:
+        opts["mutation_filter"] = consequence
+    if (time_window_start is None) ^ (time_window_end is None):
+        raise click.ClickException(
+            "--time-window-start and --time-window-end must be set together")
+    if time_window_start is not None and time_window_end is not None:
+        opts["time_window"] = [time_window_start, time_window_end]
+
+    cypher = ("CALL graphpop.kinship.branch_grm_pca($run_id, $k, $opts) "
+              "YIELD sample_id, pc, value, eigenvalue, method")
+    records = ctx.run(cypher,
+        {"run_id": run_id, "k": k, "opts": opts})
+    format_output(records, output_path, fmt, "kinship-bgrm-pca",
+                  {"run_id": run_id, "k": k})
+
+
+@kinship.command("bgrm-he")
+@click.argument("run_id")
+@click.argument("phenotype_tsv", type=click.Path(exists=True, dir_okay=False))
+@click.option("--n-hutchinson", type=int, default=50, show_default=True,
+              help="Hutchinson trace estimator sample count")
+@click.option("--seed", type=int, default=42, show_default=True)
+@click.option("--pathway", help="restrict_to_pathway predicate")
+@click.option("--consequence", help="mutation_filter predicate")
+@click.option("--time-window-start", type=float)
+@click.option("--time-window-end", type=float)
+@click.option("-o", "--output", "output_path")
+@click.option("--format", "fmt", default="tsv",
+              type=click.Choice(["tsv", "csv", "json"]))
+@pass_ctx
+def bgrm_he(ctx, run_id, phenotype_tsv, n_hutchinson, seed,
+            pathway, consequence,
+            time_window_start, time_window_end,
+            output_path, fmt):
+    """Haseman-Elston heritability via Algorithm V + Hutchinson.
+
+    Phenotype TSV: one float per line, length = n_samples. Conditional
+    predicates compose. Returns h2, se, num, tr_g_sq, n_samples,
+    n_hutchinson, method.
+    """
+    y: list[float] = []
+    with open(phenotype_tsv) as fh:
+        for raw in fh:
+            line = raw.strip()
+            if not line or line.startswith("#"):
+                continue
+            y.append(float(line))
+
+    opts: dict[str, object] = {"n_hutchinson": n_hutchinson, "seed": seed}
+    if pathway:
+        opts["restrict_to_pathway"] = pathway
+    if consequence:
+        opts["mutation_filter"] = consequence
+    if (time_window_start is None) ^ (time_window_end is None):
+        raise click.ClickException(
+            "--time-window-start and --time-window-end must be set together")
+    if time_window_start is not None and time_window_end is not None:
+        opts["time_window"] = [time_window_start, time_window_end]
+
+    cypher = ("CALL graphpop.kinship.branch_grm_he($run_id, $y, $opts) "
+              "YIELD h2, se, num, tr_g_sq, n_samples, n_hutchinson, method")
+    records = ctx.run(cypher,
+        {"run_id": run_id, "y": y, "opts": opts})
+    format_output(records, output_path, fmt, "kinship-bgrm-he",
+                  {"run_id": run_id, "n_phenotype": len(y)})
+
+
 @kinship.command("bgrm-by-ancestry")
 @click.argument("run_id")
 @click.option("--start", type=int, default=None,
