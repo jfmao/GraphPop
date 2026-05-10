@@ -1685,6 +1685,89 @@ def graphpop_kinship_branch_grm_he(
 
 
 @mcp.tool()
+def graphpop_arg_tmrca(
+    run_id: str,
+    sample_a: str,
+    sample_b: str,
+    position: int | None = None,
+    window_start: int | None = None,
+    window_end: int | None = None,
+) -> str:
+    """Pairwise TMRCA in an ARG (M6).
+
+    position set → single-position TMRCA (one row per haplotype pair).
+    window_start/window_end set → span-weighted mean across overlapping
+    marginal trees. No options → genome-wide mean. Returns JSON array.
+    """
+    opts: dict = {}
+    if position is not None:
+        opts["position"] = position
+    if window_start is not None:
+        opts["window_start"] = window_start
+    if window_end is not None:
+        opts["window_end"] = window_end
+    cypher = "CALL graphpop.arg.tmrca($rid, $sa, $sb, $options)"
+    return json.dumps(_run_procedure(
+        cypher, {"rid": run_id, "sa": sample_a, "sb": sample_b,
+                 "options": opts}))
+
+
+@mcp.tool()
+def graphpop_arg_branch_diversity(
+    run_id: str,
+    sample_ids: list[str],
+    mode: str = "pi",
+    windows: list[int] | None = None,
+) -> str:
+    """Branch-mode diversity from an ARG (M6, tskit-equivalent).
+
+    mode='pi' (v1 only) reproduces tskit.TreeSequence.diversity(samples,
+    mode='branch'). windows=[bp,bp,...] for per-window output, otherwise
+    one row over the full sequence. Returns JSON array.
+    """
+    opts: dict = {"mode": mode}
+    if windows is not None:
+        opts["windows"] = list(windows)
+    cypher = "CALL graphpop.arg.branch_diversity($rid, $sids, $options)"
+    return json.dumps(_run_procedure(
+        cypher, {"rid": run_id, "sids": list(sample_ids), "options": opts}))
+
+
+@mcp.tool()
+def graphpop_arg_coalescence_rate(
+    run_id: str,
+    sample_ids: list[str],
+    time_bins: list[float],
+) -> str:
+    """Per-time-bin coalescence rate from an ARG (M6).
+
+    Speidel/tsdate-style estimator: rate(bin) = events / lineage_pair_time,
+    both span-weighted across marginal trees. time_bins must be
+    monotonically increasing. Returns JSON array of per-bin rows.
+    """
+    opts: dict = {"time_bins": list(time_bins)}
+    cypher = "CALL graphpop.arg.coalescence_rate($rid, $sids, $options)"
+    return json.dumps(_run_procedure(
+        cypher, {"rid": run_id, "sids": list(sample_ids), "options": opts}))
+
+
+@mcp.tool()
+def graphpop_arg_allele_age(
+    run_id: str,
+    variant_id: str,
+) -> str:
+    """Time bracket for a variant's :MUTATED_ON edge (M6).
+
+    Returns JSON with child_time, parent_time, midpoint_time, and
+    n_carriers (descendants of the child TreeNode in the marginal tree
+    containing the mutation site).
+    """
+    cypher = "CALL graphpop.arg.allele_age($rid, $vid)"
+    return json.dumps(_run_procedure(
+        cypher, {"rid": run_id, "vid": variant_id}))
+
+
+@mcp.tool()
 def graphpop_relate_classify(
     source: str,
     min_phi: float | None = None,

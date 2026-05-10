@@ -1,0 +1,643 @@
+{
+  "schema_version": 1,
+  "run_id": "egrm_fixture_20samples",
+  "n_samples": 20,
+  "sequence_length": 50000,
+  "samples_full": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9,
+    10,
+    11,
+    12,
+    13,
+    14,
+    15,
+    16,
+    17,
+    18,
+    19
+  ],
+  "samples_half": [
+    0,
+    1,
+    2,
+    3,
+    4,
+    5,
+    6,
+    7,
+    8,
+    9
+  ],
+  "tmrca_positions": [
+    5000,
+    15000,
+    27500,
+    40000
+  ],
+  "tmrca_pairs": [
+    [
+      0,
+      1
+    ],
+    [
+      0,
+      5
+    ],
+    [
+      3,
+      18
+    ],
+    [
+      10,
+      19
+    ]
+  ],
+  "tmrca_per_position": [
+    {
+      "sample_a": 0,
+      "sample_b": 1,
+      "position": 5000,
+      "tmrca": 0.06152994507530668
+    },
+    {
+      "sample_a": 0,
+      "sample_b": 1,
+      "position": 15000,
+      "tmrca": 0.06152994507530668
+    },
+    {
+      "sample_a": 0,
+      "sample_b": 1,
+      "position": 27500,
+      "tmrca": 0.06152994507530668
+    },
+    {
+      "sample_a": 0,
+      "sample_b": 1,
+      "position": 40000,
+      "tmrca": 0.06152994507530668
+    },
+    {
+      "sample_a": 0,
+      "sample_b": 5,
+      "position": 5000,
+      "tmrca": 0.750811828471296
+    },
+    {
+      "sample_a": 0,
+      "sample_b": 5,
+      "position": 15000,
+      "tmrca": 0.750811828471296
+    },
+    {
+      "sample_a": 0,
+      "sample_b": 5,
+      "position": 27500,
+      "tmrca": 1.6216896952048279
+    },
+    {
+      "sample_a": 0,
+      "sample_b": 5,
+      "position": 40000,
+      "tmrca": 3.3566590589812293
+    },
+    {
+      "sample_a": 3,
+      "sample_b": 18,
+      "position": 5000,
+      "tmrca": 0.4635702118428152
+    },
+    {
+      "sample_a": 3,
+      "sample_b": 18,
+      "position": 15000,
+      "tmrca": 0.4635702118428152
+    },
+    {
+      "sample_a": 3,
+      "sample_b": 18,
+      "position": 27500,
+      "tmrca": 0.4635702118428152
+    },
+    {
+      "sample_a": 3,
+      "sample_b": 18,
+      "position": 40000,
+      "tmrca": 1.8852415762535657
+    },
+    {
+      "sample_a": 10,
+      "sample_b": 19,
+      "position": 5000,
+      "tmrca": 0.13317213314968593
+    },
+    {
+      "sample_a": 10,
+      "sample_b": 19,
+      "position": 15000,
+      "tmrca": 0.13317213314968593
+    },
+    {
+      "sample_a": 10,
+      "sample_b": 19,
+      "position": 27500,
+      "tmrca": 0.13317213314968593
+    },
+    {
+      "sample_a": 10,
+      "sample_b": 19,
+      "position": 40000,
+      "tmrca": 0.13317213314968593
+    }
+  ],
+  "tmrca_genome_means": [
+    {
+      "sample_a": 0,
+      "sample_b": 1,
+      "mean_tmrca": 0.06152994507530668
+    },
+    {
+      "sample_a": 0,
+      "sample_b": 5,
+      "mean_tmrca": 1.3745574234709508
+    },
+    {
+      "sample_a": 3,
+      "sample_b": 18,
+      "mean_tmrca": 0.8545298370557717
+    },
+    {
+      "sample_a": 10,
+      "sample_b": 19,
+      "mean_tmrca": 0.13317213314968593
+    }
+  ],
+  "branch_diversity_pi_full": 2.0657584095570587,
+  "branch_diversity_pi_half": 2.256814995053729,
+  "coalescence_rate_bins": [
+    0.0,
+    0.25,
+    0.5,
+    1.0,
+    2.0,
+    1000000000.0
+  ],
+  "coalescence_rate_full": [
+    {
+      "time_lo": 0.0,
+      "time_hi": 0.25,
+      "n_coalescent_events": 17.274999999999995,
+      "lineage_pair_time": 21.73610562038517,
+      "rate": 0.7947605841498426
+    },
+    {
+      "time_lo": 0.25,
+      "time_hi": 0.5,
+      "n_coalescent_events": 48.519279999999995,
+      "lineage_pair_time": 5.962158123103298,
+      "rate": 8.137872058774878
+    },
+    {
+      "time_lo": 0.5,
+      "time_hi": 1.0,
+      "n_coalescent_events": 49.099959999999996,
+      "lineage_pair_time": 1.9118611018966025,
+      "rate": 25.68176106061884
+    },
+    {
+      "time_lo": 1.0,
+      "time_hi": 2.0,
+      "n_coalescent_events": 69.9976,
+      "lineage_pair_time": 1.998122067895771,
+      "rate": 35.03169357101126
+    },
+    {
+      "time_lo": 2.0,
+      "time_hi": 1000000000.0,
+      "n_coalescent_events": 5.10816,
+      "lineage_pair_time": 0.13588297134755992,
+      "rate": 37.59234839613866
+    }
+  ],
+  "allele_age": [
+    {
+      "mutation_index": 0,
+      "site_position": 38,
+      "child_node_id": 14,
+      "parent_node_id": 26,
+      "child_time": 0.0,
+      "parent_time": 0.10743137285546628,
+      "midpoint_time": 0.05371568642773314,
+      "n_carriers": 1
+    },
+    {
+      "mutation_index": 1,
+      "site_position": 663,
+      "child_node_id": 4,
+      "parent_node_id": 35,
+      "child_time": 0.0,
+      "parent_time": 0.38750256039922576,
+      "midpoint_time": 0.19375128019961288,
+      "n_carriers": 1
+    },
+    {
+      "mutation_index": 2,
+      "site_position": 703,
+      "child_node_id": 35,
+      "parent_node_id": 42,
+      "child_time": 0.38750256039922576,
+      "parent_time": 1.8852415762535657,
+      "midpoint_time": 1.1363720683263958,
+      "n_carriers": 2
+    },
+    {
+      "mutation_index": 3,
+      "site_position": 1029,
+      "child_node_id": 7,
+      "parent_node_id": 26,
+      "child_time": 0.0,
+      "parent_time": 0.10743137285546628,
+      "midpoint_time": 0.05371568642773314,
+      "n_carriers": 1
+    },
+    {
+      "mutation_index": 4,
+      "site_position": 1357,
+      "child_node_id": 36,
+      "parent_node_id": 40,
+      "child_time": 0.4350504236569825,
+      "parent_time": 0.750811828471296,
+      "midpoint_time": 0.5929311260641392,
+      "n_carriers": 4
+    },
+    {
+      "mutation_index": 5,
+      "site_position": 3540,
+      "child_node_id": 11,
+      "parent_node_id": 35,
+      "child_time": 0.0,
+      "parent_time": 0.38750256039922576,
+      "midpoint_time": 0.19375128019961288,
+      "n_carriers": 1
+    },
+    {
+      "mutation_index": 6,
+      "site_position": 5309,
+      "child_node_id": 24,
+      "parent_node_id": 31,
+      "child_time": 0.06152994507530668,
+      "parent_time": 0.31842481912520604,
+      "midpoint_time": 0.18997738210025636,
+      "n_carriers": 3
+    },
+    {
+      "mutation_index": 7,
+      "site_position": 9942,
+      "child_node_id": 35,
+      "parent_node_id": 42,
+      "child_time": 0.38750256039922576,
+      "parent_time": 1.8852415762535657,
+      "midpoint_time": 1.1363720683263958,
+      "n_carriers": 2
+    },
+    {
+      "mutation_index": 8,
+      "site_position": 11042,
+      "child_node_id": 11,
+      "parent_node_id": 35,
+      "child_time": 0.0,
+      "parent_time": 0.38750256039922576,
+      "midpoint_time": 0.19375128019961288,
+      "n_carriers": 1
+    },
+    {
+      "mutation_index": 9,
+      "site_position": 14214,
+      "child_node_id": 40,
+      "parent_node_id": 42,
+      "child_time": 0.750811828471296,
+      "parent_time": 1.8852415762535657,
+      "midpoint_time": 1.3180267023624308,
+      "n_carriers": 18
+    },
+    {
+      "mutation_index": 10,
+      "site_position": 15955,
+      "child_node_id": 11,
+      "parent_node_id": 35,
+      "child_time": 0.0,
+      "parent_time": 0.38750256039922576,
+      "midpoint_time": 0.19375128019961288,
+      "n_carriers": 1
+    },
+    {
+      "mutation_index": 11,
+      "site_position": 17928,
+      "child_node_id": 39,
+      "parent_node_id": 41,
+      "child_time": 0.6313338160032227,
+      "parent_time": 1.6216896952048279,
+      "midpoint_time": 1.1265117556040254,
+      "n_carriers": 14
+    },
+    {
+      "mutation_index": 12,
+      "site_position": 18503,
+      "child_node_id": 36,
+      "parent_node_id": 41,
+      "child_time": 0.4350504236569825,
+      "parent_time": 1.6216896952048279,
+      "midpoint_time": 1.028370059430905,
+      "n_carriers": 4
+    },
+    {
+      "mutation_index": 13,
+      "site_position": 20228,
+      "child_node_id": 39,
+      "parent_node_id": 41,
+      "child_time": 0.6313338160032227,
+      "parent_time": 1.6216896952048279,
+      "midpoint_time": 1.1265117556040254,
+      "n_carriers": 14
+    },
+    {
+      "mutation_index": 14,
+      "site_position": 21257,
+      "child_node_id": 32,
+      "parent_node_id": 37,
+      "child_time": 0.32673420817164295,
+      "parent_time": 0.4635702118428152,
+      "midpoint_time": 0.3951522100072291,
+      "n_carriers": 6
+    },
+    {
+      "mutation_index": 15,
+      "site_position": 22483,
+      "child_node_id": 23,
+      "parent_node_id": 36,
+      "child_time": 0.06122407283174474,
+      "parent_time": 0.4350504236569825,
+      "midpoint_time": 0.24813724824436362,
+      "n_carriers": 2
+    },
+    {
+      "mutation_index": 16,
+      "site_position": 22803,
+      "child_node_id": 13,
+      "parent_node_id": 32,
+      "child_time": 0.0,
+      "parent_time": 0.32673420817164295,
+      "midpoint_time": 0.16336710408582147,
+      "n_carriers": 1
+    },
+    {
+      "mutation_index": 17,
+      "site_position": 24803,
+      "child_node_id": 11,
+      "parent_node_id": 35,
+      "child_time": 0.0,
+      "parent_time": 0.38750256039922576,
+      "midpoint_time": 0.19375128019961288,
+      "n_carriers": 1
+    },
+    {
+      "mutation_index": 18,
+      "site_position": 24991,
+      "child_node_id": 36,
+      "parent_node_id": 41,
+      "child_time": 0.4350504236569825,
+      "parent_time": 1.6216896952048279,
+      "midpoint_time": 1.028370059430905,
+      "n_carriers": 4
+    },
+    {
+      "mutation_index": 19,
+      "site_position": 29894,
+      "child_node_id": 37,
+      "parent_node_id": 39,
+      "child_time": 0.4635702118428152,
+      "parent_time": 0.6313338160032227,
+      "midpoint_time": 0.547452013923019,
+      "n_carriers": 12
+    },
+    {
+      "mutation_index": 20,
+      "site_position": 30055,
+      "child_node_id": 15,
+      "parent_node_id": 25,
+      "child_time": 0.0,
+      "parent_time": 0.09130377035707779,
+      "midpoint_time": 0.045651885178538895,
+      "n_carriers": 1
+    },
+    {
+      "mutation_index": 21,
+      "site_position": 35567,
+      "child_node_id": 35,
+      "parent_node_id": 42,
+      "child_time": 0.38750256039922576,
+      "parent_time": 1.8852415762535657,
+      "midpoint_time": 1.1363720683263958,
+      "n_carriers": 2
+    },
+    {
+      "mutation_index": 22,
+      "site_position": 35642,
+      "child_node_id": 3,
+      "parent_node_id": 33,
+      "child_time": 0.0,
+      "parent_time": 0.36690931308274377,
+      "midpoint_time": 0.18345465654137189,
+      "n_carriers": 1
+    },
+    {
+      "mutation_index": 23,
+      "site_position": 36599,
+      "child_node_id": 8,
+      "parent_node_id": 21,
+      "child_time": 0.0,
+      "parent_time": 0.03445373836142679,
+      "midpoint_time": 0.017226869180713394,
+      "n_carriers": 1
+    },
+    {
+      "mutation_index": 24,
+      "site_position": 38538,
+      "child_node_id": 24,
+      "parent_node_id": 43,
+      "child_time": 0.06152994507530668,
+      "parent_time": 3.3566590589812293,
+      "midpoint_time": 1.709094502028268,
+      "n_carriers": 3
+    },
+    {
+      "mutation_index": 25,
+      "site_position": 39258,
+      "child_node_id": 13,
+      "parent_node_id": 32,
+      "child_time": 0.0,
+      "parent_time": 0.32673420817164295,
+      "midpoint_time": 0.16336710408582147,
+      "n_carriers": 1
+    },
+    {
+      "mutation_index": 26,
+      "site_position": 39508,
+      "child_node_id": 35,
+      "parent_node_id": 42,
+      "child_time": 0.38750256039922576,
+      "parent_time": 1.8852415762535657,
+      "midpoint_time": 1.1363720683263958,
+      "n_carriers": 3
+    },
+    {
+      "mutation_index": 27,
+      "site_position": 39918,
+      "child_node_id": 24,
+      "parent_node_id": 43,
+      "child_time": 0.06152994507530668,
+      "parent_time": 3.3566590589812293,
+      "midpoint_time": 1.709094502028268,
+      "n_carriers": 3
+    },
+    {
+      "mutation_index": 28,
+      "site_position": 41150,
+      "child_node_id": 26,
+      "parent_node_id": 37,
+      "child_time": 0.10743137285546628,
+      "parent_time": 0.4635702118428152,
+      "midpoint_time": 0.2855007923491407,
+      "n_carriers": 2
+    },
+    {
+      "mutation_index": 29,
+      "site_position": 41253,
+      "child_node_id": 42,
+      "parent_node_id": 43,
+      "child_time": 1.8852415762535657,
+      "parent_time": 3.3566590589812293,
+      "midpoint_time": 2.6209503176173974,
+      "n_carriers": 17
+    },
+    {
+      "mutation_index": 30,
+      "site_position": 41410,
+      "child_node_id": 24,
+      "parent_node_id": 43,
+      "child_time": 0.06152994507530668,
+      "parent_time": 3.3566590589812293,
+      "midpoint_time": 1.709094502028268,
+      "n_carriers": 3
+    },
+    {
+      "mutation_index": 31,
+      "site_position": 42444,
+      "child_node_id": 23,
+      "parent_node_id": 41,
+      "child_time": 0.06122407283174474,
+      "parent_time": 1.6216896952048279,
+      "midpoint_time": 0.8414568840182863,
+      "n_carriers": 2
+    },
+    {
+      "mutation_index": 32,
+      "site_position": 42504,
+      "child_node_id": 42,
+      "parent_node_id": 43,
+      "child_time": 1.8852415762535657,
+      "parent_time": 3.3566590589812293,
+      "midpoint_time": 2.6209503176173974,
+      "n_carriers": 17
+    },
+    {
+      "mutation_index": 33,
+      "site_position": 42642,
+      "child_node_id": 25,
+      "parent_node_id": 34,
+      "child_time": 0.09130377035707779,
+      "parent_time": 0.3678034848143833,
+      "midpoint_time": 0.22955362758573056,
+      "n_carriers": 2
+    },
+    {
+      "mutation_index": 34,
+      "site_position": 43145,
+      "child_node_id": 39,
+      "parent_node_id": 41,
+      "child_time": 0.6313338160032227,
+      "parent_time": 1.6216896952048279,
+      "midpoint_time": 1.1265117556040254,
+      "n_carriers": 12
+    },
+    {
+      "mutation_index": 35,
+      "site_position": 44740,
+      "child_node_id": 3,
+      "parent_node_id": 27,
+      "child_time": 0.0,
+      "parent_time": 0.10756644701011349,
+      "midpoint_time": 0.053783223505056744,
+      "n_carriers": 1
+    },
+    {
+      "mutation_index": 36,
+      "site_position": 44741,
+      "child_node_id": 37,
+      "parent_node_id": 39,
+      "child_time": 0.4635702118428152,
+      "parent_time": 0.6313338160032227,
+      "midpoint_time": 0.547452013923019,
+      "n_carriers": 8
+    },
+    {
+      "mutation_index": 37,
+      "site_position": 46927,
+      "child_node_id": 14,
+      "parent_node_id": 26,
+      "child_time": 0.0,
+      "parent_time": 0.10743137285546628,
+      "midpoint_time": 0.05371568642773314,
+      "n_carriers": 1
+    },
+    {
+      "mutation_index": 38,
+      "site_position": 46974,
+      "child_node_id": 37,
+      "parent_node_id": 39,
+      "child_time": 0.4635702118428152,
+      "parent_time": 0.6313338160032227,
+      "midpoint_time": 0.547452013923019,
+      "n_carriers": 8
+    },
+    {
+      "mutation_index": 39,
+      "site_position": 47052,
+      "child_node_id": 41,
+      "parent_node_id": 42,
+      "child_time": 1.6216896952048279,
+      "parent_time": 1.8852415762535657,
+      "midpoint_time": 1.7534656357291967,
+      "n_carriers": 17
+    },
+    {
+      "mutation_index": 40,
+      "site_position": 49545,
+      "child_node_id": 39,
+      "parent_node_id": 41,
+      "child_time": 0.6313338160032227,
+      "parent_time": 1.6216896952048279,
+      "midpoint_time": 1.1265117556040254,
+      "n_carriers": 12
+    }
+  ]
+}

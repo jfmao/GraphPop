@@ -632,246 +632,287 @@
       "index": 0,
       "position": 38,
       "child_node_id": 14,
+      "parent_node_id": 26,
       "derived_state": "G"
     },
     {
       "index": 1,
       "position": 663,
       "child_node_id": 4,
+      "parent_node_id": 35,
       "derived_state": "T"
     },
     {
       "index": 2,
       "position": 703,
       "child_node_id": 35,
+      "parent_node_id": 42,
       "derived_state": "T"
     },
     {
       "index": 3,
       "position": 1029,
       "child_node_id": 7,
+      "parent_node_id": 26,
       "derived_state": "G"
     },
     {
       "index": 4,
       "position": 1357,
       "child_node_id": 36,
+      "parent_node_id": 40,
       "derived_state": "A"
     },
     {
       "index": 5,
       "position": 3540,
       "child_node_id": 11,
+      "parent_node_id": 35,
       "derived_state": "A"
     },
     {
       "index": 6,
       "position": 5309,
       "child_node_id": 24,
+      "parent_node_id": 31,
       "derived_state": "A"
     },
     {
       "index": 7,
       "position": 9942,
       "child_node_id": 35,
+      "parent_node_id": 42,
       "derived_state": "T"
     },
     {
       "index": 8,
       "position": 11042,
       "child_node_id": 11,
+      "parent_node_id": 35,
       "derived_state": "A"
     },
     {
       "index": 9,
       "position": 14214,
       "child_node_id": 40,
+      "parent_node_id": 42,
       "derived_state": "G"
     },
     {
       "index": 10,
       "position": 15955,
       "child_node_id": 11,
+      "parent_node_id": 35,
       "derived_state": "C"
     },
     {
       "index": 11,
       "position": 17928,
       "child_node_id": 39,
+      "parent_node_id": 41,
       "derived_state": "T"
     },
     {
       "index": 12,
       "position": 18503,
       "child_node_id": 36,
+      "parent_node_id": 41,
       "derived_state": "C"
     },
     {
       "index": 13,
       "position": 20228,
       "child_node_id": 39,
+      "parent_node_id": 41,
       "derived_state": "G"
     },
     {
       "index": 14,
       "position": 21257,
       "child_node_id": 32,
+      "parent_node_id": 37,
       "derived_state": "T"
     },
     {
       "index": 15,
       "position": 22483,
       "child_node_id": 23,
+      "parent_node_id": 36,
       "derived_state": "A"
     },
     {
       "index": 16,
       "position": 22803,
       "child_node_id": 13,
+      "parent_node_id": 32,
       "derived_state": "G"
     },
     {
       "index": 17,
       "position": 24803,
       "child_node_id": 11,
+      "parent_node_id": 35,
       "derived_state": "G"
     },
     {
       "index": 18,
       "position": 24991,
       "child_node_id": 36,
+      "parent_node_id": 41,
       "derived_state": "A"
     },
     {
       "index": 19,
       "position": 29894,
       "child_node_id": 37,
+      "parent_node_id": 39,
       "derived_state": "T"
     },
     {
       "index": 20,
       "position": 30055,
       "child_node_id": 15,
+      "parent_node_id": 25,
       "derived_state": "G"
     },
     {
       "index": 21,
       "position": 35567,
       "child_node_id": 35,
+      "parent_node_id": 42,
       "derived_state": "T"
     },
     {
       "index": 22,
       "position": 35642,
       "child_node_id": 3,
+      "parent_node_id": 33,
       "derived_state": "T"
     },
     {
       "index": 23,
       "position": 36599,
       "child_node_id": 8,
+      "parent_node_id": 21,
       "derived_state": "C"
     },
     {
       "index": 24,
       "position": 38538,
       "child_node_id": 24,
+      "parent_node_id": 43,
       "derived_state": "A"
     },
     {
       "index": 25,
       "position": 39258,
       "child_node_id": 13,
+      "parent_node_id": 32,
       "derived_state": "A"
     },
     {
       "index": 26,
       "position": 39508,
       "child_node_id": 35,
+      "parent_node_id": 42,
       "derived_state": "C"
     },
     {
       "index": 27,
       "position": 39918,
       "child_node_id": 24,
+      "parent_node_id": 43,
       "derived_state": "A"
     },
     {
       "index": 28,
       "position": 41150,
       "child_node_id": 26,
+      "parent_node_id": 37,
       "derived_state": "G"
     },
     {
       "index": 29,
       "position": 41253,
       "child_node_id": 42,
+      "parent_node_id": 43,
       "derived_state": "G"
     },
     {
       "index": 30,
       "position": 41410,
       "child_node_id": 24,
+      "parent_node_id": 43,
       "derived_state": "A"
     },
     {
       "index": 31,
       "position": 42444,
       "child_node_id": 23,
+      "parent_node_id": 41,
       "derived_state": "A"
     },
     {
       "index": 32,
       "position": 42504,
       "child_node_id": 42,
+      "parent_node_id": 43,
       "derived_state": "C"
     },
     {
       "index": 33,
       "position": 42642,
       "child_node_id": 25,
+      "parent_node_id": 34,
       "derived_state": "T"
     },
     {
       "index": 34,
       "position": 43145,
       "child_node_id": 39,
+      "parent_node_id": 41,
       "derived_state": "C"
     },
     {
       "index": 35,
       "position": 44740,
       "child_node_id": 3,
+      "parent_node_id": 27,
       "derived_state": "G"
     },
     {
       "index": 36,
       "position": 44741,
       "child_node_id": 37,
+      "parent_node_id": 39,
       "derived_state": "A"
     },
     {
       "index": 37,
       "position": 46927,
       "child_node_id": 14,
+      "parent_node_id": 26,
       "derived_state": "C"
     },
     {
       "index": 38,
       "position": 46974,
       "child_node_id": 37,
+      "parent_node_id": 39,
       "derived_state": "A"
     },
     {
       "index": 39,
       "position": 47052,
       "child_node_id": 41,
+      "parent_node_id": 42,
       "derived_state": "C"
     },
     {
       "index": 40,
       "position": 49545,
       "child_node_id": 39,
+      "parent_node_id": 41,
       "derived_state": "C"
     }
   ],

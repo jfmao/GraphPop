@@ -1,4 +1,6 @@
-"""graphpop arg — ingest, list, and delete ARG runs (M4.A)."""
+"""graphpop arg — ingest, list, delete ARG runs (M4.A) +
+ARG-derived statistics (M6: tmrca, branch-diversity, coalescence-rate,
+allele-age)."""
 from __future__ import annotations
 
 import json
@@ -8,6 +10,7 @@ from pathlib import Path
 import click
 
 from ..cli import pass_ctx
+from ..config import build_cypher
 from ..formatters import format_output
 
 
@@ -17,9 +20,13 @@ def arg():
 
     Subcommands:
 
-      ingest  Ingest a tskit TreeSequence into the GraphPop ARG layer.
-      list    List every :ARGRun currently stored.
-      delete  Remove a single :ARGRun and all its derived data.
+      ingest             Ingest a tskit TreeSequence.
+      list               List every :ARGRun currently stored.
+      delete             Remove a single :ARGRun and all its derived data.
+      tmrca              Pairwise TMRCA at a position (or window-mean).
+      branch-diversity   Branch-mode pi (tskit-equivalent).
+      coalescence-rate   Per-time-bin coalescence rate.
+      allele-age         Time bracket for a variant's :MUTATED_ON edge.
 
     The ARG layer (M4.A) is additive: it expects the target database to
     already contain :Variant, :Sample, :Population nodes from a prior
@@ -177,3 +184,135 @@ def delete(ctx, run_id, yes):
     ingester = ARGIngester(ctx.driver, database=ctx.database)
     n = ingester.delete_run(run_id)
     click.echo(f"Deleted run {run_id}: {n} TreeNodes removed.", err=True)
+
+
+@arg.command("tmrca")
+@click.argument("run_id")
+@click.argument("sample_a")
+@click.argument("sample_b")
+@click.option("--position", type=int, default=None,
+              help="Single-position TMRCA at this bp (default: span-weighted "
+                   "mean over the full sequence)")
+@click.option("--window-start", type=int, default=None,
+              help="Window start (bp) for window-mean TMRCA")
+@click.option("--window-end", type=int, default=None,
+              help="Window end (bp) for window-mean TMRCA")
+@click.option("-o", "--output", "output_path",
+              help="Output file (default: stdout)")
+@click.option("--format", "fmt", default="tsv",
+              type=click.Choice(["tsv", "csv", "json"]))
+@pass_ctx
+def tmrca(ctx, run_id, sample_a, sample_b, position, window_start, window_end,
+          output_path, fmt):
+    """TMRCA between two samples in an ARG (M6).
+
+    Three modes: --position for a single bp; --window-start/--window-end
+    for a window-mean TMRCA; neither argument set for genome-wide
+    span-weighted mean.
+    """
+    opts: dict[str, object] = {}
+    if position is not None:
+        opts["position"] = position
+    if window_start is not None:
+        opts["window_start"] = window_start
+    if window_end is not None:
+        opts["window_end"] = window_end
+
+    cypher = build_cypher(
+        "graphpop.arg.tmrca",
+        [f"'{run_id}'", f"'{sample_a}'", f"'{sample_b}'"],
+        options=opts if opts else None,
+        yield_cols=["sample_a", "sample_b", "position", "tmrca",
+                    "mean_tmrca", "mrca_node_id", "runId"],
+    )
+    records = ctx.run(cypher)
+    format_output(records, output_path, fmt, "arg-tmrca", {"run_id": run_id})
+
+
+@arg.command("branch-diversity")
+@click.argument("run_id")
+@click.argument("sample_ids")
+@click.option("--mode", default="pi", show_default=True,
+              type=click.Choice(["pi"]),
+              help="Diversity mode (only 'pi' supported in v1)")
+@click.option("--windows", default=None,
+              help="Comma-separated bp boundaries, e.g. 0,25000,50000 → "
+                   "two windows. Default: single window over full sequence.")
+@click.option("-o", "--output", "output_path",
+              help="Output file (default: stdout)")
+@click.option("--format", "fmt", default="tsv",
+              type=click.Choice(["tsv", "csv", "json"]))
+@pass_ctx
+def branch_diversity(ctx, run_id, sample_ids, mode, windows, output_path, fmt):
+    """Branch-mode diversity (M6). SAMPLE_IDS is a comma-separated list."""
+    sids = [s.strip() for s in sample_ids.split(",") if s.strip()]
+    opts: dict[str, object] = {"mode": mode}
+    if windows:
+        opts["windows"] = [int(x) for x in windows.split(",")]
+
+    cypher = build_cypher(
+        "graphpop.arg.branch_diversity",
+        [f"'{run_id}'", _cypher_str_list(sids)],
+        options=opts,
+        yield_cols=["start", "end", "branch_pi", "n_samples", "mode", "runId"],
+    )
+    records = ctx.run(cypher)
+    format_output(records, output_path, fmt, "arg-branch-diversity",
+                  {"run_id": run_id, "n_samples": len(sids)})
+
+
+@arg.command("coalescence-rate")
+@click.argument("run_id")
+@click.argument("sample_ids")
+@click.option("--time-bins", required=True,
+              help="Comma-separated monotonically increasing bin edges, "
+                   "e.g. 0,100,1000,10000,100000")
+@click.option("-o", "--output", "output_path",
+              help="Output file (default: stdout)")
+@click.option("--format", "fmt", default="tsv",
+              type=click.Choice(["tsv", "csv", "json"]))
+@pass_ctx
+def coalescence_rate(ctx, run_id, sample_ids, time_bins, output_path, fmt):
+    """Per-time-bin coalescence rate (M6). SAMPLE_IDS is comma-separated."""
+    sids = [s.strip() for s in sample_ids.split(",") if s.strip()]
+    bins = [float(x) for x in time_bins.split(",")]
+    opts: dict[str, object] = {"time_bins": bins}
+
+    cypher = build_cypher(
+        "graphpop.arg.coalescence_rate",
+        [f"'{run_id}'", _cypher_str_list(sids)],
+        options=opts,
+        yield_cols=["time_lo", "time_hi", "n_coalescent_events",
+                    "lineage_pair_time", "rate", "runId"],
+    )
+    records = ctx.run(cypher)
+    format_output(records, output_path, fmt, "arg-coalescence-rate",
+                  {"run_id": run_id, "n_samples": len(sids)})
+
+
+@arg.command("allele-age")
+@click.argument("run_id")
+@click.argument("variant_id")
+@click.option("-o", "--output", "output_path",
+              help="Output file (default: stdout)")
+@click.option("--format", "fmt", default="tsv",
+              type=click.Choice(["tsv", "csv", "json"]))
+@pass_ctx
+def allele_age(ctx, run_id, variant_id, output_path, fmt):
+    """Time bracket for a variant's :MUTATED_ON edge (M6)."""
+    cypher = build_cypher(
+        "graphpop.arg.allele_age",
+        [f"'{run_id}'", f"'{variant_id}'"],
+        yield_cols=["variant_id", "child_node_id", "parent_node_id",
+                    "child_time", "parent_time", "midpoint_time",
+                    "n_carriers", "runId"],
+    )
+    records = ctx.run(cypher)
+    format_output(records, output_path, fmt, "arg-allele-age",
+                  {"run_id": run_id, "variant_id": variant_id})
+
+
+def _cypher_str_list(items: list[str]) -> str:
+    """Render a Python str list as a Cypher list literal."""
+    inner = ", ".join(f"'{s}'" for s in items)
+    return f"[{inner}]"

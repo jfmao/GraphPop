@@ -148,6 +148,7 @@ arg_payload = {
             "index": idx,
             "position": int(site.position),
             "child_node_id": int(mutation.node),
+            "parent_node_id": int(ts.edge(int(mutation.edge)).parent),
             "derived_state": str(mutation.derived_state),
         }
         for site in ts.sites()
@@ -523,3 +524,228 @@ ibd_payload["segments"].sort(key=lambda s: (s["sample_a"], s["sample_b"],
                                               s["start"]))
 IBD_PATH.write_text(json.dumps(ibd_payload, indent=2))
 print(f"  -> {IBD_PATH.name}  ({len(ibd_payload['segments'])} segments)")
+
+# ---------------------------------------------------------------------------
+# M6 -- ARG-derived statistics reference.
+#
+# Dumps:
+#   - tmrca: per-pair, per-position TMRCA at 4 representative positions,
+#     plus genome-wide span-weighted mean per pair.
+#   - branch_diversity_pi: tskit.TreeSequence.diversity(mode='branch') on
+#     the full sample set, plus on a 10-sample subset.
+#   - coalescence_rate: per-bin (events, lineage_pair_time, rate)
+#     computed via the marginal-tree algorithm spec'd in the M6 plan.
+#   - allele_age: per-mutation (child_time, parent_time, midpoint,
+#     n_carriers).
+# ---------------------------------------------------------------------------
+
+ARG_STATS_PATH = OUT_DIR / "egrm_fixture_20samples_arg_stats.json"
+
+samples_full = list(ts.samples())
+samples_half = samples_full[:10]
+
+# --- TMRCA --------------------------------------------------------------
+# Pick 4 positions that hit different marginal trees, and 4 representative
+# pairs (cross-population-ish sweep for visibility).
+positions = [
+    int(ts.sequence_length * 0.10),
+    int(ts.sequence_length * 0.30),
+    int(ts.sequence_length * 0.55),
+    int(ts.sequence_length * 0.80),
+]
+pairs = [(0, 1), (0, 5), (3, 18), (10, 19)]
+
+
+def tmrca_at(ts, a, b, pos):
+    tree = ts.at(pos)
+    return float(ts.node(tree.mrca(a, b)).time)
+
+
+tmrca_per_position = []
+for (a, b) in pairs:
+    for pos in positions:
+        tmrca_per_position.append({
+            "sample_a": a, "sample_b": b, "position": pos,
+            "tmrca": tmrca_at(ts, a, b, pos),
+        })
+
+
+def tmrca_genome_mean(ts, a, b):
+    """Span-weighted mean TMRCA across all marginal trees."""
+    total = 0.0
+    span = 0.0
+    for tree in ts.trees():
+        s = tree.interval[1] - tree.interval[0]
+        m = tree.mrca(a, b)
+        if m == -1:
+            continue
+        total += ts.node(m).time * s
+        span += s
+    return total / span if span > 0 else float("nan")
+
+
+tmrca_genome_means = [
+    {"sample_a": a, "sample_b": b,
+     "mean_tmrca": tmrca_genome_mean(ts, a, b)}
+    for (a, b) in pairs
+]
+
+# --- Branch diversity (pi-mode) -----------------------------------------
+pi_full = float(ts.diversity(samples_full, mode="branch"))
+pi_half = float(ts.diversity(samples_half, mode="branch"))
+
+# --- Coalescence rate (per-bin) -----------------------------------------
+# Per-bin estimator (Speidel/tsdate-style):
+#   T(bin) = ∫ k_t (k_t - 1) / 2 dt summed across marginal trees,
+#            weighted by tree span (as fraction of sequence_length).
+#   C(bin) = number of focal-sample-lineage coalescent events with parent
+#            time ∈ bin, weighted by tree span (same fraction).
+#   rate(bin) = C(bin) / T(bin).
+# Implementation here is the reference; the Java side mirrors it bit-for-bit.
+
+def coalescence_rate_reference(ts, samples, bins):
+    sample_set = set(int(s) for s in samples)
+    n_bins = len(bins) - 1
+    events = [0.0] * n_bins
+    pair_time = [0.0] * n_bins
+    seq_len = float(ts.sequence_length)
+
+    def bin_index(t):
+        for i in range(n_bins):
+            if bins[i] <= t < bins[i + 1]:
+                return i
+        return -1
+
+    for tree in ts.trees():
+        s = (tree.interval[1] - tree.interval[0]) / seq_len
+        if s <= 0:
+            continue
+        # Descendant counts of focal samples, per node.
+        n_desc = {}
+        for u in tree.nodes(order="postorder"):
+            if tree.is_leaf(u):
+                n_desc[u] = 1 if int(u) in sample_set else 0
+            else:
+                n_desc[u] = sum(n_desc[c] for c in tree.children(u))
+
+        # Coalescence events: at each internal node u, the number of
+        # focal-sample lineage pairs that coalesce here is
+        #   total_choose_2 - sum(c_i_choose_2)
+        # where c_i = focal-descendant count of u's i-th child.
+        for u in tree.nodes():
+            if tree.is_leaf(u):
+                continue
+            counts = [n_desc[c] for c in tree.children(u)]
+            total = sum(counts)
+            if total < 2:
+                continue
+            cross = (total * (total - 1) // 2) - sum(c * (c - 1) // 2 for c in counts)
+            t = tree.time(u)
+            i = bin_index(t)
+            if i >= 0:
+                events[i] += cross * s
+
+        # Pair-time integral. For each branch [child, parent] with
+        # focal-descendant count k_b, the lineage k_t at any time t
+        # in [child.time, parent.time] is the count of branches at
+        # time t with k_b > 0.
+        # Compute k_t on a piecewise-constant time grid by sweeping
+        # internal-node times.
+        node_times = sorted({tree.time(u) for u in tree.nodes()})
+        # k_t between consecutive event times. Track k_t = number of
+        # branches alive at time t with focal-descendant count > 0.
+        for k_idx in range(len(node_times) - 1):
+            t_lo = node_times[k_idx]
+            t_hi = node_times[k_idx + 1]
+            # Branches alive at any t in (t_lo, t_hi): branches whose
+            # child.time <= t_lo and parent.time >= t_hi.
+            k_t = 0
+            for u in tree.nodes():
+                p = tree.parent(u)
+                if p == -1:
+                    continue
+                ct = tree.time(u)
+                pt = tree.time(p)
+                if ct <= t_lo and pt >= t_hi and n_desc[u] > 0:
+                    k_t += 1
+            pairs_at_t = k_t * (k_t - 1) / 2.0
+            if pairs_at_t == 0:
+                continue
+            # Distribute pairs_at_t * (t_hi - t_lo) across bins
+            # weighted by overlap.
+            for i in range(n_bins):
+                lo = max(bins[i], t_lo)
+                hi = min(bins[i + 1], t_hi)
+                if hi > lo:
+                    pair_time[i] += pairs_at_t * (hi - lo) * s
+
+    rates = []
+    for i in range(n_bins):
+        rate = events[i] / pair_time[i] if pair_time[i] > 0 else 0.0
+        rates.append({
+            "time_lo": float(bins[i]),
+            "time_hi": float(bins[i + 1]),
+            "n_coalescent_events": events[i],
+            "lineage_pair_time": pair_time[i],
+            "rate": rate,
+        })
+    return rates
+
+
+coal_bins = [0.0, 0.25, 0.5, 1.0, 2.0, float("inf")]
+# Replace inf with a large finite value the JSON can serialize.
+coal_bins_finite = [b if b != float("inf") else 1e9 for b in coal_bins]
+coalescence_rate_full = coalescence_rate_reference(
+    ts, samples_full, coal_bins_finite)
+
+# --- Allele age (per-mutation) ------------------------------------------
+allele_age = []
+for site in ts.sites():
+    for mut in site.mutations:
+        child = int(mut.node)
+        # Edge containing the mutation: walk up to find parent at the
+        # mutation's position. tskit gives us mut.edge directly.
+        edge = ts.edge(int(mut.edge))
+        parent = int(edge.parent)
+        ct = float(ts.node(child).time)
+        pt = float(ts.node(parent).time)
+        # Carrier count: descendants of `child` in the tree containing
+        # the mutation site (= tree.at(site.position)).
+        tree = ts.at(site.position)
+        n_carriers = sum(1 for s in tree.samples(child))
+        allele_age.append({
+            "mutation_index": int(mut.id) if hasattr(mut, "id") else 0,
+            "site_position": int(site.position),
+            "child_node_id": child,
+            "parent_node_id": parent,
+            "child_time": ct,
+            "parent_time": pt,
+            "midpoint_time": 0.5 * (ct + pt),
+            "n_carriers": n_carriers,
+        })
+# Re-index sequentially in case tskit's mut.id is None on older versions.
+for i, m in enumerate(allele_age):
+    m["mutation_index"] = i
+
+arg_stats_payload = {
+    "schema_version": 1,
+    "run_id": "egrm_fixture_20samples",
+    "n_samples": int(ts.num_samples),
+    "sequence_length": int(ts.sequence_length),
+    "samples_full": [int(s) for s in samples_full],
+    "samples_half": [int(s) for s in samples_half],
+    "tmrca_positions": positions,
+    "tmrca_pairs": [list(p) for p in pairs],
+    "tmrca_per_position": tmrca_per_position,
+    "tmrca_genome_means": tmrca_genome_means,
+    "branch_diversity_pi_full": pi_full,
+    "branch_diversity_pi_half": pi_half,
+    "coalescence_rate_bins": coal_bins_finite,
+    "coalescence_rate_full": coalescence_rate_full,
+    "allele_age": allele_age,
+}
+ARG_STATS_PATH.write_text(json.dumps(arg_stats_payload, indent=2))
+print(f"  -> {ARG_STATS_PATH.name}  "
+      f"(tmrca={len(tmrca_per_position)} pos×pair, "
+      f"allele_age={len(allele_age)} mutations, "
+      f"coal_rate_bins={len(coalescence_rate_full)})")

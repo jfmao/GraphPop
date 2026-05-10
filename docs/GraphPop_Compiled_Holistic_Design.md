@@ -1139,14 +1139,100 @@ detection on the IBD graph and PRIMUS-style pedigree reconstruction
 (full family tree from per-pair labels) build on this foundation in
 follow-up plans.
 
-### 13.2 Procedures (planned)
+### 13.1.11 ARG-derived statistics (M6)
 
-| Procedure | Path | Validation baseline |
-|-----------|------|---------------------|
-| `graphpop.arg.tmrca(sample_a, sample_b, position)` | ARG traversal | `tskit.TreeSequence.tmrca` |
-| `graphpop.arg.coalescence_rate(pop, time_bins)` | ARG aggregation | `tskit.TreeSequence.coalescence_rate` |
-| `graphpop.arg.branch_diversity(pop, mode)` | edge-length sum over windows | `tskit.TreeSequence.diversity(mode="branch")` |
-| `graphpop.arg.allele_age(variant_id)` | edge timing for `MUTATED_ON` edge | tsdate posterior |
+Four procedures turn the ARG layer (M4.A) from a substrate into a
+queryable layer. All read-only; all share the `ArgTraversalUtils`
+primitives (`marginalTree`, `mrca`, `descendantCounts`,
+`breakpoints`).
+
+#### 13.1.11.1 TMRCA — `graphpop.arg.tmrca`
+
+```cypher
+CALL graphpop.arg.tmrca($runId, $sampleA, $sampleB,
+                        {position: 25_000})
+  YIELD sample_a, sample_b, position, tmrca, mean_tmrca,
+        mrca_node_id, runId
+```
+
+Three modes:
+
+- `options.position` set → single-position TMRCA: walks
+  `:PARENT_OF` upward from each sample's leaf in the marginal tree
+  containing `position`, returns the LCA's `time`. One row per
+  haplotype pair.
+- `options.window_start` / `options.window_end` set → span-weighted
+  mean LCA time across marginal trees overlapping the window.
+- Neither set → genome-wide mean (window = `[0, sequence_length)`).
+
+Validates exactly against `tskit.TreeSequence.at(pos).mrca(a, b)`
+(rel-err < 1e-9).
+
+#### 13.1.11.2 Branch diversity — `graphpop.arg.branch_diversity`
+
+```cypher
+CALL graphpop.arg.branch_diversity($runId, $sampleIds,
+                                    {mode: 'pi'})
+  YIELD start, end, branch_pi, n_samples, mode, runId
+```
+
+For `mode = 'pi'` (the v1 default) reproduces
+`tskit.TreeSequence.diversity(samples, mode='branch')`:
+
+```
+pi_branch(W) = (1/|W|)
+            × Σ_{tree ∩ W} span(tree ∩ W)
+            × Σ_{branch} t_b · 2 · k_b · (n - k_b) / (n · (n - 1))
+```
+
+with `n = |sampleIds|`, `k_b` = focal-sample descendants of branch
+`b`'s child, `t_b = parent.time - child.time`. Optional
+`options.windows = [bp, bp, ...]` returns one row per window.
+Validates to rel-err < 1e-9 against tskit. Modes `theta_T` and
+`tajimas_d_branch` are deferred.
+
+#### 13.1.11.3 Coalescence rate — `graphpop.arg.coalescence_rate`
+
+```cypher
+CALL graphpop.arg.coalescence_rate($runId, $sampleIds,
+                                    {time_bins: [0, 0.25, 0.5, 1, 2, 1e9]})
+  YIELD time_lo, time_hi, n_coalescent_events,
+        lineage_pair_time, rate, runId
+```
+
+Speidel/tsdate-style per-bin estimator:
+
+```
+T(bin)    = ∫ k_t · (k_t - 1) / 2 dt   summed over marginal trees,
+                                         span-weighted
+C(bin)    = focal-sample-lineage coalescent events at parent_time ∈ bin,
+                                         span-weighted
+rate(bin) = C(bin) / T(bin)
+```
+
+`k_t` is the count of branches alive at time `t` carrying ≥ 1 focal
+descendant. Reference Python implementation:
+`build_egrm_fixture.py:coalescence_rate_reference`. Java mirrors it
+bit-for-bit (rel-err < 1e-9 on the 20-sample fixture).
+
+#### 13.1.11.4 Allele age — `graphpop.arg.allele_age`
+
+```cypher
+CALL graphpop.arg.allele_age($runId, $variantId)
+  YIELD variant_id, child_node_id, parent_node_id,
+        child_time, parent_time, midpoint_time,
+        n_carriers, runId
+```
+
+Reads the `:MUTATED_ON {runId, parent_node_id}` edge for the variant,
+looks up both endpoint times, and returns the bracket plus its
+midpoint and the carrier count (sample-flagged descendants of the
+child TreeNode in the marginal tree containing the mutation site).
+Round-trips against `ts.mutation(i).edge` time interval (exact).
+
+Together § 13.1.11.{1..4} close Phase 4. Remaining Phase-4 deferred
+items: GNN embeddings (separate plan with the GPU pipeline) and
+Louvain/PRIMUS (deferred from M5).
 
 ### 13.3 Ingest
 
