@@ -107,6 +107,8 @@ from .commands import (  # noqa: E402
     relate,
     demography,
     selection,
+    community,
+    pedigree,
 )
 
 # Individual procedures (12)
@@ -143,6 +145,10 @@ main.add_command(demography.demography)
 
 # Selection scans (Phase 5 / M8)
 main.add_command(selection.selection)
+
+# Community detection + pedigree reconstruction (M9)
+main.add_command(community.community)
+main.add_command(pedigree.pedigree)
 
 # Orchestration and export
 main.add_command(run_all.run_all)

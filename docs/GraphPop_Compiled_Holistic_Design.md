@@ -1367,6 +1367,79 @@ shared null-distribution machinery.
   follow-up; until then, real-data analyses should compare against
   selscan iHS / Tajima's D as cross-validation.
 
+### 13.1.14 Community detection + pedigree reconstruction (M9)
+
+Two complementary algorithms on the relatedness graph from M5:
+
+#### 13.1.14.1 Louvain modularity — `graphpop.community.louvain`
+
+```cypher
+CALL graphpop.community.louvain('king',
+        {edge_weight: 'phi', seed: 42, persist: true})
+  YIELD sample_id, community_id, modularity, n_communities, source
+```
+
+Pure-Java implementation of Blondel et al. 2008 multi-level Louvain
+optimisation; deterministic given a seed; no GDS plugin required.
+Operates on `:RELATIVE {source}` edges with configurable weighting:
+
+- `unit` (default) — every edge weighted 1.0
+- `phi` — `:RELATIVE.phi` (kinship-style fractional)
+- `degree` — `1 / (1 + :RELATIVE.degree)` (closer relatives weigh more)
+
+With `persist: true` (default) writes
+`(:Sample)-[:IN_COMMUNITY {source}]->(:Community {community_id, source})`
+edges + nodes idempotently per source. Modularity is reported on
+the level-0 graph (Newman 2006) so the value is comparable across
+runs / configurations.
+
+Validated on a hand-built 3-clique fixture: Louvain recovers the 3
+cliques exactly with modularity ≥ 0.4. Heavy inter-clique edges
+collapse the partition correctly (regression test).
+
+Skipped: Leiden refinement (Traag et al. 2019) — gives stricter
+quality guarantees but ~30 % more code; defer until downstream
+needs it.
+
+#### 13.1.14.2 PRIMUS-lite pedigree — `graphpop-pedigree`
+
+A new sister Python package: `pip install graphpop-pedigree` (or
+`pip install -e ./graphpop-pedigree` from the repo root). Reads
+`:IN_FAMILY` clusters and `:RELATIVE` labels from Neo4j and writes
+a PLINK-compatible PED file.
+
+Algorithm (PRIMUS-lite):
+
+1. For each family, build an undirected `:parent_child` multigraph.
+2. Iteratively peel off "child" nodes (degree-2 nodes with both
+   parents identified) — the two neighbours become the parents.
+   Multi-generation pedigrees resolve from outermost leaves inward.
+3. Remaining degree-1 edges: orient by sex when one endpoint has
+   `:Sample.sex ∈ {"M", "F"}` (M/F end is the parent); fall back to
+   lex order otherwise.
+4. Full-sibling cohorts inherit parents from any sibling with a
+   parent assignment (sib propagation).
+
+CLI:
+
+```sh
+graphpop pedigree reconstruct --source king --output cohort.ped
+graphpop pedigree reconstruct --family-id F042 --output F042.ped
+```
+
+V1 covers parent-child trios, full-sib cohorts, and 3-generation
+lineages when sex metadata is available. Defers consanguinity,
+half-siblings, generations beyond 3, and ancestry-aware adjustment
+(see also § 13.1.1's `branch_grm_by_ancestry`).
+
+#### Reuse
+
+- `:RELATIVE` edges (M5) — both procedures consume them directly.
+- `:IN_FAMILY` clusters (M5) — pedigree reconstruction operates per
+  family.
+- The additive Cypher write pattern from M4.A — Louvain persistence
+  follows the same `(source, …)` replace idiom.
+
 ### 13.3 Ingest
 
 `graphpop-import/arg_importer.py` reads a tskit `TreeSequence` and emits CSVs

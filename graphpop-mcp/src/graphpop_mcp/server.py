@@ -1685,6 +1685,98 @@ def graphpop_kinship_branch_grm_he(
 
 
 @mcp.tool()
+def graphpop_community_louvain(
+    source: str,
+    edge_weight: str = "unit",
+    seed: int = 42,
+    persist: bool = True,
+) -> str:
+    """Pure-Java Louvain modularity community detection (M9).
+
+    Reads :RELATIVE edges with the given source, runs Blondel et al.
+    2008 Louvain on the weighted graph, returns one row per sample
+    with {sample_id, community_id, modularity, n_communities, source}.
+
+    edge_weight: 'unit' (1.0), 'phi' (RELATIVE.phi), 'degree'
+    (1 / (1 + RELATIVE.degree); closer relatives weigh more).
+    persist=true also writes :IN_COMMUNITY edges and :Community nodes.
+    """
+    opts: dict = {
+        "edge_weight": edge_weight,
+        "seed": seed,
+        "persist": persist,
+    }
+    cypher = "CALL graphpop.community.louvain($src, $options)"
+    return json.dumps(_run_procedure(
+        cypher, {"src": source, "options": opts}))
+
+
+@mcp.tool()
+def graphpop_pedigree_reconstruct(
+    output_path: str,
+    family_id: str | None = None,
+    source: str = "king",
+) -> str:
+    """PRIMUS-lite pedigree reconstruction (M9, graphpop-pedigree).
+
+    Reads :IN_FAMILY clusters and :RELATIVE labels from Neo4j,
+    reconstructs the most-likely pedigree per family (parent-child
+    trios, full-sib cohorts, 3-gen lineages with sex metadata),
+    writes a PLINK-compatible PED file. Returns JSON with the
+    output path and row count.
+    """
+    try:
+        from graphpop_pedigree import PedExporter, PedigreeReconstructor
+    except ImportError:
+        return json.dumps({
+            "error": "graphpop-pedigree not installed; run "
+                     "`pip install graphpop-pedigree`",
+        })
+
+    sample_query = (
+        "MATCH (s:Sample)-[:IN_FAMILY {source: $src}]->(f:Family) "
+        "RETURN f.family_id AS family_id, s.sampleId AS sid, "
+        "s.sex AS sex"
+    )
+    sample_rows = _run_procedure(sample_query, {"src": source})
+    if family_id:
+        sample_rows = [r for r in sample_rows
+                       if r.get("family_id") == family_id]
+    if not sample_rows:
+        return json.dumps({
+            "output_path": output_path,
+            "n_rows": 0,
+            "warning": "no samples — run graphpop.relate.families first",
+        })
+
+    edge_query = (
+        "MATCH (a:Sample)-[r:RELATIVE {source: $src}]->(b:Sample) "
+        "RETURN a.sampleId AS sa, b.sampleId AS sb, "
+        "r.relationship AS rel, r.degree AS deg"
+    )
+    edge_rows = _run_procedure(edge_query, {"src": source})
+
+    samples = [
+        (r["family_id"], r["sid"], r.get("sex"))
+        for r in sample_rows
+    ]
+    edges = [
+        (r["sa"], r["sb"], r["rel"], r["deg"])
+        for r in edge_rows
+    ]
+    rec = PedigreeReconstructor(samples, edges, source=source)
+    rows = (rec.reconstruct_family(family_id)
+            if family_id else rec.reconstruct_all())
+    n = PedExporter.write(rows, output_path)
+    return json.dumps({
+        "output_path": output_path,
+        "n_rows": n,
+        "source": source,
+        "family_id": family_id,
+    })
+
+
+@mcp.tool()
 def graphpop_selection_allele_age_scan(
     run_id: str,
     n_freq_bins: int = 20,
