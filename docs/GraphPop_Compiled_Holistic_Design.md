@@ -1609,10 +1609,117 @@ Per window:
 
 Both procedures reuse the sliding-window edges from
 `SelectionUtils` (M8); `HudsonRecombination` is the only new
-~80-line primitive (closed-form `E[r²]` + bisection). Deferred:
-LDhat-style reversible-jump MCMC, pyrho HMM smoothing, ancestry-
-or sex-specific ρ-maps, recombination-hotspot FDR. Each is its
-own follow-up; the moment estimator is a useful first cut.
+~80-line primitive (closed-form `E[r²]` + bisection). The four
+items originally deferred at M11 are now shipped as M13 (below):
+LDhat MCMC, pyrho HMM, stratified maps, hotspot FDR.
+
+#### 13.1.16.3 LDhat MCMC — `graphpop.recombination.ldhat_mcmc` (M13.A)
+
+```cypher
+CALL graphpop.recombination.ldhat_mcmc($sampleIds,
+        {window_size: 10000, step: 5000, n_iter: 5000,
+         burn_in: 1000, prop_sd: 0.5, sigma: 0.1, seed: 42})
+  YIELD start, end, n_variant_pairs, rho_posterior_mean,
+        rho_lower_2_5, rho_upper_97_5, n_iter, n_accepted,
+        n_samples, runId
+```
+
+Per-window Metropolis-Hastings sampler on log10(ρ):
+
+- **Prior** — `log10(ρ) ~ Uniform(prior_log_lo, prior_log_hi)`
+  (default `[-12, -2]`).
+- **Likelihood** — Gaussian residuals around Hudson 1985's
+  `E[r²|n, ρ·d]`:
+  ```
+  log L ∝ −(1/2σ²) Σ_pairs (r² − E[r²|ρ·d_pair])²
+  ```
+- **Proposal** — `log10(ρ_new) = log10(ρ_old) + Normal(0, prop_sd)`.
+
+Output per window: posterior mean ρ + 2.5 % / 97.5 % quantiles +
+acceptance rate. Deterministic given `seed`.
+
+v1 deviates from the original LDhat (McVean 2002) in two ways:
+(1) per-window Bayesian point estimate rather than a piecewise-
+constant ρ-map with variable breakpoints; (2) Hudson Gaussian-
+approximation likelihood rather than the LDhat coalescent
+likelihood lookup table. The full reversible-jump variant is a
+v2 follow-up.
+
+#### 13.1.16.4 pyrho HMM smoothing — `graphpop.recombination.hmm_smooth` (M13.B)
+
+```cypher
+CALL graphpop.recombination.hmm_smooth($sampleIds,
+        {window_size: 10000, step: 5000, n_states: 20,
+         state_log_lo: -10, state_log_hi: -4,
+         emission_sd: 0.5, switch_rate: 0.1})
+  YIELD start, end, rho_per_bp, rho_smoothed, hmm_state,
+        n_variant_pairs, runId
+```
+
+Discrete-state HMM over per-window `log10(ρ̂)` with Gaussian
+emissions and a banded-walk transition prior (state stays with
+prob `1 − switch_rate`, moves to immediate neighbours with prob
+`switch_rate / 2`; reflecting boundaries). Forward-backward gives
+the posterior mean `log10(ρ)` per window; Viterbi gives the
+most-likely state sequence.
+
+Pyrho-style smoothing (Spence & Song 2019, simplified): the raw
+per-window estimator is the M11 moment estimator; smoothing
+shares strength across adjacent windows to reduce variance.
+
+#### 13.1.16.5 Stratified maps — `graphpop.recombination.stratified_ld_decay` (M13.C)
+
+```cypher
+CALL graphpop.recombination.stratified_ld_decay($sampleIds,
+        {stratify_by: 'population',
+         window_size: 10000, step: 5000})
+  YIELD start, end, stratum, n_variant_pairs, mean_r2,
+        mean_pair_distance, rho_per_bp, n_samples,
+        stratify_by, runId
+```
+
+Splits the focal sample set by `:Sample.population` or
+`:Sample.sex`, runs the M11 Hudson-Kaplan moment estimator
+independently per stratum, and emits one row per (window,
+stratum). Useful for sex-averaged versus sex-specific
+recombination, or per-population ρ-maps in admixed cohorts.
+
+`stratify_by = 'ancestry_block'` (walking M4.B
+`:HAS_ANCESTRY` edges to split each window into ancestry-
+homogeneous sub-windows) is deferred to v2.
+
+#### 13.1.16.6 Hotspot FDR — `graphpop.recombination.hotspots` (M13.D)
+
+```cypher
+CALL graphpop.recombination.hotspots($sampleIds,
+        {window_size: 10000, step: 5000, fdr_q: 0.05,
+         method: 'ld_decay'})
+  YIELD start, end, rho_per_bp, z_score, p_value,
+        adj_p_value, is_hotspot, n_variant_pairs,
+        method, runId
+```
+
+Pipeline:
+
+1. Compute per-window ρ via M11's LD-decay moment estimator
+   (`method='ld_decay'` is the only v1 method; ARG-derived
+   reserved for v2).
+2. Genome-wide null = `(μ, σ)` of `log10(ρ)` across non-zero
+   windows.
+3. Per-window z-score → one-sided upper-tail normal p-value
+   (Abramowitz & Stegun erf approximation).
+4. Benjamini-Hochberg FDR adjustment.
+5. Flag windows with `adj_p_value < fdr_q`.
+
+#### Out of scope for v2
+
+- Reversible-jump MCMC for piecewise-constant ρ-maps with
+  variable breakpoints.
+- LDhat coalescent likelihood lookup table.
+- Continuous-state HMM for M13.B.
+- Bayesian model averaging across M13.A + M13.B posteriors.
+- M13.C's `stratify_by = 'ancestry_block'` mode.
+- M13.D's `method = 'arg_breakpoints'` source.
 
 ### 13.3 Ingest
 

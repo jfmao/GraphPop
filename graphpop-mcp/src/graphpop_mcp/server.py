@@ -1839,6 +1839,136 @@ def graphpop_sim_abc(
 
 
 @mcp.tool()
+def graphpop_recombination_ldhat_mcmc(
+    sample_ids: list[str],
+    window_size: int = 10_000,
+    step: int | None = None,
+    max_pair_distance: int = 5_000,
+    min_maf: float = 0.05,
+    n_iter: int = 5_000,
+    burn_in: int = 1_000,
+    prop_sd: float = 0.5,
+    sigma: float = 0.1,
+    seed: int = 42,
+) -> str:
+    """Per-window LDhat-style MCMC posterior on ρ (M13.A).
+
+    Metropolis-Hastings sampler on log10(ρ) with Hudson 1985
+    Gaussian-approx likelihood. Deterministic given seed.
+    Returns JSON array with posterior_mean / 2.5 / 97.5 quantiles.
+    """
+    opts: dict = {
+        "window_size": window_size,
+        "max_pair_distance": max_pair_distance,
+        "min_maf": min_maf,
+        "n_iter": n_iter,
+        "burn_in": burn_in,
+        "prop_sd": prop_sd,
+        "sigma": sigma,
+        "seed": seed,
+    }
+    if step is not None:
+        opts["step"] = step
+    cypher = "CALL graphpop.recombination.ldhat_mcmc($sids, $options)"
+    return json.dumps(_run_procedure(
+        cypher, {"sids": list(sample_ids), "options": opts}))
+
+
+@mcp.tool()
+def graphpop_recombination_hmm_smooth(
+    sample_ids: list[str],
+    window_size: int = 10_000,
+    step: int | None = None,
+    max_pair_distance: int = 5_000,
+    n_states: int = 20,
+    state_log_lo: float = -10.0,
+    state_log_hi: float = -4.0,
+    emission_sd: float = 0.5,
+    switch_rate: float = 0.1,
+) -> str:
+    """Pyrho-style HMM smoothing of per-window ρ (M13.B).
+
+    Discrete-state HMM over log10(ρ̂) with Gaussian emissions and a
+    banded-walk transition prior. Returns JSON array of per-window
+    rows with raw and smoothed ρ + Viterbi state.
+    """
+    opts: dict = {
+        "window_size": window_size,
+        "max_pair_distance": max_pair_distance,
+        "n_states": n_states,
+        "state_log_lo": state_log_lo,
+        "state_log_hi": state_log_hi,
+        "emission_sd": emission_sd,
+        "switch_rate": switch_rate,
+    }
+    if step is not None:
+        opts["step"] = step
+    cypher = "CALL graphpop.recombination.hmm_smooth($sids, $options)"
+    return json.dumps(_run_procedure(
+        cypher, {"sids": list(sample_ids), "options": opts}))
+
+
+@mcp.tool()
+def graphpop_recombination_stratified_ld_decay(
+    sample_ids: list[str],
+    stratify_by: str = "population",
+    window_size: int = 10_000,
+    step: int | None = None,
+    max_pair_distance: int = 5_000,
+    min_maf: float = 0.05,
+) -> str:
+    """Per-(window, stratum) ρ via :Sample.population or :Sample.sex
+    (M13.C).
+
+    Splits the focal sample set by :Sample.<stratify_by> and runs
+    the M11 Hudson-Kaplan moment estimator independently per
+    stratum. Returns JSON array of per-(window, stratum) rows.
+    """
+    opts: dict = {
+        "stratify_by": stratify_by,
+        "window_size": window_size,
+        "max_pair_distance": max_pair_distance,
+        "min_maf": min_maf,
+    }
+    if step is not None:
+        opts["step"] = step
+    cypher = "CALL graphpop.recombination.stratified_ld_decay($sids, $options)"
+    return json.dumps(_run_procedure(
+        cypher, {"sids": list(sample_ids), "options": opts}))
+
+
+@mcp.tool()
+def graphpop_recombination_hotspots(
+    sample_ids: list[str],
+    method: str = "ld_decay",
+    window_size: int = 10_000,
+    step: int | None = None,
+    max_pair_distance: int = 5_000,
+    min_maf: float = 0.05,
+    fdr_q: float = 0.05,
+) -> str:
+    """Recombination-hotspot detection with BH FDR (M13.D).
+
+    Per-window ρ → z-score against the log10(ρ) genome-wide null →
+    one-sided upper-tail normal p-value → Benjamini-Hochberg
+    adjustment. Returns JSON array of per-window rows with
+    is_hotspot flag at the requested FDR.
+    """
+    opts: dict = {
+        "method": method,
+        "window_size": window_size,
+        "max_pair_distance": max_pair_distance,
+        "min_maf": min_maf,
+        "fdr_q": fdr_q,
+    }
+    if step is not None:
+        opts["step"] = step
+    cypher = "CALL graphpop.recombination.hotspots($sids, $options)"
+    return json.dumps(_run_procedure(
+        cypher, {"sids": list(sample_ids), "options": opts}))
+
+
+@mcp.tool()
 def graphpop_recombination_arg_breakpoints(
     run_id: str,
     window_size: int = 10_000,
