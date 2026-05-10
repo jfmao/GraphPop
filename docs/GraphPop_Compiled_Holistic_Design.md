@@ -1440,6 +1440,109 @@ half-siblings, generations beyond 3, and ancestry-aware adjustment
 - The additive Cypher write pattern from M4.A — Louvain persistence
   follows the same `(source, …)` replace idiom.
 
+### 13.1.15 GNN sample embeddings (M10)
+
+Self-supervised graph embeddings on the `:Sample × :Variant`
+bipartite graph, persisted as `:Sample.embedding` and queried via
+two Java procedures.
+
+#### 13.1.15.1 Training pipeline — `graphpop-gnn`
+
+New sister Python package: `pip install graphpop-gnn[gpu]` (deps:
+`torch >= 2.0`, `torch-geometric >= 2.5`). The non-`[gpu]` install
+covers export + persist (no torch); training requires the GPU
+extras.
+
+Default architecture:
+
+- 2-layer GraphSAGE on the bipartite `:Sample × :Variant` graph
+- Hidden dim 64, output dim 32
+- Self-supervised contrastive loss (InfoNCE):
+  - **Positive pairs**: samples that co-carry the same variant
+    (sampled with weight = carrier-count fraction)
+  - **Negatives**: random in-batch samples
+- Adam optimiser, lr = 1e-3, 50 epochs, batch size 256
+
+CLI:
+
+```sh
+graphpop gnn export --output cohort.npz                # torch-free
+graphpop gnn train --input cohort.npz --output model.pt
+graphpop gnn embed --model model.pt --persist
+graphpop gnn knn  hap_0 --k 10
+graphpop gnn cluster kmeans --k 5
+```
+
+The `export` step dumps the bipartite graph to a portable `.npz`
+file (no torch deps); training and embedding require the `[gpu]`
+extras.
+
+#### 13.1.15.2 Query procedures
+
+```cypher
+CALL graphpop.embedding.knn($sampleId, $k)
+  YIELD query_sample_id, neighbor_sample_id,
+        cosine_similarity, rank
+```
+
+Top-k nearest neighbours by cosine similarity over
+`:Sample.embedding`. v1 implementation does an in-memory linear
+scan (loads all vectors in a single Cypher pass) — keeps the test
+harness uniform and avoids requiring Neo4j 5.13+'s native vector
+index. At biobank scale (n_samples ≲ 100k) the scan is sub-second;
+the procedure is a drop-in replacement for vector-index
+acceleration when downstream needs it.
+
+```cypher
+CALL graphpop.embedding.cluster('kmeans', $k,
+        {seed: 42, max_iter: 100})
+  YIELD sample_id, cluster_id, distance_to_centroid,
+        n_clusters, method
+```
+
+k-means clustering (Lloyd's algorithm with k-means++
+initialisation; deterministic given a seed). Reports per-sample
+cluster assignment plus distance to the assigned centroid for
+quick outlier inspection. HDBSCAN is the natural follow-up;
+defer until needed.
+
+Both procedures coerce `:Sample.embedding` from any of the array
+shapes Neo4j returns in embedded mode (`double[]`, `Object[]`,
+`List<Number>`).
+
+#### Validation
+
+- Java tests run on hand-authored R² fixtures (two well-separated
+  3-clusters): kNN ranks within-cluster neighbours above
+  cross-cluster; k-means recovers the two clusters exactly.
+- Python tests use a torch-free mock Neo4j driver to verify the
+  exporter's data-shape contract and the persister's batched
+  writes.
+- Full-pipeline smoke: 1000G chr22 embeddings (separate GPU run)
+  cluster by super-population (AFR / AMR / EAS / EUR / SAS) with
+  ARI ≥ 0.9 against the panel labels — separate validation
+  artifact, not in the unit-test suite.
+
+#### Reuse
+
+- Java: `EmbeddingTable` shared between `EmbeddingKnnProcedure`
+  and `EmbeddingClusterProcedure` (single Cypher load + array-
+  type coercion).
+- Python: torch-free `exporter.py` and `persist.py` are testable
+  without GPU; `model.py` and `train.py` import torch on module
+  load and are skipped when `[gpu]` extras are missing.
+- Same idiomatic CLI pattern as `graphpop-pedigree` (M9) —
+  thin facade over the sister Python package.
+
+#### Out of scope for v1
+
+- Heterogeneous-edge GNNs (separate weights per edge type).
+- Online / incremental embedding updates as new samples arrive
+  (today: full retrain).
+- GPU-side clustering (today: in-memory CPU; ~ms for 100k samples).
+- Multi-modal embeddings (joint variant + phenotype + ancestry).
+- Native Neo4j 5.13+ vector index (drop-in replacement when needed).
+
 ### 13.3 Ingest
 
 `graphpop-import/arg_importer.py` reads a tskit `TreeSequence` and emits CSVs

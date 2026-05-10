@@ -1685,6 +1685,42 @@ def graphpop_kinship_branch_grm_he(
 
 
 @mcp.tool()
+def graphpop_embedding_knn(
+    sample_id: str,
+    k: int = 10,
+) -> str:
+    """Top-k nearest neighbours by cosine similarity over
+    :Sample.embedding (M10).
+
+    Loads every embedded sample's vector in one Cypher pass and
+    computes pairwise cosine against the query. Returns JSON array
+    of {query_sample_id, neighbor_sample_id, cosine_similarity, rank}.
+    """
+    cypher = "CALL graphpop.embedding.knn($sid, $k)"
+    return json.dumps(_run_procedure(
+        cypher, {"sid": sample_id, "k": k}))
+
+
+@mcp.tool()
+def graphpop_embedding_cluster(
+    method: str = "kmeans",
+    k: int = 5,
+    seed: int = 42,
+    max_iter: int = 100,
+) -> str:
+    """k-means clustering over :Sample.embedding (M10).
+
+    v1: method='kmeans' only (Lloyd's with k-means++ init).
+    Returns JSON array of {sample_id, cluster_id,
+    distance_to_centroid, n_clusters, method}.
+    """
+    opts: dict = {"seed": seed, "max_iter": max_iter}
+    cypher = "CALL graphpop.embedding.cluster($method, $k, $options)"
+    return json.dumps(_run_procedure(
+        cypher, {"method": method, "k": k, "options": opts}))
+
+
+@mcp.tool()
 def graphpop_community_louvain(
     source: str,
     edge_weight: str = "unit",

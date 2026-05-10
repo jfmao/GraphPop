@@ -109,6 +109,7 @@ from .commands import (  # noqa: E402
     selection,
     community,
     pedigree,
+    gnn,
 )
 
 # Individual procedures (12)
@@ -149,6 +150,9 @@ main.add_command(selection.selection)
 # Community detection + pedigree reconstruction (M9)
 main.add_command(community.community)
 main.add_command(pedigree.pedigree)
+
+# GNN embeddings (M10)
+main.add_command(gnn.gnn)
 
 # Orchestration and export
 main.add_command(run_all.run_all)
