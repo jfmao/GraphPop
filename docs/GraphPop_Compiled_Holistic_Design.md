@@ -1627,3 +1627,90 @@ Ground truth: msprime-simulated tree sequences with known coalescent times.
 Empirical: re-infer 1000G chr22 ARG with tsinfer + tsdate, ingest, and
 require relative error < 1e-6 against tskit's branch-length statistics for
 the same tree sequence.
+
+## 14. Phase 6 — Simulation integration (M12)
+
+A new sister Python package, `graphpop-sim`, plus a top-level
+`graphpop sim` CLI group that orchestrates three simulation paths:
+
+### 14.1 msprime orchestrator — `graphpop sim msprime`
+
+Reads a YAML config (`n_diploid`, `sequence_length`,
+`recombination_rate`, `mutation_rate`, `demography`, `seed`),
+runs `msprime.sim_ancestry` + `msprime.sim_mutations`, dumps the
+resulting `.trees` file, and (with `--ingest`) calls the existing
+`graphpop_import.ARGIngester` to persist the run as a `:ARGRun`.
+
+Single-deme demographic histories are supported as a list of
+`{time, Ne}` epochs; multi-deme migration matrices are deferred.
+
+### 14.2 SLiM orchestrator — `graphpop sim slim`
+
+Curated SLiM templates: `neutral`, `sweep_genic`, `bottleneck`.
+Each uses tree-sequence recording (`initializeTreeSeq()`) so its
+output ingests via the same path as msprime.
+
+```sh
+graphpop sim slim --template sweep_genic \
+    --params "Ne=5000,sweep_s=0.01,sweep_pos=500000" \
+    --output sim.trees --run-id sim_sweep --ingest
+```
+
+Parameters pass to SLiM as global variables via `-d key=value`.
+Tests skip when the SLiM binary isn't on `PATH`.
+
+### 14.3 Rejection-ABC — `graphpop sim abc`
+
+Beaumont, Zhang & Balding 2002 rejection-ABC:
+
+1. Draw `n_sim` parameter sets from the priors YAML
+   (`uniform` or `log_uniform` per parameter).
+2. For each, run msprime with the prior-sampled overrides on top
+   of a base config; compute summary statistics
+   (π, θ_W, Tajima's D, F_ST when populations are defined).
+3. Accept the top `epsilon` fraction by Euclidean distance to the
+   observed summary-stats vector.
+4. Write the posterior sample as TSV.
+
+```yaml
+# priors.yaml — log-uniform on per-bp rates
+mutation_rate:
+  distribution: log_uniform
+  low: -9      # 10^-9 per bp
+  high: -6     # 10^-6 per bp
+recombination_rate:
+  distribution: uniform
+  low: 1.0e-9
+  high: 1.0e-7
+```
+
+SMC-ABC (Sisson et al. 2007) and NN-ABC (with neural density
+estimators) are deferred to v2.
+
+### 14.4 Package layout
+
+```
+graphpop-sim/
+├── pyproject.toml
+├── src/graphpop_sim/
+│   ├── msprime_runner.py        # YAML → ts.dump
+│   ├── slim_runner.py           # SLiM template + subprocess
+│   ├── summary_stats.py         # π, θ_W, Tajima's D, F_ST
+│   ├── abc.py                   # rejection-ABC core
+│   ├── cli.py                   # graphpop-sim entrypoint
+│   └── slim_templates/{neutral,sweep_genic,bottleneck}.slim
+└── tests/                       # 23 pytest tests
+```
+
+`graphpop sim` (top-level CLI) is a thin facade that sub-shells
+`graphpop-sim` — same precedent as `graphpop pedigree` (M9) and
+`graphpop gnn` (M10). Three MCP tools (59 total after this PR):
+`graphpop_sim_msprime`, `graphpop_sim_slim`, `graphpop_sim_abc`.
+
+### 14.5 Out of scope for M12 v1
+
+- dadi / moments SFS-likelihood integration.
+- SMC-ABC and NN-ABC.
+- Multi-deme migration matrices in msprime templates.
+- SLiM 4 multi-deme configurations.
+- Tree-sequence editing tools (mutation overlay etc.).

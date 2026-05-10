@@ -111,6 +111,7 @@ from .commands import (  # noqa: E402
     pedigree,
     gnn,
     recombination,
+    sim,
 )
 
 # Individual procedures (12)
@@ -157,6 +158,9 @@ main.add_command(gnn.gnn)
 
 # Recombination-map inference (Phase 5 / M11)
 main.add_command(recombination.recombination)
+
+# Simulation integration (Phase 6 / M12)
+main.add_command(sim.sim)
 
 # Orchestration and export
 main.add_command(run_all.run_all)

@@ -1,0 +1,36 @@
+// Bottleneck template (graphpop-sim M12.B).
+// Parameters:
+//   Ne_ancestral     ancestral Ne (default 10000)
+//   Ne_bottleneck    bottleneck Ne (default 1000)
+//   Ne_recovery      post-bottleneck Ne (default 10000)
+//   bottleneck_gen   generation when bottleneck starts (default 2000)
+//   recovery_gen     generation when recovery starts (default 2100)
+//   sequence_len, recomb_rate, mut_rate, seed, output_path: see neutral.slim
+//   gens             total generations (default 5000)
+
+initialize() {
+    setSeed(seed);
+    initializeTreeSeq();
+    initializeMutationRate(mut_rate);
+    initializeMutationType("m1", 0.5, "f", 0.0);
+    initializeGenomicElementType("g1", m1, 1.0);
+    initializeGenomicElement(g1, 0, asInteger(sequence_len) - 1);
+    initializeRecombinationRate(recomb_rate);
+}
+
+1 early() {
+    sim.addSubpop("p1", asInteger(Ne_ancestral));
+}
+
+bottleneck_gen early() {
+    p1.setSubpopulationSize(asInteger(Ne_bottleneck));
+}
+
+recovery_gen early() {
+    p1.setSubpopulationSize(asInteger(Ne_recovery));
+}
+
+gens late() {
+    sim.treeSeqOutput(output_path);
+    sim.simulationFinished();
+}

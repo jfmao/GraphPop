@@ -1,0 +1,32 @@
+// Genic positive sweep template (graphpop-sim M12.B).
+// Parameters:
+//   Ne, sequence_len, recomb_rate, mut_rate, seed, output_path: see neutral.slim
+//   sweep_s          selection coefficient (default 0.01)
+//   sweep_pos        sweep position (bp, default sequence_len/2)
+//   sweep_gen        generation to introduce the sweep (default 1000)
+//   gens             total generations (default 5000)
+
+initialize() {
+    setSeed(seed);
+    initializeTreeSeq();
+    initializeMutationRate(mut_rate);
+    initializeMutationType("m1", 0.5, "f", 0.0);          // neutral
+    initializeMutationType("m2", 0.5, "f", sweep_s);      // beneficial
+    initializeGenomicElementType("g1", c(m1, m2), c(0.999, 0.001));
+    initializeGenomicElement(g1, 0, asInteger(sequence_len) - 1);
+    initializeRecombinationRate(recomb_rate);
+}
+
+1 early() {
+    sim.addSubpop("p1", asInteger(Ne));
+}
+
+sweep_gen late() {
+    target = sample(p1.genomes, 1);
+    target.addNewDrawnMutation(m2, asInteger(sweep_pos));
+}
+
+gens late() {
+    sim.treeSeqOutput(output_path);
+    sim.simulationFinished();
+}

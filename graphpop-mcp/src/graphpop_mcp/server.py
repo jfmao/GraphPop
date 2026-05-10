@@ -1685,6 +1685,160 @@ def graphpop_kinship_branch_grm_he(
 
 
 @mcp.tool()
+def graphpop_sim_msprime(
+    config_path: str,
+    output_path: str,
+    run_id: str | None = None,
+    ingest: bool = False,
+) -> str:
+    """Run msprime from a YAML config (M12.A).
+
+    Dumps the tree sequence to output_path. With ingest=true and a
+    run_id, also persists the result as a :ARGRun via the existing
+    ARGIngester. Returns JSON with simulation metadata.
+    """
+    try:
+        from graphpop_sim import MsprimeConfig, MsprimeRunner
+    except ImportError:
+        return json.dumps({
+            "error": "graphpop-sim not installed; "
+                     "run `pip install graphpop-sim`",
+        })
+    cfg = MsprimeConfig.from_yaml(config_path)
+    ts = MsprimeRunner(cfg).simulate_and_dump(output_path)
+    out = {
+        "config_path": config_path,
+        "output_path": output_path,
+        "n_samples": int(ts.num_samples),
+        "n_trees": int(ts.num_trees),
+        "n_mutations": int(ts.num_mutations),
+        "sequence_length": int(ts.sequence_length),
+        "ingested": False,
+    }
+    if ingest:
+        try:
+            from graphpop_import.arg_importer import ARGIngester
+        except ImportError:
+            out["error"] = "graphpop-import not installed; cannot ingest"
+            return json.dumps(out)
+        if not run_id:
+            out["error"] = "run_id is required when ingest=true"
+            return json.dumps(out)
+        driver = _get_driver()
+        ing = ARGIngester(driver)
+        summary = ing.ingest(ts, run_id=run_id, source="msprime",
+                              params=cfg.to_dict())
+        out["ingested"] = True
+        out["run_id"] = summary.run_id
+        out["n_tree_nodes"] = summary.n_nodes
+        out["n_edges"] = summary.n_edges
+    return json.dumps(out)
+
+
+@mcp.tool()
+def graphpop_sim_slim(
+    template: str,
+    params: dict[str, float | int | str],
+    output_path: str,
+    run_id: str | None = None,
+    ingest: bool = False,
+) -> str:
+    """Run a curated SLiM template (M12.B).
+
+    template ∈ {"neutral", "sweep_genic", "bottleneck"}. Passes
+    each (key, value) in params to SLiM as a global variable.
+    Requires the SLiM binary on PATH. Returns JSON with run
+    metadata.
+    """
+    try:
+        from graphpop_sim import SlimRunner
+    except ImportError:
+        return json.dumps({
+            "error": "graphpop-sim not installed; "
+                     "run `pip install graphpop-sim`",
+        })
+    if not SlimRunner.is_available():
+        return json.dumps({
+            "error": "SLiM binary not on PATH",
+        })
+    runner = SlimRunner()
+    result = runner.run(template=template, params=dict(params),
+                         output_path=output_path)
+    out = {
+        "template": template,
+        "output_path": output_path,
+        "return_code": result.return_code,
+        "ingested": False,
+    }
+    if ingest and result.return_code == 0:
+        try:
+            import tskit
+            from graphpop_import.arg_importer import ARGIngester
+        except ImportError:
+            out["error"] = "graphpop-import + tskit required for ingest"
+            return json.dumps(out)
+        if not run_id:
+            out["error"] = "run_id is required when ingest=true"
+            return json.dumps(out)
+        ts = tskit.load(output_path)
+        driver = _get_driver()
+        ing = ARGIngester(driver)
+        summary = ing.ingest(ts, run_id=run_id, source="slim",
+                              params={"template": template,
+                                      "params": dict(params)})
+        out["ingested"] = True
+        out["run_id"] = summary.run_id
+    return json.dumps(out)
+
+
+@mcp.tool()
+def graphpop_sim_abc(
+    prior_path: str,
+    observed_path: str,
+    output_path: str,
+    base_config_path: str | None = None,
+    n_sim: int = 1000,
+    epsilon: float = 0.05,
+    summary_keys: str = "pi,theta_w,tajimas_d",
+    seed: int = 42,
+) -> str:
+    """Rejection-ABC for demographic / mutational-rate inference (M12.C).
+
+    Reads priors (YAML) + observed summary stats (TSV) + optional
+    base msprime config; simulates n_sim draws; accepts top
+    epsilon fraction by Euclidean distance on summary_keys; writes
+    posterior TSV to output_path.
+    """
+    try:
+        from graphpop_sim import (
+            MsprimeConfig, load_priors, posterior_to_tsv, run_abc,
+        )
+        from graphpop_sim.cli import _load_observed
+    except ImportError:
+        return json.dumps({
+            "error": "graphpop-sim not installed; "
+                     "run `pip install graphpop-sim`",
+        })
+    priors = load_priors(prior_path)
+    obs = _load_observed(observed_path)
+    keys = [s.strip() for s in summary_keys.split(",") if s.strip()]
+    base = (MsprimeConfig.from_yaml(base_config_path)
+            if base_config_path else None)
+    result = run_abc(
+        priors=priors, observed=obs, n_sim=n_sim, epsilon=epsilon,
+        summary_keys=keys, base_config=base, seed=seed,
+    )
+    n = posterior_to_tsv(result, output_path)
+    return json.dumps({
+        "n_total": result.n_total,
+        "n_accepted": result.n_accepted,
+        "epsilon": result.epsilon,
+        "output_path": output_path,
+        "n_rows_written": n,
+    })
+
+
+@mcp.tool()
 def graphpop_recombination_arg_breakpoints(
     run_id: str,
     window_size: int = 10_000,
