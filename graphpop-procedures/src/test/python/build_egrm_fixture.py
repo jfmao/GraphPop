@@ -487,3 +487,39 @@ dump_decomp(DECOMP_PATHWAY_EUR_PATH, "egrm_by_ancestry pathway",
             mats_p["EUR"], "EUR")
 dump_decomp(DECOMP_PATHWAY_AFR_PATH, "egrm_by_ancestry pathway",
             mats_p["AFR"], "AFR")
+
+# ---------------------------------------------------------------------------
+# M4.3 -- ARG-derived IBD reference via tskit.TreeSequence.ibd_segments.
+# ---------------------------------------------------------------------------
+
+IBD_PATH = OUT_DIR / "egrm_fixture_20samples_ibd.json"
+
+# All-pairs, no TMRCA cap, no min span -- the full reference set.
+ibd_result = ts.ibd_segments(within=ts.samples(),
+                             store_pairs=True,
+                             store_segments=True)
+
+ibd_payload = {
+    "schema_version": 1,
+    "n_samples": int(ts.num_samples),
+    "max_time": None,        # i.e. infinity
+    "min_span": 0,
+    "segments": [],
+}
+for pair, seglist in ibd_result.items():
+    a, b = sorted((int(pair[0]), int(pair[1])))
+    for seg in seglist:
+        ibd_payload["segments"].append({
+            "sample_a": a,
+            "sample_b": b,
+            "start": int(seg.left),
+            "end": int(seg.right),
+            "mrca_node_id": int(seg.node),
+            "tmrca": float(ts.node(seg.node).time),
+        })
+
+# Sort deterministically.
+ibd_payload["segments"].sort(key=lambda s: (s["sample_a"], s["sample_b"],
+                                              s["start"]))
+IBD_PATH.write_text(json.dumps(ibd_payload, indent=2))
+print(f"  -> {IBD_PATH.name}  ({len(ibd_payload['segments'])} segments)")

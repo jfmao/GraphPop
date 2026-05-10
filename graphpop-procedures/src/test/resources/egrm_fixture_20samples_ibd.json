@@ -1,0 +1,5144 @@
+{
+  "schema_version": 1,
+  "n_samples": 20,
+  "max_time": null,
+  "min_span": 0,
+  "segments": [
+    {
+      "sample_a": 0,
+      "sample_b": 1,
+      "start": 0,
+      "end": 50000,
+      "mrca_node_id": 24,
+      "tmrca": 0.06152994507530668
+    },
+    {
+      "sample_a": 0,
+      "sample_b": 2,
+      "start": 0,
+      "end": 15345,
+      "mrca_node_id": 40,
+      "tmrca": 0.750811828471296
+    },
+    {
+      "sample_a": 0,
+      "sample_b": 2,
+      "start": 15345,
+      "end": 26985,
+      "mrca_node_id": 41,
+      "tmrca": 1.6216896952048279
+    },
+    {
+      "sample_a": 0,
+      "sample_b": 2,
+      "start": 26985,
+      "end": 36250,
+      "mrca_node_id": 39,
+      "tmrca": 0.6313338160032227
+    },
+    {
+      "sample_a": 0,
+      "sample_b": 2,
+      "start": 36250,
+      "end": 38061,
+      "mrca_node_id": 39,
+      "tmrca": 0.6313338160032227
+    },
+    {
+      "sample_a": 0,
+      "sample_b": 2,
+      "start": 38061,
+      "end": 43069,
+      "mrca_node_id": 43,
+      "tmrca": 3.3566590589812293
+    },
+    {
+      "sample_a": 0,
+      "sample_b": 2,
+      "start": 43069,
+      "end": 50000,
+      "mrca_node_id": 41,
+      "tmrca": 1.6216896952048279
+    },
+    {
+      "sample_a": 0,
+      "sample_b": 3,
+      "start": 0,
+      "end": 36250,
+      "mrca_node_id": 33,
+      "tmrca": 0.36690931308274377
+    },
+    {
+      "sample_a": 0,
+      "sample_b": 3,
+      "start": 36250,
+      "end": 38061,
+      "mrca_node_id": 42,
+      "tmrca": 1.8852415762535657
+    },
+    {
+      "sample_a": 0,
+      "sample_b": 3,
+      "start": 38061,
+      "end": 43069,
+      "mrca_node_id": 43,
+      "tmrca": 3.3566590589812293
+    },
+    {
+      "sample_a": 0,
+      "sample_b": 3,
+      "start": 43069,
+      "end": 50000,
+      "mrca_node_id": 42,
+      "tmrca": 1.8852415762535657
+    },
+    {
+      "sample_a": 0,
+      "sample_b": 4,
+      "start": 0,
+      "end": 15345,
+      "mrca_node_id": 42,
+      "tmrca": 1.8852415762535657
+    },
+    {
+      "sample_a": 0,
+      "sample_b": 4,
+      "start": 15345,
+      "end": 36250,
+      "mrca_node_id": 42,
+      "tmrca": 1.8852415762535657
+    },
+    {
+      "sample_a": 0,
+      "sample_b": 4,
+      "start": 36250,
+      "end": 38061,
+      "mrca_node_id": 42,
+      "tmrca": 1.8852415762535657
+    },
+    {
+      "sample_a": 0,
+      "sample_b": 4,
+      "start": 38061,
+      "end": 43069,
+      "mrca_node_id": 43,
+      "tmrca": 3.3566590589812293
+    },
+    {
+      "sample_a": 0,
+      "sample_b": 4,
+      "start": 43069,
+      "end": 50000,
+      "mrca_node_id": 42,
+      "tmrca": 1.8852415762535657
+    },
+    {
+      "sample_a": 0,
+      "sample_b": 5,
+      "start": 0,
+      "end": 15345,
+      "mrca_node_id": 40,
+      "tmrca": 0.750811828471296
+    },
+    {
+      "sample_a": 0,
+      "sample_b": 5,
+      "start": 15345,
+      "end": 26985,
+      "mrca_node_id": 41,
+      "tmrca": 1.6216896952048279
+    },
+    {
+      "sample_a": 0,
+      "sample_b": 5,
+      "start": 26985,
+      "end": 36250,
+      "mrca_node_id": 41,
+      "tmrca": 1.6216896952048279
+    },
+    {
+      "sample_a": 0,
+      "sample_b": 5,
+      "start": 36250,
+      "end": 38061,
+      "mrca_node_id": 41,
+      "tmrca": 1.6216896952048279
+    },
+    {
+      "sample_a": 0,
+      "sample_b": 5,
+      "start": 38061,
+      "end": 43069,
+      "mrca_node_id": 43,
+      "tmrca": 3.3566590589812293
+    },
+    {
+      "sample_a": 0,
+      "sample_b": 5,
+      "start": 43069,
+      "end": 50000,
+      "mrca_node_id": 38,
+      "tmrca": 0.5133764221619721
+    },
+    {
+      "sample_a": 0,
+      "sample_b": 6,
+      "start": 0,
+      "end": 36250,
+      "mrca_node_id": 37,
+      "tmrca": 0.4635702118428152
+    },
+    {
+      "sample_a": 0,
+      "sample_b": 6,
+      "start": 36250,
+      "end": 38061,
+      "mrca_node_id": 37,
+      "tmrca": 0.4635702118428152
+    },
+    {
+      "sample_a": 0,
+      "sample_b": 6,
+      "start": 38061,
+      "end": 43069,
+      "mrca_node_id": 43,
+      "tmrca": 3.3566590589812293
+    },
+    {
+      "sample_a": 0,
+      "sample_b": 6,
+      "start": 43069,
+      "end": 50000,
+      "mrca_node_id": 41,
+      "tmrca": 1.6216896952048279
+    },
+    {
+      "sample_a": 0,
+      "sample_b": 7,
+      "start": 0,
+      "end": 38061,
+      "mrca_node_id": 31,
+      "tmrca": 0.31842481912520604
+    },
+    {
+      "sample_a": 0,
+      "sample_b": 7,
+      "start": 38061,
+      "end": 43069,
+      "mrca_node_id": 43,
+      "tmrca": 3.3566590589812293
+    },
+    {
+      "sample_a": 0,
+      "sample_b": 7,
+      "start": 43069,
+      "end": 50000,
+      "mrca_node_id": 41,
+      "tmrca": 1.6216896952048279
+    },
+    {
+      "sample_a": 0,
+      "sample_b": 8,
+      "start": 0,
+      "end": 26985,
+      "mrca_node_id": 39,
+      "tmrca": 0.6313338160032227
+    },
+    {
+      "sample_a": 0,
+      "sample_b": 8,
+      "start": 26985,
+      "end": 36250,
+      "mrca_node_id": 39,
+      "tmrca": 0.6313338160032227
+    },
+    {
+      "sample_a": 0,
+      "sample_b": 8,
+      "start": 36250,
+      "end": 38061,
+      "mrca_node_id": 39,
+      "tmrca": 0.6313338160032227
+    },
+    {
+      "sample_a": 0,
+      "sample_b": 8,
+      "start": 38061,
+      "end": 43069,
+      "mrca_node_id": 43,
+      "tmrca": 3.3566590589812293
+    },
+    {
+      "sample_a": 0,
+      "sample_b": 8,
+      "start": 43069,
+      "end": 50000,
+      "mrca_node_id": 41,
+      "tmrca": 1.6216896952048279
+    },
+    {
+      "sample_a": 0,
+      "sample_b": 9,
+      "start": 0,
+      "end": 26985,
+      "mrca_node_id": 39,
+      "tmrca": 0.6313338160032227
+    },
+    {
+      "sample_a": 0,
+      "sample_b": 9,
+      "start": 26985,
+      "end": 36250,
+      "mrca_node_id": 39,
+      "tmrca": 0.6313338160032227
+    },
+    {
+      "sample_a": 0,
+      "sample_b": 9,
+      "start": 36250,
+      "end": 38061,
+      "mrca_node_id": 39,
+      "tmrca": 0.6313338160032227
+    },
+    {
+      "sample_a": 0,
+      "sample_b": 9,
+      "start": 38061,
+      "end": 43069,
+      "mrca_node_id": 43,
+      "tmrca": 3.3566590589812293
+    },
+    {
+      "sample_a": 0,
+      "sample_b": 9,
+      "start": 43069,
+      "end": 50000,
+      "mrca_node_id": 41,
+      "tmrca": 1.6216896952048279
+    },
+    {
+      "sample_a": 0,
+      "sample_b": 10,
+      "start": 0,
+      "end": 36250,
+      "mrca_node_id": 37,
+      "tmrca": 0.4635702118428152
+    },
+    {
+      "sample_a": 0,
+      "sample_b": 10,
+      "start": 36250,
+      "end": 38061,
+      "mrca_node_id": 37,
+      "tmrca": 0.4635702118428152
+    },
+    {
+      "sample_a": 0,
+      "sample_b": 10,
+      "start": 38061,
+      "end": 43069,
+      "mrca_node_id": 43,
+      "tmrca": 3.3566590589812293
+    },
+    {
+      "sample_a": 0,
+      "sample_b": 10,
+      "start": 43069,
+      "end": 50000,
+      "mrca_node_id": 41,
+      "tmrca": 1.6216896952048279
+    },
+    {
+      "sample_a": 0,
+      "sample_b": 11,
+      "start": 0,
+      "end": 15345,
+      "mrca_node_id": 42,
+      "tmrca": 1.8852415762535657
+    },
+    {
+      "sample_a": 0,
+      "sample_b": 11,
+      "start": 15345,
+      "end": 36250,
+      "mrca_node_id": 42,
+      "tmrca": 1.8852415762535657
+    },
+    {
+      "sample_a": 0,
+      "sample_b": 11,
+      "start": 36250,
+      "end": 38061,
+      "mrca_node_id": 42,
+      "tmrca": 1.8852415762535657
+    },
+    {
+      "sample_a": 0,
+      "sample_b": 11,
+      "start": 38061,
+      "end": 43069,
+      "mrca_node_id": 43,
+      "tmrca": 3.3566590589812293
+    },
+    {
+      "sample_a": 0,
+      "sample_b": 11,
+      "start": 43069,
+      "end": 50000,
+      "mrca_node_id": 42,
+      "tmrca": 1.8852415762535657
+    },
+    {
+      "sample_a": 0,
+      "sample_b": 12,
+      "start": 0,
+      "end": 36250,
+      "mrca_node_id": 37,
+      "tmrca": 0.4635702118428152
+    },
+    {
+      "sample_a": 0,
+      "sample_b": 12,
+      "start": 36250,
+      "end": 38061,
+      "mrca_node_id": 37,
+      "tmrca": 0.4635702118428152
+    },
+    {
+      "sample_a": 0,
+      "sample_b": 12,
+      "start": 38061,
+      "end": 43069,
+      "mrca_node_id": 43,
+      "tmrca": 3.3566590589812293
+    },
+    {
+      "sample_a": 0,
+      "sample_b": 12,
+      "start": 43069,
+      "end": 50000,
+      "mrca_node_id": 41,
+      "tmrca": 1.6216896952048279
+    },
+    {
+      "sample_a": 0,
+      "sample_b": 13,
+      "start": 0,
+      "end": 36250,
+      "mrca_node_id": 37,
+      "tmrca": 0.4635702118428152
+    },
+    {
+      "sample_a": 0,
+      "sample_b": 13,
+      "start": 36250,
+      "end": 38061,
+      "mrca_node_id": 37,
+      "tmrca": 0.4635702118428152
+    },
+    {
+      "sample_a": 0,
+      "sample_b": 13,
+      "start": 38061,
+      "end": 43069,
+      "mrca_node_id": 43,
+      "tmrca": 3.3566590589812293
+    },
+    {
+      "sample_a": 0,
+      "sample_b": 13,
+      "start": 43069,
+      "end": 50000,
+      "mrca_node_id": 41,
+      "tmrca": 1.6216896952048279
+    },
+    {
+      "sample_a": 0,
+      "sample_b": 14,
+      "start": 0,
+      "end": 38061,
+      "mrca_node_id": 31,
+      "tmrca": 0.31842481912520604
+    },
+    {
+      "sample_a": 0,
+      "sample_b": 14,
+      "start": 38061,
+      "end": 43069,
+      "mrca_node_id": 43,
+      "tmrca": 3.3566590589812293
+    },
+    {
+      "sample_a": 0,
+      "sample_b": 14,
+      "start": 43069,
+      "end": 50000,
+      "mrca_node_id": 41,
+      "tmrca": 1.6216896952048279
+    },
+    {
+      "sample_a": 0,
+      "sample_b": 15,
+      "start": 0,
+      "end": 15345,
+      "mrca_node_id": 40,
+      "tmrca": 0.750811828471296
+    },
+    {
+      "sample_a": 0,
+      "sample_b": 15,
+      "start": 15345,
+      "end": 26985,
+      "mrca_node_id": 41,
+      "tmrca": 1.6216896952048279
+    },
+    {
+      "sample_a": 0,
+      "sample_b": 15,
+      "start": 26985,
+      "end": 36250,
+      "mrca_node_id": 39,
+      "tmrca": 0.6313338160032227
+    },
+    {
+      "sample_a": 0,
+      "sample_b": 15,
+      "start": 36250,
+      "end": 38061,
+      "mrca_node_id": 39,
+      "tmrca": 0.6313338160032227
+    },
+    {
+      "sample_a": 0,
+      "sample_b": 15,
+      "start": 38061,
+      "end": 43069,
+      "mrca_node_id": 43,
+      "tmrca": 3.3566590589812293
+    },
+    {
+      "sample_a": 0,
+      "sample_b": 15,
+      "start": 43069,
+      "end": 50000,
+      "mrca_node_id": 41,
+      "tmrca": 1.6216896952048279
+    },
+    {
+      "sample_a": 0,
+      "sample_b": 16,
+      "start": 0,
+      "end": 50000,
+      "mrca_node_id": 20,
+      "tmrca": 0.016761058115618066
+    },
+    {
+      "sample_a": 0,
+      "sample_b": 17,
+      "start": 0,
+      "end": 15345,
+      "mrca_node_id": 40,
+      "tmrca": 0.750811828471296
+    },
+    {
+      "sample_a": 0,
+      "sample_b": 17,
+      "start": 15345,
+      "end": 26985,
+      "mrca_node_id": 41,
+      "tmrca": 1.6216896952048279
+    },
+    {
+      "sample_a": 0,
+      "sample_b": 17,
+      "start": 26985,
+      "end": 36250,
+      "mrca_node_id": 41,
+      "tmrca": 1.6216896952048279
+    },
+    {
+      "sample_a": 0,
+      "sample_b": 17,
+      "start": 36250,
+      "end": 38061,
+      "mrca_node_id": 41,
+      "tmrca": 1.6216896952048279
+    },
+    {
+      "sample_a": 0,
+      "sample_b": 17,
+      "start": 38061,
+      "end": 43069,
+      "mrca_node_id": 43,
+      "tmrca": 3.3566590589812293
+    },
+    {
+      "sample_a": 0,
+      "sample_b": 17,
+      "start": 43069,
+      "end": 50000,
+      "mrca_node_id": 38,
+      "tmrca": 0.5133764221619721
+    },
+    {
+      "sample_a": 0,
+      "sample_b": 18,
+      "start": 0,
+      "end": 36250,
+      "mrca_node_id": 37,
+      "tmrca": 0.4635702118428152
+    },
+    {
+      "sample_a": 0,
+      "sample_b": 18,
+      "start": 36250,
+      "end": 38061,
+      "mrca_node_id": 37,
+      "tmrca": 0.4635702118428152
+    },
+    {
+      "sample_a": 0,
+      "sample_b": 18,
+      "start": 38061,
+      "end": 43069,
+      "mrca_node_id": 43,
+      "tmrca": 3.3566590589812293
+    },
+    {
+      "sample_a": 0,
+      "sample_b": 18,
+      "start": 43069,
+      "end": 50000,
+      "mrca_node_id": 41,
+      "tmrca": 1.6216896952048279
+    },
+    {
+      "sample_a": 0,
+      "sample_b": 19,
+      "start": 0,
+      "end": 36250,
+      "mrca_node_id": 37,
+      "tmrca": 0.4635702118428152
+    },
+    {
+      "sample_a": 0,
+      "sample_b": 19,
+      "start": 36250,
+      "end": 38061,
+      "mrca_node_id": 37,
+      "tmrca": 0.4635702118428152
+    },
+    {
+      "sample_a": 0,
+      "sample_b": 19,
+      "start": 38061,
+      "end": 43069,
+      "mrca_node_id": 43,
+      "tmrca": 3.3566590589812293
+    },
+    {
+      "sample_a": 0,
+      "sample_b": 19,
+      "start": 43069,
+      "end": 50000,
+      "mrca_node_id": 41,
+      "tmrca": 1.6216896952048279
+    },
+    {
+      "sample_a": 1,
+      "sample_b": 2,
+      "start": 0,
+      "end": 15345,
+      "mrca_node_id": 40,
+      "tmrca": 0.750811828471296
+    },
+    {
+      "sample_a": 1,
+      "sample_b": 2,
+      "start": 15345,
+      "end": 26985,
+      "mrca_node_id": 41,
+      "tmrca": 1.6216896952048279
+    },
+    {
+      "sample_a": 1,
+      "sample_b": 2,
+      "start": 26985,
+      "end": 36250,
+      "mrca_node_id": 39,
+      "tmrca": 0.6313338160032227
+    },
+    {
+      "sample_a": 1,
+      "sample_b": 2,
+      "start": 36250,
+      "end": 38061,
+      "mrca_node_id": 39,
+      "tmrca": 0.6313338160032227
+    },
+    {
+      "sample_a": 1,
+      "sample_b": 2,
+      "start": 38061,
+      "end": 43069,
+      "mrca_node_id": 43,
+      "tmrca": 3.3566590589812293
+    },
+    {
+      "sample_a": 1,
+      "sample_b": 2,
+      "start": 43069,
+      "end": 50000,
+      "mrca_node_id": 41,
+      "tmrca": 1.6216896952048279
+    },
+    {
+      "sample_a": 1,
+      "sample_b": 3,
+      "start": 0,
+      "end": 36250,
+      "mrca_node_id": 33,
+      "tmrca": 0.36690931308274377
+    },
+    {
+      "sample_a": 1,
+      "sample_b": 3,
+      "start": 36250,
+      "end": 38061,
+      "mrca_node_id": 42,
+      "tmrca": 1.8852415762535657
+    },
+    {
+      "sample_a": 1,
+      "sample_b": 3,
+      "start": 38061,
+      "end": 43069,
+      "mrca_node_id": 43,
+      "tmrca": 3.3566590589812293
+    },
+    {
+      "sample_a": 1,
+      "sample_b": 3,
+      "start": 43069,
+      "end": 50000,
+      "mrca_node_id": 42,
+      "tmrca": 1.8852415762535657
+    },
+    {
+      "sample_a": 1,
+      "sample_b": 4,
+      "start": 0,
+      "end": 15345,
+      "mrca_node_id": 42,
+      "tmrca": 1.8852415762535657
+    },
+    {
+      "sample_a": 1,
+      "sample_b": 4,
+      "start": 15345,
+      "end": 36250,
+      "mrca_node_id": 42,
+      "tmrca": 1.8852415762535657
+    },
+    {
+      "sample_a": 1,
+      "sample_b": 4,
+      "start": 36250,
+      "end": 38061,
+      "mrca_node_id": 42,
+      "tmrca": 1.8852415762535657
+    },
+    {
+      "sample_a": 1,
+      "sample_b": 4,
+      "start": 38061,
+      "end": 43069,
+      "mrca_node_id": 43,
+      "tmrca": 3.3566590589812293
+    },
+    {
+      "sample_a": 1,
+      "sample_b": 4,
+      "start": 43069,
+      "end": 50000,
+      "mrca_node_id": 42,
+      "tmrca": 1.8852415762535657
+    },
+    {
+      "sample_a": 1,
+      "sample_b": 5,
+      "start": 0,
+      "end": 15345,
+      "mrca_node_id": 40,
+      "tmrca": 0.750811828471296
+    },
+    {
+      "sample_a": 1,
+      "sample_b": 5,
+      "start": 15345,
+      "end": 26985,
+      "mrca_node_id": 41,
+      "tmrca": 1.6216896952048279
+    },
+    {
+      "sample_a": 1,
+      "sample_b": 5,
+      "start": 26985,
+      "end": 36250,
+      "mrca_node_id": 41,
+      "tmrca": 1.6216896952048279
+    },
+    {
+      "sample_a": 1,
+      "sample_b": 5,
+      "start": 36250,
+      "end": 38061,
+      "mrca_node_id": 41,
+      "tmrca": 1.6216896952048279
+    },
+    {
+      "sample_a": 1,
+      "sample_b": 5,
+      "start": 38061,
+      "end": 43069,
+      "mrca_node_id": 43,
+      "tmrca": 3.3566590589812293
+    },
+    {
+      "sample_a": 1,
+      "sample_b": 5,
+      "start": 43069,
+      "end": 50000,
+      "mrca_node_id": 38,
+      "tmrca": 0.5133764221619721
+    },
+    {
+      "sample_a": 1,
+      "sample_b": 6,
+      "start": 0,
+      "end": 36250,
+      "mrca_node_id": 37,
+      "tmrca": 0.4635702118428152
+    },
+    {
+      "sample_a": 1,
+      "sample_b": 6,
+      "start": 36250,
+      "end": 38061,
+      "mrca_node_id": 37,
+      "tmrca": 0.4635702118428152
+    },
+    {
+      "sample_a": 1,
+      "sample_b": 6,
+      "start": 38061,
+      "end": 43069,
+      "mrca_node_id": 43,
+      "tmrca": 3.3566590589812293
+    },
+    {
+      "sample_a": 1,
+      "sample_b": 6,
+      "start": 43069,
+      "end": 50000,
+      "mrca_node_id": 41,
+      "tmrca": 1.6216896952048279
+    },
+    {
+      "sample_a": 1,
+      "sample_b": 7,
+      "start": 0,
+      "end": 38061,
+      "mrca_node_id": 31,
+      "tmrca": 0.31842481912520604
+    },
+    {
+      "sample_a": 1,
+      "sample_b": 7,
+      "start": 38061,
+      "end": 43069,
+      "mrca_node_id": 43,
+      "tmrca": 3.3566590589812293
+    },
+    {
+      "sample_a": 1,
+      "sample_b": 7,
+      "start": 43069,
+      "end": 50000,
+      "mrca_node_id": 41,
+      "tmrca": 1.6216896952048279
+    },
+    {
+      "sample_a": 1,
+      "sample_b": 8,
+      "start": 0,
+      "end": 26985,
+      "mrca_node_id": 39,
+      "tmrca": 0.6313338160032227
+    },
+    {
+      "sample_a": 1,
+      "sample_b": 8,
+      "start": 26985,
+      "end": 36250,
+      "mrca_node_id": 39,
+      "tmrca": 0.6313338160032227
+    },
+    {
+      "sample_a": 1,
+      "sample_b": 8,
+      "start": 36250,
+      "end": 38061,
+      "mrca_node_id": 39,
+      "tmrca": 0.6313338160032227
+    },
+    {
+      "sample_a": 1,
+      "sample_b": 8,
+      "start": 38061,
+      "end": 43069,
+      "mrca_node_id": 43,
+      "tmrca": 3.3566590589812293
+    },
+    {
+      "sample_a": 1,
+      "sample_b": 8,
+      "start": 43069,
+      "end": 50000,
+      "mrca_node_id": 41,
+      "tmrca": 1.6216896952048279
+    },
+    {
+      "sample_a": 1,
+      "sample_b": 9,
+      "start": 0,
+      "end": 26985,
+      "mrca_node_id": 39,
+      "tmrca": 0.6313338160032227
+    },
+    {
+      "sample_a": 1,
+      "sample_b": 9,
+      "start": 26985,
+      "end": 36250,
+      "mrca_node_id": 39,
+      "tmrca": 0.6313338160032227
+    },
+    {
+      "sample_a": 1,
+      "sample_b": 9,
+      "start": 36250,
+      "end": 38061,
+      "mrca_node_id": 39,
+      "tmrca": 0.6313338160032227
+    },
+    {
+      "sample_a": 1,
+      "sample_b": 9,
+      "start": 38061,
+      "end": 43069,
+      "mrca_node_id": 43,
+      "tmrca": 3.3566590589812293
+    },
+    {
+      "sample_a": 1,
+      "sample_b": 9,
+      "start": 43069,
+      "end": 50000,
+      "mrca_node_id": 41,
+      "tmrca": 1.6216896952048279
+    },
+    {
+      "sample_a": 1,
+      "sample_b": 10,
+      "start": 0,
+      "end": 36250,
+      "mrca_node_id": 37,
+      "tmrca": 0.4635702118428152
+    },
+    {
+      "sample_a": 1,
+      "sample_b": 10,
+      "start": 36250,
+      "end": 38061,
+      "mrca_node_id": 37,
+      "tmrca": 0.4635702118428152
+    },
+    {
+      "sample_a": 1,
+      "sample_b": 10,
+      "start": 38061,
+      "end": 43069,
+      "mrca_node_id": 43,
+      "tmrca": 3.3566590589812293
+    },
+    {
+      "sample_a": 1,
+      "sample_b": 10,
+      "start": 43069,
+      "end": 50000,
+      "mrca_node_id": 41,
+      "tmrca": 1.6216896952048279
+    },
+    {
+      "sample_a": 1,
+      "sample_b": 11,
+      "start": 0,
+      "end": 15345,
+      "mrca_node_id": 42,
+      "tmrca": 1.8852415762535657
+    },
+    {
+      "sample_a": 1,
+      "sample_b": 11,
+      "start": 15345,
+      "end": 36250,
+      "mrca_node_id": 42,
+      "tmrca": 1.8852415762535657
+    },
+    {
+      "sample_a": 1,
+      "sample_b": 11,
+      "start": 36250,
+      "end": 38061,
+      "mrca_node_id": 42,
+      "tmrca": 1.8852415762535657
+    },
+    {
+      "sample_a": 1,
+      "sample_b": 11,
+      "start": 38061,
+      "end": 43069,
+      "mrca_node_id": 43,
+      "tmrca": 3.3566590589812293
+    },
+    {
+      "sample_a": 1,
+      "sample_b": 11,
+      "start": 43069,
+      "end": 50000,
+      "mrca_node_id": 42,
+      "tmrca": 1.8852415762535657
+    },
+    {
+      "sample_a": 1,
+      "sample_b": 12,
+      "start": 0,
+      "end": 36250,
+      "mrca_node_id": 37,
+      "tmrca": 0.4635702118428152
+    },
+    {
+      "sample_a": 1,
+      "sample_b": 12,
+      "start": 36250,
+      "end": 38061,
+      "mrca_node_id": 37,
+      "tmrca": 0.4635702118428152
+    },
+    {
+      "sample_a": 1,
+      "sample_b": 12,
+      "start": 38061,
+      "end": 43069,
+      "mrca_node_id": 43,
+      "tmrca": 3.3566590589812293
+    },
+    {
+      "sample_a": 1,
+      "sample_b": 12,
+      "start": 43069,
+      "end": 50000,
+      "mrca_node_id": 41,
+      "tmrca": 1.6216896952048279
+    },
+    {
+      "sample_a": 1,
+      "sample_b": 13,
+      "start": 0,
+      "end": 36250,
+      "mrca_node_id": 37,
+      "tmrca": 0.4635702118428152
+    },
+    {
+      "sample_a": 1,
+      "sample_b": 13,
+      "start": 36250,
+      "end": 38061,
+      "mrca_node_id": 37,
+      "tmrca": 0.4635702118428152
+    },
+    {
+      "sample_a": 1,
+      "sample_b": 13,
+      "start": 38061,
+      "end": 43069,
+      "mrca_node_id": 43,
+      "tmrca": 3.3566590589812293
+    },
+    {
+      "sample_a": 1,
+      "sample_b": 13,
+      "start": 43069,
+      "end": 50000,
+      "mrca_node_id": 41,
+      "tmrca": 1.6216896952048279
+    },
+    {
+      "sample_a": 1,
+      "sample_b": 14,
+      "start": 0,
+      "end": 38061,
+      "mrca_node_id": 31,
+      "tmrca": 0.31842481912520604
+    },
+    {
+      "sample_a": 1,
+      "sample_b": 14,
+      "start": 38061,
+      "end": 43069,
+      "mrca_node_id": 43,
+      "tmrca": 3.3566590589812293
+    },
+    {
+      "sample_a": 1,
+      "sample_b": 14,
+      "start": 43069,
+      "end": 50000,
+      "mrca_node_id": 41,
+      "tmrca": 1.6216896952048279
+    },
+    {
+      "sample_a": 1,
+      "sample_b": 15,
+      "start": 0,
+      "end": 15345,
+      "mrca_node_id": 40,
+      "tmrca": 0.750811828471296
+    },
+    {
+      "sample_a": 1,
+      "sample_b": 15,
+      "start": 15345,
+      "end": 26985,
+      "mrca_node_id": 41,
+      "tmrca": 1.6216896952048279
+    },
+    {
+      "sample_a": 1,
+      "sample_b": 15,
+      "start": 26985,
+      "end": 36250,
+      "mrca_node_id": 39,
+      "tmrca": 0.6313338160032227
+    },
+    {
+      "sample_a": 1,
+      "sample_b": 15,
+      "start": 36250,
+      "end": 38061,
+      "mrca_node_id": 39,
+      "tmrca": 0.6313338160032227
+    },
+    {
+      "sample_a": 1,
+      "sample_b": 15,
+      "start": 38061,
+      "end": 43069,
+      "mrca_node_id": 43,
+      "tmrca": 3.3566590589812293
+    },
+    {
+      "sample_a": 1,
+      "sample_b": 15,
+      "start": 43069,
+      "end": 50000,
+      "mrca_node_id": 41,
+      "tmrca": 1.6216896952048279
+    },
+    {
+      "sample_a": 1,
+      "sample_b": 16,
+      "start": 0,
+      "end": 50000,
+      "mrca_node_id": 24,
+      "tmrca": 0.06152994507530668
+    },
+    {
+      "sample_a": 1,
+      "sample_b": 17,
+      "start": 0,
+      "end": 15345,
+      "mrca_node_id": 40,
+      "tmrca": 0.750811828471296
+    },
+    {
+      "sample_a": 1,
+      "sample_b": 17,
+      "start": 15345,
+      "end": 26985,
+      "mrca_node_id": 41,
+      "tmrca": 1.6216896952048279
+    },
+    {
+      "sample_a": 1,
+      "sample_b": 17,
+      "start": 26985,
+      "end": 36250,
+      "mrca_node_id": 41,
+      "tmrca": 1.6216896952048279
+    },
+    {
+      "sample_a": 1,
+      "sample_b": 17,
+      "start": 36250,
+      "end": 38061,
+      "mrca_node_id": 41,
+      "tmrca": 1.6216896952048279
+    },
+    {
+      "sample_a": 1,
+      "sample_b": 17,
+      "start": 38061,
+      "end": 43069,
+      "mrca_node_id": 43,
+      "tmrca": 3.3566590589812293
+    },
+    {
+      "sample_a": 1,
+      "sample_b": 17,
+      "start": 43069,
+      "end": 50000,
+      "mrca_node_id": 38,
+      "tmrca": 0.5133764221619721
+    },
+    {
+      "sample_a": 1,
+      "sample_b": 18,
+      "start": 0,
+      "end": 36250,
+      "mrca_node_id": 37,
+      "tmrca": 0.4635702118428152
+    },
+    {
+      "sample_a": 1,
+      "sample_b": 18,
+      "start": 36250,
+      "end": 38061,
+      "mrca_node_id": 37,
+      "tmrca": 0.4635702118428152
+    },
+    {
+      "sample_a": 1,
+      "sample_b": 18,
+      "start": 38061,
+      "end": 43069,
+      "mrca_node_id": 43,
+      "tmrca": 3.3566590589812293
+    },
+    {
+      "sample_a": 1,
+      "sample_b": 18,
+      "start": 43069,
+      "end": 50000,
+      "mrca_node_id": 41,
+      "tmrca": 1.6216896952048279
+    },
+    {
+      "sample_a": 1,
+      "sample_b": 19,
+      "start": 0,
+      "end": 36250,
+      "mrca_node_id": 37,
+      "tmrca": 0.4635702118428152
+    },
+    {
+      "sample_a": 1,
+      "sample_b": 19,
+      "start": 36250,
+      "end": 38061,
+      "mrca_node_id": 37,
+      "tmrca": 0.4635702118428152
+    },
+    {
+      "sample_a": 1,
+      "sample_b": 19,
+      "start": 38061,
+      "end": 43069,
+      "mrca_node_id": 43,
+      "tmrca": 3.3566590589812293
+    },
+    {
+      "sample_a": 1,
+      "sample_b": 19,
+      "start": 43069,
+      "end": 50000,
+      "mrca_node_id": 41,
+      "tmrca": 1.6216896952048279
+    },
+    {
+      "sample_a": 2,
+      "sample_b": 3,
+      "start": 0,
+      "end": 15345,
+      "mrca_node_id": 40,
+      "tmrca": 0.750811828471296
+    },
+    {
+      "sample_a": 2,
+      "sample_b": 3,
+      "start": 15345,
+      "end": 26985,
+      "mrca_node_id": 41,
+      "tmrca": 1.6216896952048279
+    },
+    {
+      "sample_a": 2,
+      "sample_b": 3,
+      "start": 26985,
+      "end": 36250,
+      "mrca_node_id": 39,
+      "tmrca": 0.6313338160032227
+    },
+    {
+      "sample_a": 2,
+      "sample_b": 3,
+      "start": 36250,
+      "end": 50000,
+      "mrca_node_id": 42,
+      "tmrca": 1.8852415762535657
+    },
+    {
+      "sample_a": 2,
+      "sample_b": 4,
+      "start": 0,
+      "end": 15345,
+      "mrca_node_id": 42,
+      "tmrca": 1.8852415762535657
+    },
+    {
+      "sample_a": 2,
+      "sample_b": 4,
+      "start": 15345,
+      "end": 26985,
+      "mrca_node_id": 42,
+      "tmrca": 1.8852415762535657
+    },
+    {
+      "sample_a": 2,
+      "sample_b": 4,
+      "start": 26985,
+      "end": 50000,
+      "mrca_node_id": 42,
+      "tmrca": 1.8852415762535657
+    },
+    {
+      "sample_a": 2,
+      "sample_b": 5,
+      "start": 0,
+      "end": 26985,
+      "mrca_node_id": 36,
+      "tmrca": 0.4350504236569825
+    },
+    {
+      "sample_a": 2,
+      "sample_b": 5,
+      "start": 26985,
+      "end": 43069,
+      "mrca_node_id": 41,
+      "tmrca": 1.6216896952048279
+    },
+    {
+      "sample_a": 2,
+      "sample_b": 5,
+      "start": 43069,
+      "end": 50000,
+      "mrca_node_id": 41,
+      "tmrca": 1.6216896952048279
+    },
+    {
+      "sample_a": 2,
+      "sample_b": 6,
+      "start": 0,
+      "end": 15345,
+      "mrca_node_id": 40,
+      "tmrca": 0.750811828471296
+    },
+    {
+      "sample_a": 2,
+      "sample_b": 6,
+      "start": 15345,
+      "end": 26985,
+      "mrca_node_id": 41,
+      "tmrca": 1.6216896952048279
+    },
+    {
+      "sample_a": 2,
+      "sample_b": 6,
+      "start": 26985,
+      "end": 50000,
+      "mrca_node_id": 39,
+      "tmrca": 0.6313338160032227
+    },
+    {
+      "sample_a": 2,
+      "sample_b": 7,
+      "start": 0,
+      "end": 15345,
+      "mrca_node_id": 40,
+      "tmrca": 0.750811828471296
+    },
+    {
+      "sample_a": 2,
+      "sample_b": 7,
+      "start": 15345,
+      "end": 26985,
+      "mrca_node_id": 41,
+      "tmrca": 1.6216896952048279
+    },
+    {
+      "sample_a": 2,
+      "sample_b": 7,
+      "start": 26985,
+      "end": 36250,
+      "mrca_node_id": 39,
+      "tmrca": 0.6313338160032227
+    },
+    {
+      "sample_a": 2,
+      "sample_b": 7,
+      "start": 36250,
+      "end": 38061,
+      "mrca_node_id": 39,
+      "tmrca": 0.6313338160032227
+    },
+    {
+      "sample_a": 2,
+      "sample_b": 7,
+      "start": 38061,
+      "end": 50000,
+      "mrca_node_id": 39,
+      "tmrca": 0.6313338160032227
+    },
+    {
+      "sample_a": 2,
+      "sample_b": 8,
+      "start": 0,
+      "end": 15345,
+      "mrca_node_id": 40,
+      "tmrca": 0.750811828471296
+    },
+    {
+      "sample_a": 2,
+      "sample_b": 8,
+      "start": 15345,
+      "end": 26985,
+      "mrca_node_id": 41,
+      "tmrca": 1.6216896952048279
+    },
+    {
+      "sample_a": 2,
+      "sample_b": 8,
+      "start": 26985,
+      "end": 50000,
+      "mrca_node_id": 34,
+      "tmrca": 0.3678034848143833
+    },
+    {
+      "sample_a": 2,
+      "sample_b": 9,
+      "start": 0,
+      "end": 15345,
+      "mrca_node_id": 40,
+      "tmrca": 0.750811828471296
+    },
+    {
+      "sample_a": 2,
+      "sample_b": 9,
+      "start": 15345,
+      "end": 26985,
+      "mrca_node_id": 41,
+      "tmrca": 1.6216896952048279
+    },
+    {
+      "sample_a": 2,
+      "sample_b": 9,
+      "start": 26985,
+      "end": 50000,
+      "mrca_node_id": 34,
+      "tmrca": 0.3678034848143833
+    },
+    {
+      "sample_a": 2,
+      "sample_b": 10,
+      "start": 0,
+      "end": 15345,
+      "mrca_node_id": 40,
+      "tmrca": 0.750811828471296
+    },
+    {
+      "sample_a": 2,
+      "sample_b": 10,
+      "start": 15345,
+      "end": 26985,
+      "mrca_node_id": 41,
+      "tmrca": 1.6216896952048279
+    },
+    {
+      "sample_a": 2,
+      "sample_b": 10,
+      "start": 26985,
+      "end": 50000,
+      "mrca_node_id": 39,
+      "tmrca": 0.6313338160032227
+    },
+    {
+      "sample_a": 2,
+      "sample_b": 11,
+      "start": 0,
+      "end": 15345,
+      "mrca_node_id": 42,
+      "tmrca": 1.8852415762535657
+    },
+    {
+      "sample_a": 2,
+      "sample_b": 11,
+      "start": 15345,
+      "end": 26985,
+      "mrca_node_id": 42,
+      "tmrca": 1.8852415762535657
+    },
+    {
+      "sample_a": 2,
+      "sample_b": 11,
+      "start": 26985,
+      "end": 36250,
+      "mrca_node_id": 42,
+      "tmrca": 1.8852415762535657
+    },
+    {
+      "sample_a": 2,
+      "sample_b": 11,
+      "start": 36250,
+      "end": 50000,
+      "mrca_node_id": 42,
+      "tmrca": 1.8852415762535657
+    },
+    {
+      "sample_a": 2,
+      "sample_b": 12,
+      "start": 0,
+      "end": 15345,
+      "mrca_node_id": 40,
+      "tmrca": 0.750811828471296
+    },
+    {
+      "sample_a": 2,
+      "sample_b": 12,
+      "start": 15345,
+      "end": 26985,
+      "mrca_node_id": 41,
+      "tmrca": 1.6216896952048279
+    },
+    {
+      "sample_a": 2,
+      "sample_b": 12,
+      "start": 26985,
+      "end": 50000,
+      "mrca_node_id": 39,
+      "tmrca": 0.6313338160032227
+    },
+    {
+      "sample_a": 2,
+      "sample_b": 13,
+      "start": 0,
+      "end": 15345,
+      "mrca_node_id": 40,
+      "tmrca": 0.750811828471296
+    },
+    {
+      "sample_a": 2,
+      "sample_b": 13,
+      "start": 15345,
+      "end": 26985,
+      "mrca_node_id": 41,
+      "tmrca": 1.6216896952048279
+    },
+    {
+      "sample_a": 2,
+      "sample_b": 13,
+      "start": 26985,
+      "end": 50000,
+      "mrca_node_id": 39,
+      "tmrca": 0.6313338160032227
+    },
+    {
+      "sample_a": 2,
+      "sample_b": 14,
+      "start": 0,
+      "end": 15345,
+      "mrca_node_id": 40,
+      "tmrca": 0.750811828471296
+    },
+    {
+      "sample_a": 2,
+      "sample_b": 14,
+      "start": 15345,
+      "end": 26985,
+      "mrca_node_id": 41,
+      "tmrca": 1.6216896952048279
+    },
+    {
+      "sample_a": 2,
+      "sample_b": 14,
+      "start": 26985,
+      "end": 36250,
+      "mrca_node_id": 39,
+      "tmrca": 0.6313338160032227
+    },
+    {
+      "sample_a": 2,
+      "sample_b": 14,
+      "start": 36250,
+      "end": 38061,
+      "mrca_node_id": 39,
+      "tmrca": 0.6313338160032227
+    },
+    {
+      "sample_a": 2,
+      "sample_b": 14,
+      "start": 38061,
+      "end": 50000,
+      "mrca_node_id": 39,
+      "tmrca": 0.6313338160032227
+    },
+    {
+      "sample_a": 2,
+      "sample_b": 15,
+      "start": 0,
+      "end": 50000,
+      "mrca_node_id": 25,
+      "tmrca": 0.09130377035707779
+    },
+    {
+      "sample_a": 2,
+      "sample_b": 16,
+      "start": 0,
+      "end": 15345,
+      "mrca_node_id": 40,
+      "tmrca": 0.750811828471296
+    },
+    {
+      "sample_a": 2,
+      "sample_b": 16,
+      "start": 15345,
+      "end": 26985,
+      "mrca_node_id": 41,
+      "tmrca": 1.6216896952048279
+    },
+    {
+      "sample_a": 2,
+      "sample_b": 16,
+      "start": 26985,
+      "end": 36250,
+      "mrca_node_id": 39,
+      "tmrca": 0.6313338160032227
+    },
+    {
+      "sample_a": 2,
+      "sample_b": 16,
+      "start": 36250,
+      "end": 38061,
+      "mrca_node_id": 39,
+      "tmrca": 0.6313338160032227
+    },
+    {
+      "sample_a": 2,
+      "sample_b": 16,
+      "start": 38061,
+      "end": 43069,
+      "mrca_node_id": 43,
+      "tmrca": 3.3566590589812293
+    },
+    {
+      "sample_a": 2,
+      "sample_b": 16,
+      "start": 43069,
+      "end": 50000,
+      "mrca_node_id": 41,
+      "tmrca": 1.6216896952048279
+    },
+    {
+      "sample_a": 2,
+      "sample_b": 17,
+      "start": 0,
+      "end": 26985,
+      "mrca_node_id": 36,
+      "tmrca": 0.4350504236569825
+    },
+    {
+      "sample_a": 2,
+      "sample_b": 17,
+      "start": 26985,
+      "end": 43069,
+      "mrca_node_id": 41,
+      "tmrca": 1.6216896952048279
+    },
+    {
+      "sample_a": 2,
+      "sample_b": 17,
+      "start": 43069,
+      "end": 50000,
+      "mrca_node_id": 41,
+      "tmrca": 1.6216896952048279
+    },
+    {
+      "sample_a": 2,
+      "sample_b": 18,
+      "start": 0,
+      "end": 15345,
+      "mrca_node_id": 40,
+      "tmrca": 0.750811828471296
+    },
+    {
+      "sample_a": 2,
+      "sample_b": 18,
+      "start": 15345,
+      "end": 26985,
+      "mrca_node_id": 41,
+      "tmrca": 1.6216896952048279
+    },
+    {
+      "sample_a": 2,
+      "sample_b": 18,
+      "start": 26985,
+      "end": 50000,
+      "mrca_node_id": 39,
+      "tmrca": 0.6313338160032227
+    },
+    {
+      "sample_a": 2,
+      "sample_b": 19,
+      "start": 0,
+      "end": 15345,
+      "mrca_node_id": 40,
+      "tmrca": 0.750811828471296
+    },
+    {
+      "sample_a": 2,
+      "sample_b": 19,
+      "start": 15345,
+      "end": 26985,
+      "mrca_node_id": 41,
+      "tmrca": 1.6216896952048279
+    },
+    {
+      "sample_a": 2,
+      "sample_b": 19,
+      "start": 26985,
+      "end": 50000,
+      "mrca_node_id": 39,
+      "tmrca": 0.6313338160032227
+    },
+    {
+      "sample_a": 3,
+      "sample_b": 4,
+      "start": 0,
+      "end": 15345,
+      "mrca_node_id": 42,
+      "tmrca": 1.8852415762535657
+    },
+    {
+      "sample_a": 3,
+      "sample_b": 4,
+      "start": 15345,
+      "end": 36250,
+      "mrca_node_id": 42,
+      "tmrca": 1.8852415762535657
+    },
+    {
+      "sample_a": 3,
+      "sample_b": 4,
+      "start": 36250,
+      "end": 50000,
+      "mrca_node_id": 35,
+      "tmrca": 0.38750256039922576
+    },
+    {
+      "sample_a": 3,
+      "sample_b": 5,
+      "start": 0,
+      "end": 15345,
+      "mrca_node_id": 40,
+      "tmrca": 0.750811828471296
+    },
+    {
+      "sample_a": 3,
+      "sample_b": 5,
+      "start": 15345,
+      "end": 26985,
+      "mrca_node_id": 41,
+      "tmrca": 1.6216896952048279
+    },
+    {
+      "sample_a": 3,
+      "sample_b": 5,
+      "start": 26985,
+      "end": 36250,
+      "mrca_node_id": 41,
+      "tmrca": 1.6216896952048279
+    },
+    {
+      "sample_a": 3,
+      "sample_b": 5,
+      "start": 36250,
+      "end": 43069,
+      "mrca_node_id": 42,
+      "tmrca": 1.8852415762535657
+    },
+    {
+      "sample_a": 3,
+      "sample_b": 5,
+      "start": 43069,
+      "end": 50000,
+      "mrca_node_id": 42,
+      "tmrca": 1.8852415762535657
+    },
+    {
+      "sample_a": 3,
+      "sample_b": 6,
+      "start": 0,
+      "end": 36250,
+      "mrca_node_id": 37,
+      "tmrca": 0.4635702118428152
+    },
+    {
+      "sample_a": 3,
+      "sample_b": 6,
+      "start": 36250,
+      "end": 50000,
+      "mrca_node_id": 42,
+      "tmrca": 1.8852415762535657
+    },
+    {
+      "sample_a": 3,
+      "sample_b": 7,
+      "start": 0,
+      "end": 36250,
+      "mrca_node_id": 33,
+      "tmrca": 0.36690931308274377
+    },
+    {
+      "sample_a": 3,
+      "sample_b": 7,
+      "start": 36250,
+      "end": 38061,
+      "mrca_node_id": 42,
+      "tmrca": 1.8852415762535657
+    },
+    {
+      "sample_a": 3,
+      "sample_b": 7,
+      "start": 38061,
+      "end": 50000,
+      "mrca_node_id": 42,
+      "tmrca": 1.8852415762535657
+    },
+    {
+      "sample_a": 3,
+      "sample_b": 8,
+      "start": 0,
+      "end": 26985,
+      "mrca_node_id": 39,
+      "tmrca": 0.6313338160032227
+    },
+    {
+      "sample_a": 3,
+      "sample_b": 8,
+      "start": 26985,
+      "end": 36250,
+      "mrca_node_id": 39,
+      "tmrca": 0.6313338160032227
+    },
+    {
+      "sample_a": 3,
+      "sample_b": 8,
+      "start": 36250,
+      "end": 50000,
+      "mrca_node_id": 42,
+      "tmrca": 1.8852415762535657
+    },
+    {
+      "sample_a": 3,
+      "sample_b": 9,
+      "start": 0,
+      "end": 26985,
+      "mrca_node_id": 39,
+      "tmrca": 0.6313338160032227
+    },
+    {
+      "sample_a": 3,
+      "sample_b": 9,
+      "start": 26985,
+      "end": 36250,
+      "mrca_node_id": 39,
+      "tmrca": 0.6313338160032227
+    },
+    {
+      "sample_a": 3,
+      "sample_b": 9,
+      "start": 36250,
+      "end": 50000,
+      "mrca_node_id": 42,
+      "tmrca": 1.8852415762535657
+    },
+    {
+      "sample_a": 3,
+      "sample_b": 10,
+      "start": 0,
+      "end": 36250,
+      "mrca_node_id": 37,
+      "tmrca": 0.4635702118428152
+    },
+    {
+      "sample_a": 3,
+      "sample_b": 10,
+      "start": 36250,
+      "end": 50000,
+      "mrca_node_id": 42,
+      "tmrca": 1.8852415762535657
+    },
+    {
+      "sample_a": 3,
+      "sample_b": 11,
+      "start": 0,
+      "end": 15345,
+      "mrca_node_id": 42,
+      "tmrca": 1.8852415762535657
+    },
+    {
+      "sample_a": 3,
+      "sample_b": 11,
+      "start": 15345,
+      "end": 36250,
+      "mrca_node_id": 42,
+      "tmrca": 1.8852415762535657
+    },
+    {
+      "sample_a": 3,
+      "sample_b": 11,
+      "start": 36250,
+      "end": 50000,
+      "mrca_node_id": 27,
+      "tmrca": 0.10756644701011349
+    },
+    {
+      "sample_a": 3,
+      "sample_b": 12,
+      "start": 0,
+      "end": 36250,
+      "mrca_node_id": 37,
+      "tmrca": 0.4635702118428152
+    },
+    {
+      "sample_a": 3,
+      "sample_b": 12,
+      "start": 36250,
+      "end": 50000,
+      "mrca_node_id": 42,
+      "tmrca": 1.8852415762535657
+    },
+    {
+      "sample_a": 3,
+      "sample_b": 13,
+      "start": 0,
+      "end": 36250,
+      "mrca_node_id": 37,
+      "tmrca": 0.4635702118428152
+    },
+    {
+      "sample_a": 3,
+      "sample_b": 13,
+      "start": 36250,
+      "end": 50000,
+      "mrca_node_id": 42,
+      "tmrca": 1.8852415762535657
+    },
+    {
+      "sample_a": 3,
+      "sample_b": 14,
+      "start": 0,
+      "end": 36250,
+      "mrca_node_id": 33,
+      "tmrca": 0.36690931308274377
+    },
+    {
+      "sample_a": 3,
+      "sample_b": 14,
+      "start": 36250,
+      "end": 38061,
+      "mrca_node_id": 42,
+      "tmrca": 1.8852415762535657
+    },
+    {
+      "sample_a": 3,
+      "sample_b": 14,
+      "start": 38061,
+      "end": 50000,
+      "mrca_node_id": 42,
+      "tmrca": 1.8852415762535657
+    },
+    {
+      "sample_a": 3,
+      "sample_b": 15,
+      "start": 0,
+      "end": 15345,
+      "mrca_node_id": 40,
+      "tmrca": 0.750811828471296
+    },
+    {
+      "sample_a": 3,
+      "sample_b": 15,
+      "start": 15345,
+      "end": 26985,
+      "mrca_node_id": 41,
+      "tmrca": 1.6216896952048279
+    },
+    {
+      "sample_a": 3,
+      "sample_b": 15,
+      "start": 26985,
+      "end": 36250,
+      "mrca_node_id": 39,
+      "tmrca": 0.6313338160032227
+    },
+    {
+      "sample_a": 3,
+      "sample_b": 15,
+      "start": 36250,
+      "end": 50000,
+      "mrca_node_id": 42,
+      "tmrca": 1.8852415762535657
+    },
+    {
+      "sample_a": 3,
+      "sample_b": 16,
+      "start": 0,
+      "end": 36250,
+      "mrca_node_id": 33,
+      "tmrca": 0.36690931308274377
+    },
+    {
+      "sample_a": 3,
+      "sample_b": 16,
+      "start": 36250,
+      "end": 38061,
+      "mrca_node_id": 42,
+      "tmrca": 1.8852415762535657
+    },
+    {
+      "sample_a": 3,
+      "sample_b": 16,
+      "start": 38061,
+      "end": 43069,
+      "mrca_node_id": 43,
+      "tmrca": 3.3566590589812293
+    },
+    {
+      "sample_a": 3,
+      "sample_b": 16,
+      "start": 43069,
+      "end": 50000,
+      "mrca_node_id": 42,
+      "tmrca": 1.8852415762535657
+    },
+    {
+      "sample_a": 3,
+      "sample_b": 17,
+      "start": 0,
+      "end": 15345,
+      "mrca_node_id": 40,
+      "tmrca": 0.750811828471296
+    },
+    {
+      "sample_a": 3,
+      "sample_b": 17,
+      "start": 15345,
+      "end": 26985,
+      "mrca_node_id": 41,
+      "tmrca": 1.6216896952048279
+    },
+    {
+      "sample_a": 3,
+      "sample_b": 17,
+      "start": 26985,
+      "end": 36250,
+      "mrca_node_id": 41,
+      "tmrca": 1.6216896952048279
+    },
+    {
+      "sample_a": 3,
+      "sample_b": 17,
+      "start": 36250,
+      "end": 43069,
+      "mrca_node_id": 42,
+      "tmrca": 1.8852415762535657
+    },
+    {
+      "sample_a": 3,
+      "sample_b": 17,
+      "start": 43069,
+      "end": 50000,
+      "mrca_node_id": 42,
+      "tmrca": 1.8852415762535657
+    },
+    {
+      "sample_a": 3,
+      "sample_b": 18,
+      "start": 0,
+      "end": 36250,
+      "mrca_node_id": 37,
+      "tmrca": 0.4635702118428152
+    },
+    {
+      "sample_a": 3,
+      "sample_b": 18,
+      "start": 36250,
+      "end": 50000,
+      "mrca_node_id": 42,
+      "tmrca": 1.8852415762535657
+    },
+    {
+      "sample_a": 3,
+      "sample_b": 19,
+      "start": 0,
+      "end": 36250,
+      "mrca_node_id": 37,
+      "tmrca": 0.4635702118428152
+    },
+    {
+      "sample_a": 3,
+      "sample_b": 19,
+      "start": 36250,
+      "end": 50000,
+      "mrca_node_id": 42,
+      "tmrca": 1.8852415762535657
+    },
+    {
+      "sample_a": 4,
+      "sample_b": 5,
+      "start": 0,
+      "end": 15345,
+      "mrca_node_id": 42,
+      "tmrca": 1.8852415762535657
+    },
+    {
+      "sample_a": 4,
+      "sample_b": 5,
+      "start": 15345,
+      "end": 26985,
+      "mrca_node_id": 42,
+      "tmrca": 1.8852415762535657
+    },
+    {
+      "sample_a": 4,
+      "sample_b": 5,
+      "start": 26985,
+      "end": 43069,
+      "mrca_node_id": 42,
+      "tmrca": 1.8852415762535657
+    },
+    {
+      "sample_a": 4,
+      "sample_b": 5,
+      "start": 43069,
+      "end": 50000,
+      "mrca_node_id": 42,
+      "tmrca": 1.8852415762535657
+    },
+    {
+      "sample_a": 4,
+      "sample_b": 6,
+      "start": 0,
+      "end": 15345,
+      "mrca_node_id": 42,
+      "tmrca": 1.8852415762535657
+    },
+    {
+      "sample_a": 4,
+      "sample_b": 6,
+      "start": 15345,
+      "end": 50000,
+      "mrca_node_id": 42,
+      "tmrca": 1.8852415762535657
+    },
+    {
+      "sample_a": 4,
+      "sample_b": 7,
+      "start": 0,
+      "end": 15345,
+      "mrca_node_id": 42,
+      "tmrca": 1.8852415762535657
+    },
+    {
+      "sample_a": 4,
+      "sample_b": 7,
+      "start": 15345,
+      "end": 36250,
+      "mrca_node_id": 42,
+      "tmrca": 1.8852415762535657
+    },
+    {
+      "sample_a": 4,
+      "sample_b": 7,
+      "start": 36250,
+      "end": 38061,
+      "mrca_node_id": 42,
+      "tmrca": 1.8852415762535657
+    },
+    {
+      "sample_a": 4,
+      "sample_b": 7,
+      "start": 38061,
+      "end": 50000,
+      "mrca_node_id": 42,
+      "tmrca": 1.8852415762535657
+    },
+    {
+      "sample_a": 4,
+      "sample_b": 8,
+      "start": 0,
+      "end": 15345,
+      "mrca_node_id": 42,
+      "tmrca": 1.8852415762535657
+    },
+    {
+      "sample_a": 4,
+      "sample_b": 8,
+      "start": 15345,
+      "end": 26985,
+      "mrca_node_id": 42,
+      "tmrca": 1.8852415762535657
+    },
+    {
+      "sample_a": 4,
+      "sample_b": 8,
+      "start": 26985,
+      "end": 50000,
+      "mrca_node_id": 42,
+      "tmrca": 1.8852415762535657
+    },
+    {
+      "sample_a": 4,
+      "sample_b": 9,
+      "start": 0,
+      "end": 15345,
+      "mrca_node_id": 42,
+      "tmrca": 1.8852415762535657
+    },
+    {
+      "sample_a": 4,
+      "sample_b": 9,
+      "start": 15345,
+      "end": 26985,
+      "mrca_node_id": 42,
+      "tmrca": 1.8852415762535657
+    },
+    {
+      "sample_a": 4,
+      "sample_b": 9,
+      "start": 26985,
+      "end": 50000,
+      "mrca_node_id": 42,
+      "tmrca": 1.8852415762535657
+    },
+    {
+      "sample_a": 4,
+      "sample_b": 10,
+      "start": 0,
+      "end": 15345,
+      "mrca_node_id": 42,
+      "tmrca": 1.8852415762535657
+    },
+    {
+      "sample_a": 4,
+      "sample_b": 10,
+      "start": 15345,
+      "end": 50000,
+      "mrca_node_id": 42,
+      "tmrca": 1.8852415762535657
+    },
+    {
+      "sample_a": 4,
+      "sample_b": 11,
+      "start": 0,
+      "end": 36250,
+      "mrca_node_id": 35,
+      "tmrca": 0.38750256039922576
+    },
+    {
+      "sample_a": 4,
+      "sample_b": 11,
+      "start": 36250,
+      "end": 50000,
+      "mrca_node_id": 35,
+      "tmrca": 0.38750256039922576
+    },
+    {
+      "sample_a": 4,
+      "sample_b": 12,
+      "start": 0,
+      "end": 15345,
+      "mrca_node_id": 42,
+      "tmrca": 1.8852415762535657
+    },
+    {
+      "sample_a": 4,
+      "sample_b": 12,
+      "start": 15345,
+      "end": 50000,
+      "mrca_node_id": 42,
+      "tmrca": 1.8852415762535657
+    },
+    {
+      "sample_a": 4,
+      "sample_b": 13,
+      "start": 0,
+      "end": 15345,
+      "mrca_node_id": 42,
+      "tmrca": 1.8852415762535657
+    },
+    {
+      "sample_a": 4,
+      "sample_b": 13,
+      "start": 15345,
+      "end": 50000,
+      "mrca_node_id": 42,
+      "tmrca": 1.8852415762535657
+    },
+    {
+      "sample_a": 4,
+      "sample_b": 14,
+      "start": 0,
+      "end": 15345,
+      "mrca_node_id": 42,
+      "tmrca": 1.8852415762535657
+    },
+    {
+      "sample_a": 4,
+      "sample_b": 14,
+      "start": 15345,
+      "end": 36250,
+      "mrca_node_id": 42,
+      "tmrca": 1.8852415762535657
+    },
+    {
+      "sample_a": 4,
+      "sample_b": 14,
+      "start": 36250,
+      "end": 38061,
+      "mrca_node_id": 42,
+      "tmrca": 1.8852415762535657
+    },
+    {
+      "sample_a": 4,
+      "sample_b": 14,
+      "start": 38061,
+      "end": 50000,
+      "mrca_node_id": 42,
+      "tmrca": 1.8852415762535657
+    },
+    {
+      "sample_a": 4,
+      "sample_b": 15,
+      "start": 0,
+      "end": 15345,
+      "mrca_node_id": 42,
+      "tmrca": 1.8852415762535657
+    },
+    {
+      "sample_a": 4,
+      "sample_b": 15,
+      "start": 15345,
+      "end": 26985,
+      "mrca_node_id": 42,
+      "tmrca": 1.8852415762535657
+    },
+    {
+      "sample_a": 4,
+      "sample_b": 15,
+      "start": 26985,
+      "end": 50000,
+      "mrca_node_id": 42,
+      "tmrca": 1.8852415762535657
+    },
+    {
+      "sample_a": 4,
+      "sample_b": 16,
+      "start": 0,
+      "end": 15345,
+      "mrca_node_id": 42,
+      "tmrca": 1.8852415762535657
+    },
+    {
+      "sample_a": 4,
+      "sample_b": 16,
+      "start": 15345,
+      "end": 36250,
+      "mrca_node_id": 42,
+      "tmrca": 1.8852415762535657
+    },
+    {
+      "sample_a": 4,
+      "sample_b": 16,
+      "start": 36250,
+      "end": 38061,
+      "mrca_node_id": 42,
+      "tmrca": 1.8852415762535657
+    },
+    {
+      "sample_a": 4,
+      "sample_b": 16,
+      "start": 38061,
+      "end": 43069,
+      "mrca_node_id": 43,
+      "tmrca": 3.3566590589812293
+    },
+    {
+      "sample_a": 4,
+      "sample_b": 16,
+      "start": 43069,
+      "end": 50000,
+      "mrca_node_id": 42,
+      "tmrca": 1.8852415762535657
+    },
+    {
+      "sample_a": 4,
+      "sample_b": 17,
+      "start": 0,
+      "end": 15345,
+      "mrca_node_id": 42,
+      "tmrca": 1.8852415762535657
+    },
+    {
+      "sample_a": 4,
+      "sample_b": 17,
+      "start": 15345,
+      "end": 26985,
+      "mrca_node_id": 42,
+      "tmrca": 1.8852415762535657
+    },
+    {
+      "sample_a": 4,
+      "sample_b": 17,
+      "start": 26985,
+      "end": 43069,
+      "mrca_node_id": 42,
+      "tmrca": 1.8852415762535657
+    },
+    {
+      "sample_a": 4,
+      "sample_b": 17,
+      "start": 43069,
+      "end": 50000,
+      "mrca_node_id": 42,
+      "tmrca": 1.8852415762535657
+    },
+    {
+      "sample_a": 4,
+      "sample_b": 18,
+      "start": 0,
+      "end": 15345,
+      "mrca_node_id": 42,
+      "tmrca": 1.8852415762535657
+    },
+    {
+      "sample_a": 4,
+      "sample_b": 18,
+      "start": 15345,
+      "end": 50000,
+      "mrca_node_id": 42,
+      "tmrca": 1.8852415762535657
+    },
+    {
+      "sample_a": 4,
+      "sample_b": 19,
+      "start": 0,
+      "end": 15345,
+      "mrca_node_id": 42,
+      "tmrca": 1.8852415762535657
+    },
+    {
+      "sample_a": 4,
+      "sample_b": 19,
+      "start": 15345,
+      "end": 50000,
+      "mrca_node_id": 42,
+      "tmrca": 1.8852415762535657
+    },
+    {
+      "sample_a": 5,
+      "sample_b": 6,
+      "start": 0,
+      "end": 15345,
+      "mrca_node_id": 40,
+      "tmrca": 0.750811828471296
+    },
+    {
+      "sample_a": 5,
+      "sample_b": 6,
+      "start": 15345,
+      "end": 26985,
+      "mrca_node_id": 41,
+      "tmrca": 1.6216896952048279
+    },
+    {
+      "sample_a": 5,
+      "sample_b": 6,
+      "start": 26985,
+      "end": 43069,
+      "mrca_node_id": 41,
+      "tmrca": 1.6216896952048279
+    },
+    {
+      "sample_a": 5,
+      "sample_b": 6,
+      "start": 43069,
+      "end": 50000,
+      "mrca_node_id": 41,
+      "tmrca": 1.6216896952048279
+    },
+    {
+      "sample_a": 5,
+      "sample_b": 7,
+      "start": 0,
+      "end": 15345,
+      "mrca_node_id": 40,
+      "tmrca": 0.750811828471296
+    },
+    {
+      "sample_a": 5,
+      "sample_b": 7,
+      "start": 15345,
+      "end": 26985,
+      "mrca_node_id": 41,
+      "tmrca": 1.6216896952048279
+    },
+    {
+      "sample_a": 5,
+      "sample_b": 7,
+      "start": 26985,
+      "end": 36250,
+      "mrca_node_id": 41,
+      "tmrca": 1.6216896952048279
+    },
+    {
+      "sample_a": 5,
+      "sample_b": 7,
+      "start": 36250,
+      "end": 38061,
+      "mrca_node_id": 41,
+      "tmrca": 1.6216896952048279
+    },
+    {
+      "sample_a": 5,
+      "sample_b": 7,
+      "start": 38061,
+      "end": 43069,
+      "mrca_node_id": 41,
+      "tmrca": 1.6216896952048279
+    },
+    {
+      "sample_a": 5,
+      "sample_b": 7,
+      "start": 43069,
+      "end": 50000,
+      "mrca_node_id": 41,
+      "tmrca": 1.6216896952048279
+    },
+    {
+      "sample_a": 5,
+      "sample_b": 8,
+      "start": 0,
+      "end": 15345,
+      "mrca_node_id": 40,
+      "tmrca": 0.750811828471296
+    },
+    {
+      "sample_a": 5,
+      "sample_b": 8,
+      "start": 15345,
+      "end": 26985,
+      "mrca_node_id": 41,
+      "tmrca": 1.6216896952048279
+    },
+    {
+      "sample_a": 5,
+      "sample_b": 8,
+      "start": 26985,
+      "end": 43069,
+      "mrca_node_id": 41,
+      "tmrca": 1.6216896952048279
+    },
+    {
+      "sample_a": 5,
+      "sample_b": 8,
+      "start": 43069,
+      "end": 50000,
+      "mrca_node_id": 41,
+      "tmrca": 1.6216896952048279
+    },
+    {
+      "sample_a": 5,
+      "sample_b": 9,
+      "start": 0,
+      "end": 15345,
+      "mrca_node_id": 40,
+      "tmrca": 0.750811828471296
+    },
+    {
+      "sample_a": 5,
+      "sample_b": 9,
+      "start": 15345,
+      "end": 26985,
+      "mrca_node_id": 41,
+      "tmrca": 1.6216896952048279
+    },
+    {
+      "sample_a": 5,
+      "sample_b": 9,
+      "start": 26985,
+      "end": 43069,
+      "mrca_node_id": 41,
+      "tmrca": 1.6216896952048279
+    },
+    {
+      "sample_a": 5,
+      "sample_b": 9,
+      "start": 43069,
+      "end": 50000,
+      "mrca_node_id": 41,
+      "tmrca": 1.6216896952048279
+    },
+    {
+      "sample_a": 5,
+      "sample_b": 10,
+      "start": 0,
+      "end": 15345,
+      "mrca_node_id": 40,
+      "tmrca": 0.750811828471296
+    },
+    {
+      "sample_a": 5,
+      "sample_b": 10,
+      "start": 15345,
+      "end": 26985,
+      "mrca_node_id": 41,
+      "tmrca": 1.6216896952048279
+    },
+    {
+      "sample_a": 5,
+      "sample_b": 10,
+      "start": 26985,
+      "end": 43069,
+      "mrca_node_id": 41,
+      "tmrca": 1.6216896952048279
+    },
+    {
+      "sample_a": 5,
+      "sample_b": 10,
+      "start": 43069,
+      "end": 50000,
+      "mrca_node_id": 41,
+      "tmrca": 1.6216896952048279
+    },
+    {
+      "sample_a": 5,
+      "sample_b": 11,
+      "start": 0,
+      "end": 15345,
+      "mrca_node_id": 42,
+      "tmrca": 1.8852415762535657
+    },
+    {
+      "sample_a": 5,
+      "sample_b": 11,
+      "start": 15345,
+      "end": 26985,
+      "mrca_node_id": 42,
+      "tmrca": 1.8852415762535657
+    },
+    {
+      "sample_a": 5,
+      "sample_b": 11,
+      "start": 26985,
+      "end": 36250,
+      "mrca_node_id": 42,
+      "tmrca": 1.8852415762535657
+    },
+    {
+      "sample_a": 5,
+      "sample_b": 11,
+      "start": 36250,
+      "end": 43069,
+      "mrca_node_id": 42,
+      "tmrca": 1.8852415762535657
+    },
+    {
+      "sample_a": 5,
+      "sample_b": 11,
+      "start": 43069,
+      "end": 50000,
+      "mrca_node_id": 42,
+      "tmrca": 1.8852415762535657
+    },
+    {
+      "sample_a": 5,
+      "sample_b": 12,
+      "start": 0,
+      "end": 15345,
+      "mrca_node_id": 40,
+      "tmrca": 0.750811828471296
+    },
+    {
+      "sample_a": 5,
+      "sample_b": 12,
+      "start": 15345,
+      "end": 26985,
+      "mrca_node_id": 41,
+      "tmrca": 1.6216896952048279
+    },
+    {
+      "sample_a": 5,
+      "sample_b": 12,
+      "start": 26985,
+      "end": 43069,
+      "mrca_node_id": 41,
+      "tmrca": 1.6216896952048279
+    },
+    {
+      "sample_a": 5,
+      "sample_b": 12,
+      "start": 43069,
+      "end": 50000,
+      "mrca_node_id": 41,
+      "tmrca": 1.6216896952048279
+    },
+    {
+      "sample_a": 5,
+      "sample_b": 13,
+      "start": 0,
+      "end": 15345,
+      "mrca_node_id": 40,
+      "tmrca": 0.750811828471296
+    },
+    {
+      "sample_a": 5,
+      "sample_b": 13,
+      "start": 15345,
+      "end": 26985,
+      "mrca_node_id": 41,
+      "tmrca": 1.6216896952048279
+    },
+    {
+      "sample_a": 5,
+      "sample_b": 13,
+      "start": 26985,
+      "end": 43069,
+      "mrca_node_id": 41,
+      "tmrca": 1.6216896952048279
+    },
+    {
+      "sample_a": 5,
+      "sample_b": 13,
+      "start": 43069,
+      "end": 50000,
+      "mrca_node_id": 41,
+      "tmrca": 1.6216896952048279
+    },
+    {
+      "sample_a": 5,
+      "sample_b": 14,
+      "start": 0,
+      "end": 15345,
+      "mrca_node_id": 40,
+      "tmrca": 0.750811828471296
+    },
+    {
+      "sample_a": 5,
+      "sample_b": 14,
+      "start": 15345,
+      "end": 26985,
+      "mrca_node_id": 41,
+      "tmrca": 1.6216896952048279
+    },
+    {
+      "sample_a": 5,
+      "sample_b": 14,
+      "start": 26985,
+      "end": 36250,
+      "mrca_node_id": 41,
+      "tmrca": 1.6216896952048279
+    },
+    {
+      "sample_a": 5,
+      "sample_b": 14,
+      "start": 36250,
+      "end": 38061,
+      "mrca_node_id": 41,
+      "tmrca": 1.6216896952048279
+    },
+    {
+      "sample_a": 5,
+      "sample_b": 14,
+      "start": 38061,
+      "end": 43069,
+      "mrca_node_id": 41,
+      "tmrca": 1.6216896952048279
+    },
+    {
+      "sample_a": 5,
+      "sample_b": 14,
+      "start": 43069,
+      "end": 50000,
+      "mrca_node_id": 41,
+      "tmrca": 1.6216896952048279
+    },
+    {
+      "sample_a": 5,
+      "sample_b": 15,
+      "start": 0,
+      "end": 26985,
+      "mrca_node_id": 36,
+      "tmrca": 0.4350504236569825
+    },
+    {
+      "sample_a": 5,
+      "sample_b": 15,
+      "start": 26985,
+      "end": 43069,
+      "mrca_node_id": 41,
+      "tmrca": 1.6216896952048279
+    },
+    {
+      "sample_a": 5,
+      "sample_b": 15,
+      "start": 43069,
+      "end": 50000,
+      "mrca_node_id": 41,
+      "tmrca": 1.6216896952048279
+    },
+    {
+      "sample_a": 5,
+      "sample_b": 16,
+      "start": 0,
+      "end": 15345,
+      "mrca_node_id": 40,
+      "tmrca": 0.750811828471296
+    },
+    {
+      "sample_a": 5,
+      "sample_b": 16,
+      "start": 15345,
+      "end": 26985,
+      "mrca_node_id": 41,
+      "tmrca": 1.6216896952048279
+    },
+    {
+      "sample_a": 5,
+      "sample_b": 16,
+      "start": 26985,
+      "end": 36250,
+      "mrca_node_id": 41,
+      "tmrca": 1.6216896952048279
+    },
+    {
+      "sample_a": 5,
+      "sample_b": 16,
+      "start": 36250,
+      "end": 38061,
+      "mrca_node_id": 41,
+      "tmrca": 1.6216896952048279
+    },
+    {
+      "sample_a": 5,
+      "sample_b": 16,
+      "start": 38061,
+      "end": 43069,
+      "mrca_node_id": 43,
+      "tmrca": 3.3566590589812293
+    },
+    {
+      "sample_a": 5,
+      "sample_b": 16,
+      "start": 43069,
+      "end": 50000,
+      "mrca_node_id": 38,
+      "tmrca": 0.5133764221619721
+    },
+    {
+      "sample_a": 5,
+      "sample_b": 17,
+      "start": 0,
+      "end": 50000,
+      "mrca_node_id": 23,
+      "tmrca": 0.06122407283174474
+    },
+    {
+      "sample_a": 5,
+      "sample_b": 18,
+      "start": 0,
+      "end": 15345,
+      "mrca_node_id": 40,
+      "tmrca": 0.750811828471296
+    },
+    {
+      "sample_a": 5,
+      "sample_b": 18,
+      "start": 15345,
+      "end": 26985,
+      "mrca_node_id": 41,
+      "tmrca": 1.6216896952048279
+    },
+    {
+      "sample_a": 5,
+      "sample_b": 18,
+      "start": 26985,
+      "end": 43069,
+      "mrca_node_id": 41,
+      "tmrca": 1.6216896952048279
+    },
+    {
+      "sample_a": 5,
+      "sample_b": 18,
+      "start": 43069,
+      "end": 50000,
+      "mrca_node_id": 41,
+      "tmrca": 1.6216896952048279
+    },
+    {
+      "sample_a": 5,
+      "sample_b": 19,
+      "start": 0,
+      "end": 15345,
+      "mrca_node_id": 40,
+      "tmrca": 0.750811828471296
+    },
+    {
+      "sample_a": 5,
+      "sample_b": 19,
+      "start": 15345,
+      "end": 26985,
+      "mrca_node_id": 41,
+      "tmrca": 1.6216896952048279
+    },
+    {
+      "sample_a": 5,
+      "sample_b": 19,
+      "start": 26985,
+      "end": 43069,
+      "mrca_node_id": 41,
+      "tmrca": 1.6216896952048279
+    },
+    {
+      "sample_a": 5,
+      "sample_b": 19,
+      "start": 43069,
+      "end": 50000,
+      "mrca_node_id": 41,
+      "tmrca": 1.6216896952048279
+    },
+    {
+      "sample_a": 6,
+      "sample_b": 7,
+      "start": 0,
+      "end": 36250,
+      "mrca_node_id": 37,
+      "tmrca": 0.4635702118428152
+    },
+    {
+      "sample_a": 6,
+      "sample_b": 7,
+      "start": 36250,
+      "end": 38061,
+      "mrca_node_id": 37,
+      "tmrca": 0.4635702118428152
+    },
+    {
+      "sample_a": 6,
+      "sample_b": 7,
+      "start": 38061,
+      "end": 50000,
+      "mrca_node_id": 37,
+      "tmrca": 0.4635702118428152
+    },
+    {
+      "sample_a": 6,
+      "sample_b": 8,
+      "start": 0,
+      "end": 26985,
+      "mrca_node_id": 39,
+      "tmrca": 0.6313338160032227
+    },
+    {
+      "sample_a": 6,
+      "sample_b": 8,
+      "start": 26985,
+      "end": 50000,
+      "mrca_node_id": 39,
+      "tmrca": 0.6313338160032227
+    },
+    {
+      "sample_a": 6,
+      "sample_b": 9,
+      "start": 0,
+      "end": 26985,
+      "mrca_node_id": 39,
+      "tmrca": 0.6313338160032227
+    },
+    {
+      "sample_a": 6,
+      "sample_b": 9,
+      "start": 26985,
+      "end": 50000,
+      "mrca_node_id": 39,
+      "tmrca": 0.6313338160032227
+    },
+    {
+      "sample_a": 6,
+      "sample_b": 10,
+      "start": 0,
+      "end": 50000,
+      "mrca_node_id": 28,
+      "tmrca": 0.12391735230965334
+    },
+    {
+      "sample_a": 6,
+      "sample_b": 11,
+      "start": 0,
+      "end": 15345,
+      "mrca_node_id": 42,
+      "tmrca": 1.8852415762535657
+    },
+    {
+      "sample_a": 6,
+      "sample_b": 11,
+      "start": 15345,
+      "end": 36250,
+      "mrca_node_id": 42,
+      "tmrca": 1.8852415762535657
+    },
+    {
+      "sample_a": 6,
+      "sample_b": 11,
+      "start": 36250,
+      "end": 50000,
+      "mrca_node_id": 42,
+      "tmrca": 1.8852415762535657
+    },
+    {
+      "sample_a": 6,
+      "sample_b": 12,
+      "start": 0,
+      "end": 50000,
+      "mrca_node_id": 30,
+      "tmrca": 0.1682028855388471
+    },
+    {
+      "sample_a": 6,
+      "sample_b": 13,
+      "start": 0,
+      "end": 50000,
+      "mrca_node_id": 32,
+      "tmrca": 0.32673420817164295
+    },
+    {
+      "sample_a": 6,
+      "sample_b": 14,
+      "start": 0,
+      "end": 36250,
+      "mrca_node_id": 37,
+      "tmrca": 0.4635702118428152
+    },
+    {
+      "sample_a": 6,
+      "sample_b": 14,
+      "start": 36250,
+      "end": 38061,
+      "mrca_node_id": 37,
+      "tmrca": 0.4635702118428152
+    },
+    {
+      "sample_a": 6,
+      "sample_b": 14,
+      "start": 38061,
+      "end": 50000,
+      "mrca_node_id": 37,
+      "tmrca": 0.4635702118428152
+    },
+    {
+      "sample_a": 6,
+      "sample_b": 15,
+      "start": 0,
+      "end": 15345,
+      "mrca_node_id": 40,
+      "tmrca": 0.750811828471296
+    },
+    {
+      "sample_a": 6,
+      "sample_b": 15,
+      "start": 15345,
+      "end": 26985,
+      "mrca_node_id": 41,
+      "tmrca": 1.6216896952048279
+    },
+    {
+      "sample_a": 6,
+      "sample_b": 15,
+      "start": 26985,
+      "end": 50000,
+      "mrca_node_id": 39,
+      "tmrca": 0.6313338160032227
+    },
+    {
+      "sample_a": 6,
+      "sample_b": 16,
+      "start": 0,
+      "end": 36250,
+      "mrca_node_id": 37,
+      "tmrca": 0.4635702118428152
+    },
+    {
+      "sample_a": 6,
+      "sample_b": 16,
+      "start": 36250,
+      "end": 38061,
+      "mrca_node_id": 37,
+      "tmrca": 0.4635702118428152
+    },
+    {
+      "sample_a": 6,
+      "sample_b": 16,
+      "start": 38061,
+      "end": 43069,
+      "mrca_node_id": 43,
+      "tmrca": 3.3566590589812293
+    },
+    {
+      "sample_a": 6,
+      "sample_b": 16,
+      "start": 43069,
+      "end": 50000,
+      "mrca_node_id": 41,
+      "tmrca": 1.6216896952048279
+    },
+    {
+      "sample_a": 6,
+      "sample_b": 17,
+      "start": 0,
+      "end": 15345,
+      "mrca_node_id": 40,
+      "tmrca": 0.750811828471296
+    },
+    {
+      "sample_a": 6,
+      "sample_b": 17,
+      "start": 15345,
+      "end": 26985,
+      "mrca_node_id": 41,
+      "tmrca": 1.6216896952048279
+    },
+    {
+      "sample_a": 6,
+      "sample_b": 17,
+      "start": 26985,
+      "end": 43069,
+      "mrca_node_id": 41,
+      "tmrca": 1.6216896952048279
+    },
+    {
+      "sample_a": 6,
+      "sample_b": 17,
+      "start": 43069,
+      "end": 50000,
+      "mrca_node_id": 41,
+      "tmrca": 1.6216896952048279
+    },
+    {
+      "sample_a": 6,
+      "sample_b": 18,
+      "start": 0,
+      "end": 50000,
+      "mrca_node_id": 29,
+      "tmrca": 0.13317213314968593
+    },
+    {
+      "sample_a": 6,
+      "sample_b": 19,
+      "start": 0,
+      "end": 50000,
+      "mrca_node_id": 29,
+      "tmrca": 0.13317213314968593
+    },
+    {
+      "sample_a": 7,
+      "sample_b": 8,
+      "start": 0,
+      "end": 26985,
+      "mrca_node_id": 39,
+      "tmrca": 0.6313338160032227
+    },
+    {
+      "sample_a": 7,
+      "sample_b": 8,
+      "start": 26985,
+      "end": 36250,
+      "mrca_node_id": 39,
+      "tmrca": 0.6313338160032227
+    },
+    {
+      "sample_a": 7,
+      "sample_b": 8,
+      "start": 36250,
+      "end": 38061,
+      "mrca_node_id": 39,
+      "tmrca": 0.6313338160032227
+    },
+    {
+      "sample_a": 7,
+      "sample_b": 8,
+      "start": 38061,
+      "end": 50000,
+      "mrca_node_id": 39,
+      "tmrca": 0.6313338160032227
+    },
+    {
+      "sample_a": 7,
+      "sample_b": 9,
+      "start": 0,
+      "end": 26985,
+      "mrca_node_id": 39,
+      "tmrca": 0.6313338160032227
+    },
+    {
+      "sample_a": 7,
+      "sample_b": 9,
+      "start": 26985,
+      "end": 36250,
+      "mrca_node_id": 39,
+      "tmrca": 0.6313338160032227
+    },
+    {
+      "sample_a": 7,
+      "sample_b": 9,
+      "start": 36250,
+      "end": 38061,
+      "mrca_node_id": 39,
+      "tmrca": 0.6313338160032227
+    },
+    {
+      "sample_a": 7,
+      "sample_b": 9,
+      "start": 38061,
+      "end": 50000,
+      "mrca_node_id": 39,
+      "tmrca": 0.6313338160032227
+    },
+    {
+      "sample_a": 7,
+      "sample_b": 10,
+      "start": 0,
+      "end": 36250,
+      "mrca_node_id": 37,
+      "tmrca": 0.4635702118428152
+    },
+    {
+      "sample_a": 7,
+      "sample_b": 10,
+      "start": 36250,
+      "end": 38061,
+      "mrca_node_id": 37,
+      "tmrca": 0.4635702118428152
+    },
+    {
+      "sample_a": 7,
+      "sample_b": 10,
+      "start": 38061,
+      "end": 50000,
+      "mrca_node_id": 37,
+      "tmrca": 0.4635702118428152
+    },
+    {
+      "sample_a": 7,
+      "sample_b": 11,
+      "start": 0,
+      "end": 15345,
+      "mrca_node_id": 42,
+      "tmrca": 1.8852415762535657
+    },
+    {
+      "sample_a": 7,
+      "sample_b": 11,
+      "start": 15345,
+      "end": 36250,
+      "mrca_node_id": 42,
+      "tmrca": 1.8852415762535657
+    },
+    {
+      "sample_a": 7,
+      "sample_b": 11,
+      "start": 36250,
+      "end": 38061,
+      "mrca_node_id": 42,
+      "tmrca": 1.8852415762535657
+    },
+    {
+      "sample_a": 7,
+      "sample_b": 11,
+      "start": 38061,
+      "end": 50000,
+      "mrca_node_id": 42,
+      "tmrca": 1.8852415762535657
+    },
+    {
+      "sample_a": 7,
+      "sample_b": 12,
+      "start": 0,
+      "end": 36250,
+      "mrca_node_id": 37,
+      "tmrca": 0.4635702118428152
+    },
+    {
+      "sample_a": 7,
+      "sample_b": 12,
+      "start": 36250,
+      "end": 38061,
+      "mrca_node_id": 37,
+      "tmrca": 0.4635702118428152
+    },
+    {
+      "sample_a": 7,
+      "sample_b": 12,
+      "start": 38061,
+      "end": 50000,
+      "mrca_node_id": 37,
+      "tmrca": 0.4635702118428152
+    },
+    {
+      "sample_a": 7,
+      "sample_b": 13,
+      "start": 0,
+      "end": 36250,
+      "mrca_node_id": 37,
+      "tmrca": 0.4635702118428152
+    },
+    {
+      "sample_a": 7,
+      "sample_b": 13,
+      "start": 36250,
+      "end": 38061,
+      "mrca_node_id": 37,
+      "tmrca": 0.4635702118428152
+    },
+    {
+      "sample_a": 7,
+      "sample_b": 13,
+      "start": 38061,
+      "end": 50000,
+      "mrca_node_id": 37,
+      "tmrca": 0.4635702118428152
+    },
+    {
+      "sample_a": 7,
+      "sample_b": 14,
+      "start": 0,
+      "end": 50000,
+      "mrca_node_id": 26,
+      "tmrca": 0.10743137285546628
+    },
+    {
+      "sample_a": 7,
+      "sample_b": 15,
+      "start": 0,
+      "end": 15345,
+      "mrca_node_id": 40,
+      "tmrca": 0.750811828471296
+    },
+    {
+      "sample_a": 7,
+      "sample_b": 15,
+      "start": 15345,
+      "end": 26985,
+      "mrca_node_id": 41,
+      "tmrca": 1.6216896952048279
+    },
+    {
+      "sample_a": 7,
+      "sample_b": 15,
+      "start": 26985,
+      "end": 36250,
+      "mrca_node_id": 39,
+      "tmrca": 0.6313338160032227
+    },
+    {
+      "sample_a": 7,
+      "sample_b": 15,
+      "start": 36250,
+      "end": 38061,
+      "mrca_node_id": 39,
+      "tmrca": 0.6313338160032227
+    },
+    {
+      "sample_a": 7,
+      "sample_b": 15,
+      "start": 38061,
+      "end": 50000,
+      "mrca_node_id": 39,
+      "tmrca": 0.6313338160032227
+    },
+    {
+      "sample_a": 7,
+      "sample_b": 16,
+      "start": 0,
+      "end": 38061,
+      "mrca_node_id": 31,
+      "tmrca": 0.31842481912520604
+    },
+    {
+      "sample_a": 7,
+      "sample_b": 16,
+      "start": 38061,
+      "end": 43069,
+      "mrca_node_id": 43,
+      "tmrca": 3.3566590589812293
+    },
+    {
+      "sample_a": 7,
+      "sample_b": 16,
+      "start": 43069,
+      "end": 50000,
+      "mrca_node_id": 41,
+      "tmrca": 1.6216896952048279
+    },
+    {
+      "sample_a": 7,
+      "sample_b": 17,
+      "start": 0,
+      "end": 15345,
+      "mrca_node_id": 40,
+      "tmrca": 0.750811828471296
+    },
+    {
+      "sample_a": 7,
+      "sample_b": 17,
+      "start": 15345,
+      "end": 26985,
+      "mrca_node_id": 41,
+      "tmrca": 1.6216896952048279
+    },
+    {
+      "sample_a": 7,
+      "sample_b": 17,
+      "start": 26985,
+      "end": 36250,
+      "mrca_node_id": 41,
+      "tmrca": 1.6216896952048279
+    },
+    {
+      "sample_a": 7,
+      "sample_b": 17,
+      "start": 36250,
+      "end": 38061,
+      "mrca_node_id": 41,
+      "tmrca": 1.6216896952048279
+    },
+    {
+      "sample_a": 7,
+      "sample_b": 17,
+      "start": 38061,
+      "end": 43069,
+      "mrca_node_id": 41,
+      "tmrca": 1.6216896952048279
+    },
+    {
+      "sample_a": 7,
+      "sample_b": 17,
+      "start": 43069,
+      "end": 50000,
+      "mrca_node_id": 41,
+      "tmrca": 1.6216896952048279
+    },
+    {
+      "sample_a": 7,
+      "sample_b": 18,
+      "start": 0,
+      "end": 36250,
+      "mrca_node_id": 37,
+      "tmrca": 0.4635702118428152
+    },
+    {
+      "sample_a": 7,
+      "sample_b": 18,
+      "start": 36250,
+      "end": 38061,
+      "mrca_node_id": 37,
+      "tmrca": 0.4635702118428152
+    },
+    {
+      "sample_a": 7,
+      "sample_b": 18,
+      "start": 38061,
+      "end": 50000,
+      "mrca_node_id": 37,
+      "tmrca": 0.4635702118428152
+    },
+    {
+      "sample_a": 7,
+      "sample_b": 19,
+      "start": 0,
+      "end": 36250,
+      "mrca_node_id": 37,
+      "tmrca": 0.4635702118428152
+    },
+    {
+      "sample_a": 7,
+      "sample_b": 19,
+      "start": 36250,
+      "end": 38061,
+      "mrca_node_id": 37,
+      "tmrca": 0.4635702118428152
+    },
+    {
+      "sample_a": 7,
+      "sample_b": 19,
+      "start": 38061,
+      "end": 50000,
+      "mrca_node_id": 37,
+      "tmrca": 0.4635702118428152
+    },
+    {
+      "sample_a": 8,
+      "sample_b": 9,
+      "start": 0,
+      "end": 50000,
+      "mrca_node_id": 21,
+      "tmrca": 0.03445373836142679
+    },
+    {
+      "sample_a": 8,
+      "sample_b": 10,
+      "start": 0,
+      "end": 26985,
+      "mrca_node_id": 39,
+      "tmrca": 0.6313338160032227
+    },
+    {
+      "sample_a": 8,
+      "sample_b": 10,
+      "start": 26985,
+      "end": 50000,
+      "mrca_node_id": 39,
+      "tmrca": 0.6313338160032227
+    },
+    {
+      "sample_a": 8,
+      "sample_b": 11,
+      "start": 0,
+      "end": 15345,
+      "mrca_node_id": 42,
+      "tmrca": 1.8852415762535657
+    },
+    {
+      "sample_a": 8,
+      "sample_b": 11,
+      "start": 15345,
+      "end": 26985,
+      "mrca_node_id": 42,
+      "tmrca": 1.8852415762535657
+    },
+    {
+      "sample_a": 8,
+      "sample_b": 11,
+      "start": 26985,
+      "end": 36250,
+      "mrca_node_id": 42,
+      "tmrca": 1.8852415762535657
+    },
+    {
+      "sample_a": 8,
+      "sample_b": 11,
+      "start": 36250,
+      "end": 50000,
+      "mrca_node_id": 42,
+      "tmrca": 1.8852415762535657
+    },
+    {
+      "sample_a": 8,
+      "sample_b": 12,
+      "start": 0,
+      "end": 26985,
+      "mrca_node_id": 39,
+      "tmrca": 0.6313338160032227
+    },
+    {
+      "sample_a": 8,
+      "sample_b": 12,
+      "start": 26985,
+      "end": 50000,
+      "mrca_node_id": 39,
+      "tmrca": 0.6313338160032227
+    },
+    {
+      "sample_a": 8,
+      "sample_b": 13,
+      "start": 0,
+      "end": 26985,
+      "mrca_node_id": 39,
+      "tmrca": 0.6313338160032227
+    },
+    {
+      "sample_a": 8,
+      "sample_b": 13,
+      "start": 26985,
+      "end": 50000,
+      "mrca_node_id": 39,
+      "tmrca": 0.6313338160032227
+    },
+    {
+      "sample_a": 8,
+      "sample_b": 14,
+      "start": 0,
+      "end": 26985,
+      "mrca_node_id": 39,
+      "tmrca": 0.6313338160032227
+    },
+    {
+      "sample_a": 8,
+      "sample_b": 14,
+      "start": 26985,
+      "end": 36250,
+      "mrca_node_id": 39,
+      "tmrca": 0.6313338160032227
+    },
+    {
+      "sample_a": 8,
+      "sample_b": 14,
+      "start": 36250,
+      "end": 38061,
+      "mrca_node_id": 39,
+      "tmrca": 0.6313338160032227
+    },
+    {
+      "sample_a": 8,
+      "sample_b": 14,
+      "start": 38061,
+      "end": 50000,
+      "mrca_node_id": 39,
+      "tmrca": 0.6313338160032227
+    },
+    {
+      "sample_a": 8,
+      "sample_b": 15,
+      "start": 0,
+      "end": 15345,
+      "mrca_node_id": 40,
+      "tmrca": 0.750811828471296
+    },
+    {
+      "sample_a": 8,
+      "sample_b": 15,
+      "start": 15345,
+      "end": 26985,
+      "mrca_node_id": 41,
+      "tmrca": 1.6216896952048279
+    },
+    {
+      "sample_a": 8,
+      "sample_b": 15,
+      "start": 26985,
+      "end": 50000,
+      "mrca_node_id": 34,
+      "tmrca": 0.3678034848143833
+    },
+    {
+      "sample_a": 8,
+      "sample_b": 16,
+      "start": 0,
+      "end": 26985,
+      "mrca_node_id": 39,
+      "tmrca": 0.6313338160032227
+    },
+    {
+      "sample_a": 8,
+      "sample_b": 16,
+      "start": 26985,
+      "end": 36250,
+      "mrca_node_id": 39,
+      "tmrca": 0.6313338160032227
+    },
+    {
+      "sample_a": 8,
+      "sample_b": 16,
+      "start": 36250,
+      "end": 38061,
+      "mrca_node_id": 39,
+      "tmrca": 0.6313338160032227
+    },
+    {
+      "sample_a": 8,
+      "sample_b": 16,
+      "start": 38061,
+      "end": 43069,
+      "mrca_node_id": 43,
+      "tmrca": 3.3566590589812293
+    },
+    {
+      "sample_a": 8,
+      "sample_b": 16,
+      "start": 43069,
+      "end": 50000,
+      "mrca_node_id": 41,
+      "tmrca": 1.6216896952048279
+    },
+    {
+      "sample_a": 8,
+      "sample_b": 17,
+      "start": 0,
+      "end": 15345,
+      "mrca_node_id": 40,
+      "tmrca": 0.750811828471296
+    },
+    {
+      "sample_a": 8,
+      "sample_b": 17,
+      "start": 15345,
+      "end": 26985,
+      "mrca_node_id": 41,
+      "tmrca": 1.6216896952048279
+    },
+    {
+      "sample_a": 8,
+      "sample_b": 17,
+      "start": 26985,
+      "end": 43069,
+      "mrca_node_id": 41,
+      "tmrca": 1.6216896952048279
+    },
+    {
+      "sample_a": 8,
+      "sample_b": 17,
+      "start": 43069,
+      "end": 50000,
+      "mrca_node_id": 41,
+      "tmrca": 1.6216896952048279
+    },
+    {
+      "sample_a": 8,
+      "sample_b": 18,
+      "start": 0,
+      "end": 26985,
+      "mrca_node_id": 39,
+      "tmrca": 0.6313338160032227
+    },
+    {
+      "sample_a": 8,
+      "sample_b": 18,
+      "start": 26985,
+      "end": 50000,
+      "mrca_node_id": 39,
+      "tmrca": 0.6313338160032227
+    },
+    {
+      "sample_a": 8,
+      "sample_b": 19,
+      "start": 0,
+      "end": 26985,
+      "mrca_node_id": 39,
+      "tmrca": 0.6313338160032227
+    },
+    {
+      "sample_a": 8,
+      "sample_b": 19,
+      "start": 26985,
+      "end": 50000,
+      "mrca_node_id": 39,
+      "tmrca": 0.6313338160032227
+    },
+    {
+      "sample_a": 9,
+      "sample_b": 10,
+      "start": 0,
+      "end": 26985,
+      "mrca_node_id": 39,
+      "tmrca": 0.6313338160032227
+    },
+    {
+      "sample_a": 9,
+      "sample_b": 10,
+      "start": 26985,
+      "end": 50000,
+      "mrca_node_id": 39,
+      "tmrca": 0.6313338160032227
+    },
+    {
+      "sample_a": 9,
+      "sample_b": 11,
+      "start": 0,
+      "end": 15345,
+      "mrca_node_id": 42,
+      "tmrca": 1.8852415762535657
+    },
+    {
+      "sample_a": 9,
+      "sample_b": 11,
+      "start": 15345,
+      "end": 26985,
+      "mrca_node_id": 42,
+      "tmrca": 1.8852415762535657
+    },
+    {
+      "sample_a": 9,
+      "sample_b": 11,
+      "start": 26985,
+      "end": 36250,
+      "mrca_node_id": 42,
+      "tmrca": 1.8852415762535657
+    },
+    {
+      "sample_a": 9,
+      "sample_b": 11,
+      "start": 36250,
+      "end": 50000,
+      "mrca_node_id": 42,
+      "tmrca": 1.8852415762535657
+    },
+    {
+      "sample_a": 9,
+      "sample_b": 12,
+      "start": 0,
+      "end": 26985,
+      "mrca_node_id": 39,
+      "tmrca": 0.6313338160032227
+    },
+    {
+      "sample_a": 9,
+      "sample_b": 12,
+      "start": 26985,
+      "end": 50000,
+      "mrca_node_id": 39,
+      "tmrca": 0.6313338160032227
+    },
+    {
+      "sample_a": 9,
+      "sample_b": 13,
+      "start": 0,
+      "end": 26985,
+      "mrca_node_id": 39,
+      "tmrca": 0.6313338160032227
+    },
+    {
+      "sample_a": 9,
+      "sample_b": 13,
+      "start": 26985,
+      "end": 50000,
+      "mrca_node_id": 39,
+      "tmrca": 0.6313338160032227
+    },
+    {
+      "sample_a": 9,
+      "sample_b": 14,
+      "start": 0,
+      "end": 26985,
+      "mrca_node_id": 39,
+      "tmrca": 0.6313338160032227
+    },
+    {
+      "sample_a": 9,
+      "sample_b": 14,
+      "start": 26985,
+      "end": 36250,
+      "mrca_node_id": 39,
+      "tmrca": 0.6313338160032227
+    },
+    {
+      "sample_a": 9,
+      "sample_b": 14,
+      "start": 36250,
+      "end": 38061,
+      "mrca_node_id": 39,
+      "tmrca": 0.6313338160032227
+    },
+    {
+      "sample_a": 9,
+      "sample_b": 14,
+      "start": 38061,
+      "end": 50000,
+      "mrca_node_id": 39,
+      "tmrca": 0.6313338160032227
+    },
+    {
+      "sample_a": 9,
+      "sample_b": 15,
+      "start": 0,
+      "end": 15345,
+      "mrca_node_id": 40,
+      "tmrca": 0.750811828471296
+    },
+    {
+      "sample_a": 9,
+      "sample_b": 15,
+      "start": 15345,
+      "end": 26985,
+      "mrca_node_id": 41,
+      "tmrca": 1.6216896952048279
+    },
+    {
+      "sample_a": 9,
+      "sample_b": 15,
+      "start": 26985,
+      "end": 50000,
+      "mrca_node_id": 34,
+      "tmrca": 0.3678034848143833
+    },
+    {
+      "sample_a": 9,
+      "sample_b": 16,
+      "start": 0,
+      "end": 26985,
+      "mrca_node_id": 39,
+      "tmrca": 0.6313338160032227
+    },
+    {
+      "sample_a": 9,
+      "sample_b": 16,
+      "start": 26985,
+      "end": 36250,
+      "mrca_node_id": 39,
+      "tmrca": 0.6313338160032227
+    },
+    {
+      "sample_a": 9,
+      "sample_b": 16,
+      "start": 36250,
+      "end": 38061,
+      "mrca_node_id": 39,
+      "tmrca": 0.6313338160032227
+    },
+    {
+      "sample_a": 9,
+      "sample_b": 16,
+      "start": 38061,
+      "end": 43069,
+      "mrca_node_id": 43,
+      "tmrca": 3.3566590589812293
+    },
+    {
+      "sample_a": 9,
+      "sample_b": 16,
+      "start": 43069,
+      "end": 50000,
+      "mrca_node_id": 41,
+      "tmrca": 1.6216896952048279
+    },
+    {
+      "sample_a": 9,
+      "sample_b": 17,
+      "start": 0,
+      "end": 15345,
+      "mrca_node_id": 40,
+      "tmrca": 0.750811828471296
+    },
+    {
+      "sample_a": 9,
+      "sample_b": 17,
+      "start": 15345,
+      "end": 26985,
+      "mrca_node_id": 41,
+      "tmrca": 1.6216896952048279
+    },
+    {
+      "sample_a": 9,
+      "sample_b": 17,
+      "start": 26985,
+      "end": 43069,
+      "mrca_node_id": 41,
+      "tmrca": 1.6216896952048279
+    },
+    {
+      "sample_a": 9,
+      "sample_b": 17,
+      "start": 43069,
+      "end": 50000,
+      "mrca_node_id": 41,
+      "tmrca": 1.6216896952048279
+    },
+    {
+      "sample_a": 9,
+      "sample_b": 18,
+      "start": 0,
+      "end": 26985,
+      "mrca_node_id": 39,
+      "tmrca": 0.6313338160032227
+    },
+    {
+      "sample_a": 9,
+      "sample_b": 18,
+      "start": 26985,
+      "end": 50000,
+      "mrca_node_id": 39,
+      "tmrca": 0.6313338160032227
+    },
+    {
+      "sample_a": 9,
+      "sample_b": 19,
+      "start": 0,
+      "end": 26985,
+      "mrca_node_id": 39,
+      "tmrca": 0.6313338160032227
+    },
+    {
+      "sample_a": 9,
+      "sample_b": 19,
+      "start": 26985,
+      "end": 50000,
+      "mrca_node_id": 39,
+      "tmrca": 0.6313338160032227
+    },
+    {
+      "sample_a": 10,
+      "sample_b": 11,
+      "start": 0,
+      "end": 15345,
+      "mrca_node_id": 42,
+      "tmrca": 1.8852415762535657
+    },
+    {
+      "sample_a": 10,
+      "sample_b": 11,
+      "start": 15345,
+      "end": 36250,
+      "mrca_node_id": 42,
+      "tmrca": 1.8852415762535657
+    },
+    {
+      "sample_a": 10,
+      "sample_b": 11,
+      "start": 36250,
+      "end": 50000,
+      "mrca_node_id": 42,
+      "tmrca": 1.8852415762535657
+    },
+    {
+      "sample_a": 10,
+      "sample_b": 12,
+      "start": 0,
+      "end": 50000,
+      "mrca_node_id": 30,
+      "tmrca": 0.1682028855388471
+    },
+    {
+      "sample_a": 10,
+      "sample_b": 13,
+      "start": 0,
+      "end": 50000,
+      "mrca_node_id": 32,
+      "tmrca": 0.32673420817164295
+    },
+    {
+      "sample_a": 10,
+      "sample_b": 14,
+      "start": 0,
+      "end": 36250,
+      "mrca_node_id": 37,
+      "tmrca": 0.4635702118428152
+    },
+    {
+      "sample_a": 10,
+      "sample_b": 14,
+      "start": 36250,
+      "end": 38061,
+      "mrca_node_id": 37,
+      "tmrca": 0.4635702118428152
+    },
+    {
+      "sample_a": 10,
+      "sample_b": 14,
+      "start": 38061,
+      "end": 50000,
+      "mrca_node_id": 37,
+      "tmrca": 0.4635702118428152
+    },
+    {
+      "sample_a": 10,
+      "sample_b": 15,
+      "start": 0,
+      "end": 15345,
+      "mrca_node_id": 40,
+      "tmrca": 0.750811828471296
+    },
+    {
+      "sample_a": 10,
+      "sample_b": 15,
+      "start": 15345,
+      "end": 26985,
+      "mrca_node_id": 41,
+      "tmrca": 1.6216896952048279
+    },
+    {
+      "sample_a": 10,
+      "sample_b": 15,
+      "start": 26985,
+      "end": 50000,
+      "mrca_node_id": 39,
+      "tmrca": 0.6313338160032227
+    },
+    {
+      "sample_a": 10,
+      "sample_b": 16,
+      "start": 0,
+      "end": 36250,
+      "mrca_node_id": 37,
+      "tmrca": 0.4635702118428152
+    },
+    {
+      "sample_a": 10,
+      "sample_b": 16,
+      "start": 36250,
+      "end": 38061,
+      "mrca_node_id": 37,
+      "tmrca": 0.4635702118428152
+    },
+    {
+      "sample_a": 10,
+      "sample_b": 16,
+      "start": 38061,
+      "end": 43069,
+      "mrca_node_id": 43,
+      "tmrca": 3.3566590589812293
+    },
+    {
+      "sample_a": 10,
+      "sample_b": 16,
+      "start": 43069,
+      "end": 50000,
+      "mrca_node_id": 41,
+      "tmrca": 1.6216896952048279
+    },
+    {
+      "sample_a": 10,
+      "sample_b": 17,
+      "start": 0,
+      "end": 15345,
+      "mrca_node_id": 40,
+      "tmrca": 0.750811828471296
+    },
+    {
+      "sample_a": 10,
+      "sample_b": 17,
+      "start": 15345,
+      "end": 26985,
+      "mrca_node_id": 41,
+      "tmrca": 1.6216896952048279
+    },
+    {
+      "sample_a": 10,
+      "sample_b": 17,
+      "start": 26985,
+      "end": 43069,
+      "mrca_node_id": 41,
+      "tmrca": 1.6216896952048279
+    },
+    {
+      "sample_a": 10,
+      "sample_b": 17,
+      "start": 43069,
+      "end": 50000,
+      "mrca_node_id": 41,
+      "tmrca": 1.6216896952048279
+    },
+    {
+      "sample_a": 10,
+      "sample_b": 18,
+      "start": 0,
+      "end": 50000,
+      "mrca_node_id": 29,
+      "tmrca": 0.13317213314968593
+    },
+    {
+      "sample_a": 10,
+      "sample_b": 19,
+      "start": 0,
+      "end": 50000,
+      "mrca_node_id": 29,
+      "tmrca": 0.13317213314968593
+    },
+    {
+      "sample_a": 11,
+      "sample_b": 12,
+      "start": 0,
+      "end": 15345,
+      "mrca_node_id": 42,
+      "tmrca": 1.8852415762535657
+    },
+    {
+      "sample_a": 11,
+      "sample_b": 12,
+      "start": 15345,
+      "end": 36250,
+      "mrca_node_id": 42,
+      "tmrca": 1.8852415762535657
+    },
+    {
+      "sample_a": 11,
+      "sample_b": 12,
+      "start": 36250,
+      "end": 50000,
+      "mrca_node_id": 42,
+      "tmrca": 1.8852415762535657
+    },
+    {
+      "sample_a": 11,
+      "sample_b": 13,
+      "start": 0,
+      "end": 15345,
+      "mrca_node_id": 42,
+      "tmrca": 1.8852415762535657
+    },
+    {
+      "sample_a": 11,
+      "sample_b": 13,
+      "start": 15345,
+      "end": 36250,
+      "mrca_node_id": 42,
+      "tmrca": 1.8852415762535657
+    },
+    {
+      "sample_a": 11,
+      "sample_b": 13,
+      "start": 36250,
+      "end": 50000,
+      "mrca_node_id": 42,
+      "tmrca": 1.8852415762535657
+    },
+    {
+      "sample_a": 11,
+      "sample_b": 14,
+      "start": 0,
+      "end": 15345,
+      "mrca_node_id": 42,
+      "tmrca": 1.8852415762535657
+    },
+    {
+      "sample_a": 11,
+      "sample_b": 14,
+      "start": 15345,
+      "end": 36250,
+      "mrca_node_id": 42,
+      "tmrca": 1.8852415762535657
+    },
+    {
+      "sample_a": 11,
+      "sample_b": 14,
+      "start": 36250,
+      "end": 38061,
+      "mrca_node_id": 42,
+      "tmrca": 1.8852415762535657
+    },
+    {
+      "sample_a": 11,
+      "sample_b": 14,
+      "start": 38061,
+      "end": 50000,
+      "mrca_node_id": 42,
+      "tmrca": 1.8852415762535657
+    },
+    {
+      "sample_a": 11,
+      "sample_b": 15,
+      "start": 0,
+      "end": 15345,
+      "mrca_node_id": 42,
+      "tmrca": 1.8852415762535657
+    },
+    {
+      "sample_a": 11,
+      "sample_b": 15,
+      "start": 15345,
+      "end": 26985,
+      "mrca_node_id": 42,
+      "tmrca": 1.8852415762535657
+    },
+    {
+      "sample_a": 11,
+      "sample_b": 15,
+      "start": 26985,
+      "end": 36250,
+      "mrca_node_id": 42,
+      "tmrca": 1.8852415762535657
+    },
+    {
+      "sample_a": 11,
+      "sample_b": 15,
+      "start": 36250,
+      "end": 50000,
+      "mrca_node_id": 42,
+      "tmrca": 1.8852415762535657
+    },
+    {
+      "sample_a": 11,
+      "sample_b": 16,
+      "start": 0,
+      "end": 15345,
+      "mrca_node_id": 42,
+      "tmrca": 1.8852415762535657
+    },
+    {
+      "sample_a": 11,
+      "sample_b": 16,
+      "start": 15345,
+      "end": 36250,
+      "mrca_node_id": 42,
+      "tmrca": 1.8852415762535657
+    },
+    {
+      "sample_a": 11,
+      "sample_b": 16,
+      "start": 36250,
+      "end": 38061,
+      "mrca_node_id": 42,
+      "tmrca": 1.8852415762535657
+    },
+    {
+      "sample_a": 11,
+      "sample_b": 16,
+      "start": 38061,
+      "end": 43069,
+      "mrca_node_id": 43,
+      "tmrca": 3.3566590589812293
+    },
+    {
+      "sample_a": 11,
+      "sample_b": 16,
+      "start": 43069,
+      "end": 50000,
+      "mrca_node_id": 42,
+      "tmrca": 1.8852415762535657
+    },
+    {
+      "sample_a": 11,
+      "sample_b": 17,
+      "start": 0,
+      "end": 15345,
+      "mrca_node_id": 42,
+      "tmrca": 1.8852415762535657
+    },
+    {
+      "sample_a": 11,
+      "sample_b": 17,
+      "start": 15345,
+      "end": 26985,
+      "mrca_node_id": 42,
+      "tmrca": 1.8852415762535657
+    },
+    {
+      "sample_a": 11,
+      "sample_b": 17,
+      "start": 26985,
+      "end": 36250,
+      "mrca_node_id": 42,
+      "tmrca": 1.8852415762535657
+    },
+    {
+      "sample_a": 11,
+      "sample_b": 17,
+      "start": 36250,
+      "end": 43069,
+      "mrca_node_id": 42,
+      "tmrca": 1.8852415762535657
+    },
+    {
+      "sample_a": 11,
+      "sample_b": 17,
+      "start": 43069,
+      "end": 50000,
+      "mrca_node_id": 42,
+      "tmrca": 1.8852415762535657
+    },
+    {
+      "sample_a": 11,
+      "sample_b": 18,
+      "start": 0,
+      "end": 15345,
+      "mrca_node_id": 42,
+      "tmrca": 1.8852415762535657
+    },
+    {
+      "sample_a": 11,
+      "sample_b": 18,
+      "start": 15345,
+      "end": 36250,
+      "mrca_node_id": 42,
+      "tmrca": 1.8852415762535657
+    },
+    {
+      "sample_a": 11,
+      "sample_b": 18,
+      "start": 36250,
+      "end": 50000,
+      "mrca_node_id": 42,
+      "tmrca": 1.8852415762535657
+    },
+    {
+      "sample_a": 11,
+      "sample_b": 19,
+      "start": 0,
+      "end": 15345,
+      "mrca_node_id": 42,
+      "tmrca": 1.8852415762535657
+    },
+    {
+      "sample_a": 11,
+      "sample_b": 19,
+      "start": 15345,
+      "end": 36250,
+      "mrca_node_id": 42,
+      "tmrca": 1.8852415762535657
+    },
+    {
+      "sample_a": 11,
+      "sample_b": 19,
+      "start": 36250,
+      "end": 50000,
+      "mrca_node_id": 42,
+      "tmrca": 1.8852415762535657
+    },
+    {
+      "sample_a": 12,
+      "sample_b": 13,
+      "start": 0,
+      "end": 50000,
+      "mrca_node_id": 32,
+      "tmrca": 0.32673420817164295
+    },
+    {
+      "sample_a": 12,
+      "sample_b": 14,
+      "start": 0,
+      "end": 36250,
+      "mrca_node_id": 37,
+      "tmrca": 0.4635702118428152
+    },
+    {
+      "sample_a": 12,
+      "sample_b": 14,
+      "start": 36250,
+      "end": 38061,
+      "mrca_node_id": 37,
+      "tmrca": 0.4635702118428152
+    },
+    {
+      "sample_a": 12,
+      "sample_b": 14,
+      "start": 38061,
+      "end": 50000,
+      "mrca_node_id": 37,
+      "tmrca": 0.4635702118428152
+    },
+    {
+      "sample_a": 12,
+      "sample_b": 15,
+      "start": 0,
+      "end": 15345,
+      "mrca_node_id": 40,
+      "tmrca": 0.750811828471296
+    },
+    {
+      "sample_a": 12,
+      "sample_b": 15,
+      "start": 15345,
+      "end": 26985,
+      "mrca_node_id": 41,
+      "tmrca": 1.6216896952048279
+    },
+    {
+      "sample_a": 12,
+      "sample_b": 15,
+      "start": 26985,
+      "end": 50000,
+      "mrca_node_id": 39,
+      "tmrca": 0.6313338160032227
+    },
+    {
+      "sample_a": 12,
+      "sample_b": 16,
+      "start": 0,
+      "end": 36250,
+      "mrca_node_id": 37,
+      "tmrca": 0.4635702118428152
+    },
+    {
+      "sample_a": 12,
+      "sample_b": 16,
+      "start": 36250,
+      "end": 38061,
+      "mrca_node_id": 37,
+      "tmrca": 0.4635702118428152
+    },
+    {
+      "sample_a": 12,
+      "sample_b": 16,
+      "start": 38061,
+      "end": 43069,
+      "mrca_node_id": 43,
+      "tmrca": 3.3566590589812293
+    },
+    {
+      "sample_a": 12,
+      "sample_b": 16,
+      "start": 43069,
+      "end": 50000,
+      "mrca_node_id": 41,
+      "tmrca": 1.6216896952048279
+    },
+    {
+      "sample_a": 12,
+      "sample_b": 17,
+      "start": 0,
+      "end": 15345,
+      "mrca_node_id": 40,
+      "tmrca": 0.750811828471296
+    },
+    {
+      "sample_a": 12,
+      "sample_b": 17,
+      "start": 15345,
+      "end": 26985,
+      "mrca_node_id": 41,
+      "tmrca": 1.6216896952048279
+    },
+    {
+      "sample_a": 12,
+      "sample_b": 17,
+      "start": 26985,
+      "end": 43069,
+      "mrca_node_id": 41,
+      "tmrca": 1.6216896952048279
+    },
+    {
+      "sample_a": 12,
+      "sample_b": 17,
+      "start": 43069,
+      "end": 50000,
+      "mrca_node_id": 41,
+      "tmrca": 1.6216896952048279
+    },
+    {
+      "sample_a": 12,
+      "sample_b": 18,
+      "start": 0,
+      "end": 50000,
+      "mrca_node_id": 30,
+      "tmrca": 0.1682028855388471
+    },
+    {
+      "sample_a": 12,
+      "sample_b": 19,
+      "start": 0,
+      "end": 50000,
+      "mrca_node_id": 30,
+      "tmrca": 0.1682028855388471
+    },
+    {
+      "sample_a": 13,
+      "sample_b": 14,
+      "start": 0,
+      "end": 36250,
+      "mrca_node_id": 37,
+      "tmrca": 0.4635702118428152
+    },
+    {
+      "sample_a": 13,
+      "sample_b": 14,
+      "start": 36250,
+      "end": 38061,
+      "mrca_node_id": 37,
+      "tmrca": 0.4635702118428152
+    },
+    {
+      "sample_a": 13,
+      "sample_b": 14,
+      "start": 38061,
+      "end": 50000,
+      "mrca_node_id": 37,
+      "tmrca": 0.4635702118428152
+    },
+    {
+      "sample_a": 13,
+      "sample_b": 15,
+      "start": 0,
+      "end": 15345,
+      "mrca_node_id": 40,
+      "tmrca": 0.750811828471296
+    },
+    {
+      "sample_a": 13,
+      "sample_b": 15,
+      "start": 15345,
+      "end": 26985,
+      "mrca_node_id": 41,
+      "tmrca": 1.6216896952048279
+    },
+    {
+      "sample_a": 13,
+      "sample_b": 15,
+      "start": 26985,
+      "end": 50000,
+      "mrca_node_id": 39,
+      "tmrca": 0.6313338160032227
+    },
+    {
+      "sample_a": 13,
+      "sample_b": 16,
+      "start": 0,
+      "end": 36250,
+      "mrca_node_id": 37,
+      "tmrca": 0.4635702118428152
+    },
+    {
+      "sample_a": 13,
+      "sample_b": 16,
+      "start": 36250,
+      "end": 38061,
+      "mrca_node_id": 37,
+      "tmrca": 0.4635702118428152
+    },
+    {
+      "sample_a": 13,
+      "sample_b": 16,
+      "start": 38061,
+      "end": 43069,
+      "mrca_node_id": 43,
+      "tmrca": 3.3566590589812293
+    },
+    {
+      "sample_a": 13,
+      "sample_b": 16,
+      "start": 43069,
+      "end": 50000,
+      "mrca_node_id": 41,
+      "tmrca": 1.6216896952048279
+    },
+    {
+      "sample_a": 13,
+      "sample_b": 17,
+      "start": 0,
+      "end": 15345,
+      "mrca_node_id": 40,
+      "tmrca": 0.750811828471296
+    },
+    {
+      "sample_a": 13,
+      "sample_b": 17,
+      "start": 15345,
+      "end": 26985,
+      "mrca_node_id": 41,
+      "tmrca": 1.6216896952048279
+    },
+    {
+      "sample_a": 13,
+      "sample_b": 17,
+      "start": 26985,
+      "end": 43069,
+      "mrca_node_id": 41,
+      "tmrca": 1.6216896952048279
+    },
+    {
+      "sample_a": 13,
+      "sample_b": 17,
+      "start": 43069,
+      "end": 50000,
+      "mrca_node_id": 41,
+      "tmrca": 1.6216896952048279
+    },
+    {
+      "sample_a": 13,
+      "sample_b": 18,
+      "start": 0,
+      "end": 50000,
+      "mrca_node_id": 32,
+      "tmrca": 0.32673420817164295
+    },
+    {
+      "sample_a": 13,
+      "sample_b": 19,
+      "start": 0,
+      "end": 50000,
+      "mrca_node_id": 32,
+      "tmrca": 0.32673420817164295
+    },
+    {
+      "sample_a": 14,
+      "sample_b": 15,
+      "start": 0,
+      "end": 15345,
+      "mrca_node_id": 40,
+      "tmrca": 0.750811828471296
+    },
+    {
+      "sample_a": 14,
+      "sample_b": 15,
+      "start": 15345,
+      "end": 26985,
+      "mrca_node_id": 41,
+      "tmrca": 1.6216896952048279
+    },
+    {
+      "sample_a": 14,
+      "sample_b": 15,
+      "start": 26985,
+      "end": 36250,
+      "mrca_node_id": 39,
+      "tmrca": 0.6313338160032227
+    },
+    {
+      "sample_a": 14,
+      "sample_b": 15,
+      "start": 36250,
+      "end": 38061,
+      "mrca_node_id": 39,
+      "tmrca": 0.6313338160032227
+    },
+    {
+      "sample_a": 14,
+      "sample_b": 15,
+      "start": 38061,
+      "end": 50000,
+      "mrca_node_id": 39,
+      "tmrca": 0.6313338160032227
+    },
+    {
+      "sample_a": 14,
+      "sample_b": 16,
+      "start": 0,
+      "end": 38061,
+      "mrca_node_id": 31,
+      "tmrca": 0.31842481912520604
+    },
+    {
+      "sample_a": 14,
+      "sample_b": 16,
+      "start": 38061,
+      "end": 43069,
+      "mrca_node_id": 43,
+      "tmrca": 3.3566590589812293
+    },
+    {
+      "sample_a": 14,
+      "sample_b": 16,
+      "start": 43069,
+      "end": 50000,
+      "mrca_node_id": 41,
+      "tmrca": 1.6216896952048279
+    },
+    {
+      "sample_a": 14,
+      "sample_b": 17,
+      "start": 0,
+      "end": 15345,
+      "mrca_node_id": 40,
+      "tmrca": 0.750811828471296
+    },
+    {
+      "sample_a": 14,
+      "sample_b": 17,
+      "start": 15345,
+      "end": 26985,
+      "mrca_node_id": 41,
+      "tmrca": 1.6216896952048279
+    },
+    {
+      "sample_a": 14,
+      "sample_b": 17,
+      "start": 26985,
+      "end": 36250,
+      "mrca_node_id": 41,
+      "tmrca": 1.6216896952048279
+    },
+    {
+      "sample_a": 14,
+      "sample_b": 17,
+      "start": 36250,
+      "end": 38061,
+      "mrca_node_id": 41,
+      "tmrca": 1.6216896952048279
+    },
+    {
+      "sample_a": 14,
+      "sample_b": 17,
+      "start": 38061,
+      "end": 43069,
+      "mrca_node_id": 41,
+      "tmrca": 1.6216896952048279
+    },
+    {
+      "sample_a": 14,
+      "sample_b": 17,
+      "start": 43069,
+      "end": 50000,
+      "mrca_node_id": 41,
+      "tmrca": 1.6216896952048279
+    },
+    {
+      "sample_a": 14,
+      "sample_b": 18,
+      "start": 0,
+      "end": 36250,
+      "mrca_node_id": 37,
+      "tmrca": 0.4635702118428152
+    },
+    {
+      "sample_a": 14,
+      "sample_b": 18,
+      "start": 36250,
+      "end": 38061,
+      "mrca_node_id": 37,
+      "tmrca": 0.4635702118428152
+    },
+    {
+      "sample_a": 14,
+      "sample_b": 18,
+      "start": 38061,
+      "end": 50000,
+      "mrca_node_id": 37,
+      "tmrca": 0.4635702118428152
+    },
+    {
+      "sample_a": 14,
+      "sample_b": 19,
+      "start": 0,
+      "end": 36250,
+      "mrca_node_id": 37,
+      "tmrca": 0.4635702118428152
+    },
+    {
+      "sample_a": 14,
+      "sample_b": 19,
+      "start": 36250,
+      "end": 38061,
+      "mrca_node_id": 37,
+      "tmrca": 0.4635702118428152
+    },
+    {
+      "sample_a": 14,
+      "sample_b": 19,
+      "start": 38061,
+      "end": 50000,
+      "mrca_node_id": 37,
+      "tmrca": 0.4635702118428152
+    },
+    {
+      "sample_a": 15,
+      "sample_b": 16,
+      "start": 0,
+      "end": 15345,
+      "mrca_node_id": 40,
+      "tmrca": 0.750811828471296
+    },
+    {
+      "sample_a": 15,
+      "sample_b": 16,
+      "start": 15345,
+      "end": 26985,
+      "mrca_node_id": 41,
+      "tmrca": 1.6216896952048279
+    },
+    {
+      "sample_a": 15,
+      "sample_b": 16,
+      "start": 26985,
+      "end": 36250,
+      "mrca_node_id": 39,
+      "tmrca": 0.6313338160032227
+    },
+    {
+      "sample_a": 15,
+      "sample_b": 16,
+      "start": 36250,
+      "end": 38061,
+      "mrca_node_id": 39,
+      "tmrca": 0.6313338160032227
+    },
+    {
+      "sample_a": 15,
+      "sample_b": 16,
+      "start": 38061,
+      "end": 43069,
+      "mrca_node_id": 43,
+      "tmrca": 3.3566590589812293
+    },
+    {
+      "sample_a": 15,
+      "sample_b": 16,
+      "start": 43069,
+      "end": 50000,
+      "mrca_node_id": 41,
+      "tmrca": 1.6216896952048279
+    },
+    {
+      "sample_a": 15,
+      "sample_b": 17,
+      "start": 0,
+      "end": 26985,
+      "mrca_node_id": 36,
+      "tmrca": 0.4350504236569825
+    },
+    {
+      "sample_a": 15,
+      "sample_b": 17,
+      "start": 26985,
+      "end": 43069,
+      "mrca_node_id": 41,
+      "tmrca": 1.6216896952048279
+    },
+    {
+      "sample_a": 15,
+      "sample_b": 17,
+      "start": 43069,
+      "end": 50000,
+      "mrca_node_id": 41,
+      "tmrca": 1.6216896952048279
+    },
+    {
+      "sample_a": 15,
+      "sample_b": 18,
+      "start": 0,
+      "end": 15345,
+      "mrca_node_id": 40,
+      "tmrca": 0.750811828471296
+    },
+    {
+      "sample_a": 15,
+      "sample_b": 18,
+      "start": 15345,
+      "end": 26985,
+      "mrca_node_id": 41,
+      "tmrca": 1.6216896952048279
+    },
+    {
+      "sample_a": 15,
+      "sample_b": 18,
+      "start": 26985,
+      "end": 50000,
+      "mrca_node_id": 39,
+      "tmrca": 0.6313338160032227
+    },
+    {
+      "sample_a": 15,
+      "sample_b": 19,
+      "start": 0,
+      "end": 15345,
+      "mrca_node_id": 40,
+      "tmrca": 0.750811828471296
+    },
+    {
+      "sample_a": 15,
+      "sample_b": 19,
+      "start": 15345,
+      "end": 26985,
+      "mrca_node_id": 41,
+      "tmrca": 1.6216896952048279
+    },
+    {
+      "sample_a": 15,
+      "sample_b": 19,
+      "start": 26985,
+      "end": 50000,
+      "mrca_node_id": 39,
+      "tmrca": 0.6313338160032227
+    },
+    {
+      "sample_a": 16,
+      "sample_b": 17,
+      "start": 0,
+      "end": 15345,
+      "mrca_node_id": 40,
+      "tmrca": 0.750811828471296
+    },
+    {
+      "sample_a": 16,
+      "sample_b": 17,
+      "start": 15345,
+      "end": 26985,
+      "mrca_node_id": 41,
+      "tmrca": 1.6216896952048279
+    },
+    {
+      "sample_a": 16,
+      "sample_b": 17,
+      "start": 26985,
+      "end": 36250,
+      "mrca_node_id": 41,
+      "tmrca": 1.6216896952048279
+    },
+    {
+      "sample_a": 16,
+      "sample_b": 17,
+      "start": 36250,
+      "end": 38061,
+      "mrca_node_id": 41,
+      "tmrca": 1.6216896952048279
+    },
+    {
+      "sample_a": 16,
+      "sample_b": 17,
+      "start": 38061,
+      "end": 43069,
+      "mrca_node_id": 43,
+      "tmrca": 3.3566590589812293
+    },
+    {
+      "sample_a": 16,
+      "sample_b": 17,
+      "start": 43069,
+      "end": 50000,
+      "mrca_node_id": 38,
+      "tmrca": 0.5133764221619721
+    },
+    {
+      "sample_a": 16,
+      "sample_b": 18,
+      "start": 0,
+      "end": 36250,
+      "mrca_node_id": 37,
+      "tmrca": 0.4635702118428152
+    },
+    {
+      "sample_a": 16,
+      "sample_b": 18,
+      "start": 36250,
+      "end": 38061,
+      "mrca_node_id": 37,
+      "tmrca": 0.4635702118428152
+    },
+    {
+      "sample_a": 16,
+      "sample_b": 18,
+      "start": 38061,
+      "end": 43069,
+      "mrca_node_id": 43,
+      "tmrca": 3.3566590589812293
+    },
+    {
+      "sample_a": 16,
+      "sample_b": 18,
+      "start": 43069,
+      "end": 50000,
+      "mrca_node_id": 41,
+      "tmrca": 1.6216896952048279
+    },
+    {
+      "sample_a": 16,
+      "sample_b": 19,
+      "start": 0,
+      "end": 36250,
+      "mrca_node_id": 37,
+      "tmrca": 0.4635702118428152
+    },
+    {
+      "sample_a": 16,
+      "sample_b": 19,
+      "start": 36250,
+      "end": 38061,
+      "mrca_node_id": 37,
+      "tmrca": 0.4635702118428152
+    },
+    {
+      "sample_a": 16,
+      "sample_b": 19,
+      "start": 38061,
+      "end": 43069,
+      "mrca_node_id": 43,
+      "tmrca": 3.3566590589812293
+    },
+    {
+      "sample_a": 16,
+      "sample_b": 19,
+      "start": 43069,
+      "end": 50000,
+      "mrca_node_id": 41,
+      "tmrca": 1.6216896952048279
+    },
+    {
+      "sample_a": 17,
+      "sample_b": 18,
+      "start": 0,
+      "end": 15345,
+      "mrca_node_id": 40,
+      "tmrca": 0.750811828471296
+    },
+    {
+      "sample_a": 17,
+      "sample_b": 18,
+      "start": 15345,
+      "end": 26985,
+      "mrca_node_id": 41,
+      "tmrca": 1.6216896952048279
+    },
+    {
+      "sample_a": 17,
+      "sample_b": 18,
+      "start": 26985,
+      "end": 43069,
+      "mrca_node_id": 41,
+      "tmrca": 1.6216896952048279
+    },
+    {
+      "sample_a": 17,
+      "sample_b": 18,
+      "start": 43069,
+      "end": 50000,
+      "mrca_node_id": 41,
+      "tmrca": 1.6216896952048279
+    },
+    {
+      "sample_a": 17,
+      "sample_b": 19,
+      "start": 0,
+      "end": 15345,
+      "mrca_node_id": 40,
+      "tmrca": 0.750811828471296
+    },
+    {
+      "sample_a": 17,
+      "sample_b": 19,
+      "start": 15345,
+      "end": 26985,
+      "mrca_node_id": 41,
+      "tmrca": 1.6216896952048279
+    },
+    {
+      "sample_a": 17,
+      "sample_b": 19,
+      "start": 26985,
+      "end": 43069,
+      "mrca_node_id": 41,
+      "tmrca": 1.6216896952048279
+    },
+    {
+      "sample_a": 17,
+      "sample_b": 19,
+      "start": 43069,
+      "end": 50000,
+      "mrca_node_id": 41,
+      "tmrca": 1.6216896952048279
+    },
+    {
+      "sample_a": 18,
+      "sample_b": 19,
+      "start": 0,
+      "end": 50000,
+      "mrca_node_id": 22,
+      "tmrca": 0.04216993125090236
+    }
+  ]
+}

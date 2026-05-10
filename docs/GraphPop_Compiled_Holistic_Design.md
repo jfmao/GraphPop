@@ -1003,6 +1003,50 @@ fixture (every cell of the 4×4 matrix verified). Cross-tool
 validation against PLINK2 `--genome` is recorded in PR descriptions
 (deferred from CI; PLINK normalisation differs slightly).
 
+### 13.1.6 IBD segments (M4.3)
+
+`graphpop.ibd.from_arg`, `graphpop.ibd.kinship`, and the Python
+`IBDIngester` together cover the IBD pillar of the GraphPop pairwise
+suite. Two complementary entry points feed the schema:
+
+* **External-tool ingest** — `graphpop ibd ingest` parses
+  hap-IBD-style 6-column TSVs. Default biobank pipeline (hap-IBD,
+  GERMLINE, iLASH).
+* **ARG-derived** — `graphpop.ibd.from_arg` walks `:PARENT_OF` and
+  emits exact IBD segments per pair with **path-based segmentation**
+  (matches `tskit.TreeSequence.ibd_segments` element-wise to a
+  642-segment fixture in the test suite).
+
+Schema:
+
+```cypher
+(:Sample)-[:IBD_SEGMENT {
+  chr: STRING, start: LONG, end: LONG, length_bp: LONG,
+  length_cM: FLOAT (optional), source: STRING, runId: STRING (optional),
+  mrca_node_id: INT (optional), tmrca: FLOAT (optional),
+  created_at: DATETIME
+}]->(:Sample)
+```
+
+The `:Sample → :Sample` direction is canonical (lexicographically
+ordered) so downstream `MATCH` queries don't double-count. Indices
+on `(source, chr)`, `(runId)`, and `(chr, start)` keep range
+queries fast.
+
+`graphpop.ibd.kinship(source, options)` is the IBDkin-style aggregator
+(Browning & Browning 2010): per-pair kinship is `Σ length / (2 ·
+total_genome_length)`. When `length_cM` is present on every segment,
+the cM denominator is used (default `total_genome_cM` ≈ bp/1e6,
+override via the `total_genome_cM` option). Otherwise it falls back
+to `length_bp` and tags `method = "ibd_bp"`.
+
+ARG-derived IBD is the headline graph-native contribution: an
+existing biobank tool (hap-IBD) computes IBD from packed phased
+genotypes and ships it as a separate file; GraphPop derives the same
+information natively from the ingested ARG and exposes it as a
+single Cypher query, with TMRCA conditioning, per-runId provenance,
+and idempotent re-runs.
+
 ### 13.2 Procedures (planned)
 
 | Procedure | Path | Validation baseline |

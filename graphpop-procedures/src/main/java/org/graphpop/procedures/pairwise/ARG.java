@@ -119,19 +119,22 @@ public final class ARG {
                 trimmed[w++] = trimmed[i];
             }
         }
-        // Ensure lo and hi are bracketing.
-        long[] out;
-        if (w == 0 || trimmed[0] != lo) {
-            // Prepend lo.
-            out = new long[w + 1];
-            out[0] = lo;
-            System.arraycopy(trimmed, 0, out, 1, w);
+        // Trim to actual length.
+        long[] dedup = Arrays.copyOf(trimmed, w);
+        // Ensure lo prepended.
+        if (w == 0 || dedup[0] != lo) {
+            long[] withLo = new long[w + 1];
+            withLo[0] = lo;
+            System.arraycopy(dedup, 0, withLo, 1, w);
+            dedup = withLo;
             w++;
-            trimmed = out;
-        } else {
-            out = Arrays.copyOf(trimmed, w);
-            trimmed = out;
         }
-        return trimmed;
+        // Ensure hi appended.
+        if (dedup[w - 1] != hi) {
+            long[] withHi = Arrays.copyOf(dedup, w + 1);
+            withHi[w] = hi;
+            dedup = withHi;
+        }
+        return dedup;
     }
 }

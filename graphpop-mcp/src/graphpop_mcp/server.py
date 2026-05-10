@@ -1522,6 +1522,109 @@ def graphpop_kinship_ibs(
     return json.dumps(results)
 
 
+@mcp.tool()
+def graphpop_ibd_ingest(
+    segments: list[dict],
+    source: str = "hap_ibd",
+    replace: bool = False,
+) -> str:
+    """Ingest external IBD-caller segments (M4.3).
+
+    Each segment is a dict with keys ``sample_a``, ``sample_b``,
+    ``chr``, ``start``, ``end``, optional ``length_cM``.
+
+    Returns JSON with the ingest summary.
+    """
+    from graphpop_import.ibd_ingester import IBDIngester, IBDSegmentRow
+    rows = [
+        IBDSegmentRow(
+            sample_a=str(s["sample_a"]),
+            sample_b=str(s["sample_b"]),
+            chr=str(s["chr"]),
+            start=int(s["start"]),
+            end=int(s["end"]),
+            length_cM=(float(s["length_cM"]) if s.get("length_cM") is not None
+                       else None),
+        )
+        for s in segments
+    ]
+    ing = IBDIngester(_get_driver())
+    summary = ing.ingest(rows, source=source, replace=replace)
+    return json.dumps({
+        "source": summary.source,
+        "n_segments": summary.n_segments,
+        "n_pairs": summary.n_pairs,
+        "created_at": summary.created_at.isoformat(),
+    })
+
+
+@mcp.tool()
+def graphpop_ibd_from_arg(
+    run_id: str,
+    max_tmrca: float | None = None,
+    min_length_bp: int = 0,
+    chr: str = "chr1",
+) -> str:
+    """ARG-derived IBD segments (M4.3).
+
+    Walks :PARENT_OF to extract maximal IBD segments per pair under
+    an optional TMRCA cap. Equivalent to tskit's ibd_segments.
+
+    Returns JSON array of segments.
+    """
+    opts: dict = {"chr": chr}
+    if max_tmrca is not None:
+        opts["max_tmrca"] = max_tmrca
+    if min_length_bp:
+        opts["min_length_bp"] = min_length_bp
+    cypher = "CALL graphpop.ibd.from_arg($run_id, $options)"
+    results = _run_procedure(
+        cypher, {"run_id": run_id, "options": opts})
+    return json.dumps(results)
+
+
+@mcp.tool()
+def graphpop_ibd_kinship(
+    source: str,
+    min_length_bp: int = 0,
+    total_genome_cM: float | None = None,
+) -> str:
+    """Browning-style kinship from total IBD length (M4.3).
+
+    Returns JSON array of pairs.
+    """
+    opts: dict = {}
+    if min_length_bp:
+        opts["min_length_bp"] = min_length_bp
+    if total_genome_cM is not None:
+        opts["total_genome_cM"] = total_genome_cM
+    cypher = "CALL graphpop.ibd.kinship($source, $options)"
+    results = _run_procedure(
+        cypher, {"source": source, "options": opts})
+    return json.dumps(results)
+
+
+@mcp.tool()
+def graphpop_ibd_list() -> str:
+    """List every IBD source currently in the database."""
+    from graphpop_import.ibd_ingester import IBDIngester
+    ing = IBDIngester(_get_driver())
+    sources = ing.list_sources()
+    return json.dumps([
+        {"source": s.source, "n_edges": s.n_edges, "n_pairs": s.n_pairs}
+        for s in sources
+    ])
+
+
+@mcp.tool()
+def graphpop_ibd_delete(source: str) -> str:
+    """Delete every :IBD_SEGMENT edge for the given source."""
+    from graphpop_import.ibd_ingester import IBDIngester
+    ing = IBDIngester(_get_driver())
+    n = ing.delete_source(source)
+    return json.dumps({"source": source, "n_edges_deleted": n})
+
+
 def main():
     """Entry point for the graphpop-mcp command."""
     mcp.run()
