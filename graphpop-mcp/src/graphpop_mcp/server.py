@@ -1685,6 +1685,32 @@ def graphpop_kinship_branch_grm_he(
 
 
 @mcp.tool()
+def graphpop_demography_ne_trajectory(
+    run_id: str,
+    sample_ids: list[str],
+    time_bins: list[float],
+    ploidy: int = 2,
+    population: str | None = None,
+) -> str:
+    """Closed-form Ne(t) trajectory (M7).
+
+    Inverts graphpop.arg.coalescence_rate per bin: Ne(bin) =
+    1 / (ploidy * rate(bin)). Standard error via delta method on
+    Poisson event count. Empty bins return Ne=+Inf with
+    flag='no_events'. Returns JSON array of per-bin rows.
+
+    Pass sample_ids=[] together with population='EUR' (etc.) to
+    resolve the focal set from :Sample.population.
+    """
+    opts: dict = {"time_bins": list(time_bins), "ploidy": ploidy}
+    if population:
+        opts["population"] = population
+    cypher = "CALL graphpop.demography.ne_trajectory($rid, $sids, $options)"
+    return json.dumps(_run_procedure(
+        cypher, {"rid": run_id, "sids": list(sample_ids), "options": opts}))
+
+
+@mcp.tool()
 def graphpop_arg_tmrca(
     run_id: str,
     sample_a: str,

@@ -105,6 +105,7 @@ from .commands import (  # noqa: E402
     ancestry,
     ibd,
     relate,
+    demography,
 )
 
 # Individual procedures (12)
@@ -135,6 +136,9 @@ main.add_command(ibd.ibd)
 
 # Relationship classification + family clustering (Phase 4 / M5)
 main.add_command(relate.relate)
+
+# Demographic inference (Phase 5 / M7)
+main.add_command(demography.demography)
 
 # Orchestration and export
 main.add_command(run_all.run_all)

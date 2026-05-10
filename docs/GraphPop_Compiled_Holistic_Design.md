@@ -1234,6 +1234,56 @@ Together § 13.1.11.{1..4} close Phase 4. Remaining Phase-4 deferred
 items: GNN embeddings (separate plan with the GPU pipeline) and
 Louvain/PRIMUS (deferred from M5).
 
+### 13.1.12 Demographic inference — Ne(t) trajectory (M7)
+
+`graphpop.demography.ne_trajectory(runId, sampleIds, options)` is
+the first Phase 5 procedure. It inverts M6's coalescence-rate
+estimator into a piecewise-constant population-size history,
+closed-form on the per-bin output:
+
+```
+Ne(bin) = 1 / (ploidy × rate(bin))
+SE(Ne)  = (1 / (ploidy · rate²)) · √(rate / lineage_pair_time)
+                                   [delta method on Poisson events]
+```
+
+The rate aggregator (events + lineage-pair-time per bin) is the
+shared `ArgCoalescenceRateComputer`, used by both
+`graphpop.arg.coalescence_rate` and this procedure. Implementation
+mirrors the reference Python at
+`build_egrm_fixture.py:coalescence_rate_reference` bit-for-bit.
+
+```cypher
+CALL graphpop.demography.ne_trajectory($runId, $sampleIds,
+        {time_bins: [0, 0.25, 0.5, 1, 2, 1e9], ploidy: 2})
+  YIELD time_lo, time_hi, n_coalescent_events, lineage_pair_time,
+        rate, ne, ne_se, flag, runId
+```
+
+Options:
+
+- `time_bins` (required) — strictly-increasing list of bin edges in
+  generations. The bin `[time_bins[i], time_bins[i+1])` becomes one
+  output row.
+- `ploidy` (default 2) — pass 1 for haploid populations.
+- `population` (optional) — resolves `sampleIds` from
+  `:Sample.population = $pop` when the `sampleIds` list is empty.
+  Convenience for the common biobank query "what does the EUR
+  Ne(t) look like?".
+
+Empty bins (`rate(bin) == 0` or `lineage_pair_time(bin) == 0`)
+yield `ne = +Infinity`, `ne_se = NaN`, and `flag = "no_events"`.
+Otherwise `flag = "ok"`.
+
+Validation: round-trip against the bin-by-bin `coalescence_rate_full`
+reference dumped by the Python builder; rel-err < 1e-9 across all
+non-empty bins on the 20-sample fixture. Haploid Ne is exactly 2×
+diploid Ne for the same data (delta-method cross-check).
+
+Closes the smallest Phase 5 deliverable. Multi-component / MCMC
+demographic inference (full SMC++ / Relate-equivalent forward-
+backward) is deferred to a later milestone.
+
 ### 13.3 Ingest
 
 `graphpop-import/arg_importer.py` reads a tskit `TreeSequence` and emits CSVs

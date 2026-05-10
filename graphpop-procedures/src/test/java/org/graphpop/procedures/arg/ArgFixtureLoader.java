@@ -14,11 +14,11 @@ import java.util.Map;
  * {@code :Sample}, {@code :PARENT_OF}, {@code :REPRESENTS}, and
  * {@code :MUTATED_ON} nodes/edges so the procedures can run.
  */
-final class ArgFixtureLoader {
+public final class ArgFixtureLoader {
 
     private ArgFixtureLoader() {}
 
-    static void loadInto(Driver driver, JsonNode arg, String runId) {
+    public static void loadInto(Driver driver, JsonNode arg, String runId) {
         try (Session session = driver.session()) {
             session.run(
                 "CREATE (:ARGRun {runId: $rid, source: 'msprime', "
