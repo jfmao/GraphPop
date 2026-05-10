@@ -1685,6 +1685,52 @@ def graphpop_kinship_branch_grm_he(
 
 
 @mcp.tool()
+def graphpop_selection_allele_age_scan(
+    run_id: str,
+    n_freq_bins: int = 20,
+    min_freq: float = 0.05,
+    max_freq: float = 0.95,
+) -> str:
+    """Per-variant allele-age z-score conditional on frequency (M8).
+
+    Stratifies all variants by derived-allele frequency (logit-spaced
+    bins), computes per-bin (mean, sd) of log-age, emits a z-score
+    per variant. Negative z = sweep candidate (too young for its
+    frequency). Returns JSON array of per-variant rows.
+    """
+    opts: dict = {
+        "n_freq_bins": n_freq_bins,
+        "min_freq": min_freq,
+        "max_freq": max_freq,
+    }
+    cypher = "CALL graphpop.selection.allele_age_scan($rid, $options)"
+    return json.dumps(_run_procedure(
+        cypher, {"rid": run_id, "options": opts}))
+
+
+@mcp.tool()
+def graphpop_selection_branch_outlier_scan(
+    run_id: str,
+    sample_ids: list[str],
+    window_size: int = 10_000,
+    step: int | None = None,
+) -> str:
+    """Per-window branch-length outlier scan (M8, Speidel et al. 2019).
+
+    Slides a window across the genome; per window computes total
+    branch length restricted to the focal sample set; emits z-score
+    against the genome-wide null. Strong negative z = sweep candidate.
+    Returns JSON array of per-window rows.
+    """
+    opts: dict = {"window_size": window_size}
+    if step is not None:
+        opts["step"] = step
+    cypher = "CALL graphpop.selection.branch_outlier_scan($rid, $sids, $options)"
+    return json.dumps(_run_procedure(
+        cypher, {"rid": run_id, "sids": list(sample_ids), "options": opts}))
+
+
+@mcp.tool()
 def graphpop_demography_ne_trajectory(
     run_id: str,
     sample_ids: list[str],

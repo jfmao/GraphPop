@@ -1284,6 +1284,89 @@ Closes the smallest Phase 5 deliverable. Multi-component / MCMC
 demographic inference (full SMC++ / Relate-equivalent forward-
 backward) is deferred to a later milestone.
 
+### 13.1.13 ARG-aware selection scans (M8)
+
+Two procedures that turn the ARG layer into a selection-detection
+substrate. Both are read-only and stream their output.
+
+#### 13.1.13.1 Allele-age scan — `graphpop.selection.allele_age_scan`
+
+```cypher
+CALL graphpop.selection.allele_age_scan($runId,
+        {n_freq_bins: 20, min_freq: 0.05, max_freq: 0.95})
+  YIELD variant_id, freq, n_carriers, n_samples, age_midpoint,
+        log_age, bin_index, bin_n, bin_mean_log_age,
+        bin_sd_log_age, z_score, runId
+```
+
+Algorithm:
+
+1. For every `:MUTATED_ON` edge in the run, read child / parent
+   times (= allele-age bracket from M6 § 13.1.11.4) and carrier
+   count (descendants of the child TreeNode in the marginal tree
+   at the variant's site).
+2. Compute `freq = carriers / n_samples` and
+   `log_age = log(midpoint_time)`.
+3. Stratify variants by `freq` into `n_freq_bins` logit-spaced bins
+   between `min_freq` and `max_freq`.
+4. Per bin, accumulate `(mean, sd)` of `log_age` via Welford.
+5. Emit `z_score = (log_age − bin_mean) / bin_sd` per variant.
+
+A highly negative z-score flags a candidate sweep (allele younger
+than the genome-wide expectation for its frequency); strongly
+positive flags balanced selection or other age-inflating signals.
+On the neutral 20-sample fixture all per-bin mean z-scores are
+within ±1 of zero (regression test in
+`AlleleAgeScanProcedureTest.allele_age_scan_neutral_data_z_centred_near_zero`).
+
+#### 13.1.13.2 Branch-outlier scan — `graphpop.selection.branch_outlier_scan`
+
+```cypher
+CALL graphpop.selection.branch_outlier_scan($runId, $sampleIds,
+        {window_size: 10000, step: 5000})
+  YIELD start, end, total_branch_length, mean_total, sd_total,
+        z_score, n_samples, runId
+```
+
+Algorithm (Speidel et al. 2019):
+
+1. Slide a window of `window_size` bp with `step` (defaults to
+   non-overlapping `step = window_size`).
+2. Per window, compute total branch length on overlapping marginal
+   trees, restricted to branches with at least one focal-sample
+   descendant, normalised by window length:
+   ```
+   total(W) = (1/|W|) · Σ_{tree ∩ W} span(tree ∩ W)
+                       · Σ_{branch} (parent.time − child.time)
+                                     [k_b > 0]
+   ```
+3. Genome-wide null = `(mean, sd)` of per-window totals.
+4. Emit `z_score = (total(W) − mean_total) / sd_total` per window.
+
+Strong negative z (e.g. `z < −3`) flags a sweep candidate: lineages
+in the focal set have been pulled tight by recent coalescence under
+selection. The shared `SelectionUtils.slidingWindows` helper
+guarantees per-window z-scores sum to zero by construction (Welford
+identity).
+
+#### Reuses
+
+Both procedures depend on `ArgTraversalUtils` (M6) for marginal-
+tree construction and on `SelectionUtils` (`Welford`,
+`logitFreqEdges`, `binIndex`, `zScore`, `slidingWindows`) for the
+shared null-distribution machinery.
+
+#### Out of scope for v1
+
+- **ARG-iHS** (haplotype-clade comparison at a focal variant) —
+  separate follow-up; benchmarks frequency-matched outliers.
+- **Sweep-recovery validation on simulated sweeps** — the v1 tests
+  validate algorithmic correctness on the neutral fixture (z-score
+  centring, window edges, input validation). A sweep fixture
+  (msprime `SweepGenicSelection` + reference z-scores) is its own
+  follow-up; until then, real-data analyses should compare against
+  selscan iHS / Tajima's D as cross-validation.
+
 ### 13.3 Ingest
 
 `graphpop-import/arg_importer.py` reads a tskit `TreeSequence` and emits CSVs

@@ -106,6 +106,7 @@ from .commands import (  # noqa: E402
     ibd,
     relate,
     demography,
+    selection,
 )
 
 # Individual procedures (12)
@@ -139,6 +140,9 @@ main.add_command(relate.relate)
 
 # Demographic inference (Phase 5 / M7)
 main.add_command(demography.demography)
+
+# Selection scans (Phase 5 / M8)
+main.add_command(selection.selection)
 
 # Orchestration and export
 main.add_command(run_all.run_all)
