@@ -1684,6 +1684,78 @@ def graphpop_kinship_branch_grm_he(
                  "options": opts}))
 
 
+@mcp.tool()
+def graphpop_relate_classify(
+    source: str,
+    min_phi: float | None = None,
+    persist: bool = True,
+    identical: float | None = None,
+    first_degree: float | None = None,
+    second_degree: float | None = None,
+    third_degree: float | None = None,
+    ibs0_threshold: float | None = None,
+) -> str:
+    """Per-pair relationship classification (Manichaikul 2010, M5).
+
+    SOURCE selects the pairwise signal: 'king' or any IBD source name
+    (e.g. 'hap_ibd', 'arg_derived'). Writes idempotent :RELATIVE edges
+    per source. Returns JSON array of {sample_a, sample_b, relationship,
+    degree, phi, ibs0_frac, source}.
+    """
+    opts: dict = {"persist": persist}
+    if min_phi is not None:
+        opts["min_phi"] = min_phi
+    if identical is not None:
+        opts["identical"] = identical
+    if first_degree is not None:
+        opts["first_degree"] = first_degree
+    if second_degree is not None:
+        opts["second_degree"] = second_degree
+    if third_degree is not None:
+        opts["third_degree"] = third_degree
+    if ibs0_threshold is not None:
+        opts["ibs0_threshold"] = ibs0_threshold
+    cypher = "CALL graphpop.relate.classify($source, $options)"
+    return json.dumps(_run_procedure(
+        cypher, {"source": source, "options": opts}))
+
+
+@mcp.tool()
+def graphpop_relate_families(
+    source: str,
+    max_degree: int | None = None,
+    min_total_ibd_bp: int | None = None,
+    min_phi: float | None = None,
+    persist: bool = True,
+) -> str:
+    """Family clustering via connected components (M5).
+
+    Edge predicate (mutually exclusive — pick one):
+      - max_degree (default 2): link pairs with :RELATIVE.degree <= N
+      - min_total_ibd_bp: link pairs with summed :IBD_SEGMENT length >= N
+      - min_phi: link pairs with :RELATIVE.phi >= F
+
+    Each connected component is one extended family; isolated samples
+    form singleton families. Returns JSON array of {sample_id,
+    family_id, family_size, method}.
+    """
+    n_pred = sum(x is not None for x in (max_degree, min_total_ibd_bp, min_phi))
+    if n_pred > 1:
+        raise ValueError(
+            "max_degree, min_total_ibd_bp, and min_phi are mutually "
+            "exclusive; pick one.")
+    opts: dict = {"persist": persist}
+    if max_degree is not None:
+        opts["max_degree"] = max_degree
+    if min_total_ibd_bp is not None:
+        opts["min_total_ibd_bp"] = min_total_ibd_bp
+    if min_phi is not None:
+        opts["min_phi"] = min_phi
+    cypher = "CALL graphpop.relate.families($source, $options)"
+    return json.dumps(_run_procedure(
+        cypher, {"source": source, "options": opts}))
+
+
 def main():
     """Entry point for the graphpop-mcp command."""
     mcp.run()

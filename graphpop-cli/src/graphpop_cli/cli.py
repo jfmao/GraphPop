@@ -104,6 +104,7 @@ from .commands import (  # noqa: E402
     arg,
     ancestry,
     ibd,
+    relate,
 )
 
 # Individual procedures (12)
@@ -131,6 +132,9 @@ main.add_command(ancestry.ancestry)
 
 # IBD segments (Phase 4 / M4.3)
 main.add_command(ibd.ibd)
+
+# Relationship classification + family clustering (Phase 4 / M5)
+main.add_command(relate.relate)
 
 # Orchestration and export
 main.add_command(run_all.run_all)

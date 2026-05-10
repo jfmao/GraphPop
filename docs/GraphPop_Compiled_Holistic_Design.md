@@ -1085,6 +1085,60 @@ from § 13.1.1 compose unchanged — combine with `restrict_to_pathway`
 to get *partitioned heritability* per pathway in a single Cypher
 call.
 
+### 13.1.9 Relationship classification (M5 Part A)
+
+`graphpop.relate.classify(source, options)` assigns one of six
+Manichaikul et al. 2010 categorical labels to each pair from the
+existing pairwise signal:
+
+| Relationship | Condition (KING-robust) |
+|--------------|--------------------------|
+| `identical` (MZ twins / duplicates) | `phi >= 0.354` |
+| `parent_child` | `0.177 <= phi < 0.354` AND `ibs0_frac < 0.0050` |
+| `full_sibling` | `0.177 <= phi < 0.354` AND `ibs0_frac >= 0.0050` |
+| `second_degree` (half-sib / avuncular / GP) | `0.0884 <= phi < 0.177` |
+| `third_degree` (first cousin) | `0.0442 <= phi < 0.0884` |
+| `unrelated` | `phi < 0.0442` |
+
+`source = "king"` reads `(:Sample)-[:KINSHIP {method:'king-robust'}]->`
+edges; any other source name is interpreted as an IBD source and
+aggregates `:IBD_SEGMENT` lengths (`phi^IBD = total_bp / 2·genome_bp`).
+The IBD path cannot disambiguate `parent_child` from `full_sibling`
+(no IBS0 signal), so first-degree pairs are reported as
+`first_degree`. Cutoffs are user-overridable via the `options` map
+(`identical`, `first_degree`, `second_degree`, `third_degree`,
+`ibs0_threshold`).
+
+In `Mode.WRITE`, the procedure persists idempotent
+`(:Sample)-[:RELATIVE {relationship, degree, phi, ibs0_frac, source,
+created_at}]->(:Sample)` edges (one set per `source`), enabling
+downstream queries such as "give me every first-degree relative of
+sample X under the KING-robust signal".
+
+### 13.1.10 Family clustering (M5 Part B)
+
+`graphpop.relate.families(source, options)` runs union-find on a
+thresholded relatedness graph; each connected component is one
+extended family. Edge predicates (mutually exclusive — pick one):
+
+- `max_degree` (default 2): link pairs with `:RELATIVE.degree <= N`
+- `min_total_ibd_bp`: link pairs with summed `:IBD_SEGMENT.length_bp >= N`
+- `min_phi`: link pairs with `:RELATIVE.phi >= F`
+
+Output is one row per `:Sample` with `{sample_id, family_id,
+family_size, method}`. `family_id` is the lexicographically smallest
+sample-id within the component; isolated samples form singleton
+families. With `persist: true` (default), writes idempotent
+`(:Sample)-[:IN_FAMILY {source, family_size, created_at}]->(:Family
+{family_id, source})` edges per source.
+
+Together § 13.1.9 + § 13.1.10 cover the biobank-grade workflow
+*pairwise signal → relationship classification → family clustering*
+without an external GDS dependency. Full Louvain/Leiden community
+detection on the IBD graph and PRIMUS-style pedigree reconstruction
+(full family tree from per-pair labels) build on this foundation in
+follow-up plans.
+
 ### 13.2 Procedures (planned)
 
 | Procedure | Path | Validation baseline |
