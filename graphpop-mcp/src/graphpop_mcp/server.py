@@ -1685,6 +1685,54 @@ def graphpop_kinship_branch_grm_he(
 
 
 @mcp.tool()
+def graphpop_recombination_arg_breakpoints(
+    run_id: str,
+    window_size: int = 10_000,
+    step: int | None = None,
+) -> str:
+    """ARG-derived per-window recombination rate (M11).
+
+    For each sliding window: counts distinct :PARENT_OF breakpoints,
+    sums marginal-tree branch lengths, and reports
+    rho_per_bp = breakpoints / total_branch_length. Returns JSON
+    array of per-window rows.
+    """
+    opts: dict = {"window_size": window_size}
+    if step is not None:
+        opts["step"] = step
+    cypher = "CALL graphpop.recombination.arg_breakpoints($rid, $options)"
+    return json.dumps(_run_procedure(
+        cypher, {"rid": run_id, "options": opts}))
+
+
+@mcp.tool()
+def graphpop_recombination_ld_decay(
+    sample_ids: list[str],
+    window_size: int = 10_000,
+    step: int | None = None,
+    min_maf: float = 0.05,
+    max_pair_distance: int = 5_000,
+) -> str:
+    """LD-decay Hudson-Kaplan moment estimator for per-window ρ (M11).
+
+    Per window: pulls variants with derived-allele frequency ≥
+    min_maf, computes pairwise r² for pairs within max_pair_distance
+    bp, fits Hudson 1985 E[r²|n, ρ·d] via bisection to recover
+    rho_per_bp. v1 limit: ≤ 63 focal samples. Returns JSON array.
+    """
+    opts: dict = {
+        "window_size": window_size,
+        "min_maf": min_maf,
+        "max_pair_distance": max_pair_distance,
+    }
+    if step is not None:
+        opts["step"] = step
+    cypher = "CALL graphpop.recombination.ld_decay($sids, $options)"
+    return json.dumps(_run_procedure(
+        cypher, {"sids": list(sample_ids), "options": opts}))
+
+
+@mcp.tool()
 def graphpop_embedding_knn(
     sample_id: str,
     k: int = 10,

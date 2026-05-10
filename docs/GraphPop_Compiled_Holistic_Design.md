@@ -1543,6 +1543,77 @@ shapes Neo4j returns in embedded mode (`double[]`, `Object[]`,
 - Multi-modal embeddings (joint variant + phenotype + ancestry).
 - Native Neo4j 5.13+ vector index (drop-in replacement when needed).
 
+### 13.1.16 Recombination-map inference (M11)
+
+Two complementary per-window recombination-rate estimators. They
+are deliberately cross-validating: agreement on the inferred map
+signals robust inference; disagreement is diagnostic of model
+violations (admixture, selection, low SNP density).
+
+#### 13.1.16.1 ARG-derived — `graphpop.recombination.arg_breakpoints`
+
+```cypher
+CALL graphpop.recombination.arg_breakpoints($runId,
+        {window_size: 10000, step: 5000})
+  YIELD start, end, n_breakpoints, n_marginal_trees,
+        total_branch_length, rho_per_bp, runId
+```
+
+Per sliding window `[start, end)`:
+
+- `n_breakpoints` = count of distinct `:PARENT_OF` boundary
+  positions strictly inside the window.
+- `total_branch_length` = span-weighted sum, over marginal trees
+  overlapping the window, of `(parent.time − child.time)` per
+  branch.
+- `rho_per_bp` = `n_breakpoints / total_branch_length` (Hudson
+  1983 per-bp recombination probability scaled by the lineage-
+  time at risk).
+
+Reuses `ArgTraversalUtils` (M6) and `SelectionUtils.slidingWindows`
+(M8) — no new primitives.
+
+#### 13.1.16.2 LD-based — `graphpop.recombination.ld_decay`
+
+```cypher
+CALL graphpop.recombination.ld_decay($sampleIds,
+        {window_size: 10000, step: 5000, min_maf: 0.05,
+         max_pair_distance: 5000})
+  YIELD start, end, n_variant_pairs, mean_r2,
+        mean_pair_distance, rho_per_bp, n_samples,
+        method, runId
+```
+
+Per window:
+
+1. Pull every `:Variant` in the window with derived-allele
+   frequency ≥ `min_maf` in the focal sample set; carriers come
+   from `:CARRIES` edges packed into a 64-bit bitmask (v1
+   constraint: ≤ 63 focal samples).
+2. For every variant pair at physical distance `d ≤
+   max_pair_distance`, compute Hill 1968 closed-form r²:
+   ```
+   r²(A, B) = (p_AB − p_A · p_B)² / (p_A (1−p_A) p_B (1−p_B))
+   ```
+3. Aggregate `(mean_r², mean_d)` over the window's pairs and
+   solve the Hudson 1985 closed form for ρ at the mean distance:
+   ```
+   E[r² | C] = (10 + C) / ((2 + C)(11 + 13·C + C²)),   C = ρ·d
+   ```
+   via the bisection routine in `HudsonRecombination`. When the
+   observed mean r² exceeds the `C = 0` asymptote (10/22 ≈
+   0.4545) the procedure returns `rho_per_bp = 0` and
+   `method = "hudson_moment"`.
+
+#### Reuse + Out of scope
+
+Both procedures reuse the sliding-window edges from
+`SelectionUtils` (M8); `HudsonRecombination` is the only new
+~80-line primitive (closed-form `E[r²]` + bisection). Deferred:
+LDhat-style reversible-jump MCMC, pyrho HMM smoothing, ancestry-
+or sex-specific ρ-maps, recombination-hotspot FDR. Each is its
+own follow-up; the moment estimator is a useful first cut.
+
 ### 13.3 Ingest
 
 `graphpop-import/arg_importer.py` reads a tskit `TreeSequence` and emits CSVs

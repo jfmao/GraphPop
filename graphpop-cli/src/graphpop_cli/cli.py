@@ -110,6 +110,7 @@ from .commands import (  # noqa: E402
     community,
     pedigree,
     gnn,
+    recombination,
 )
 
 # Individual procedures (12)
@@ -153,6 +154,9 @@ main.add_command(pedigree.pedigree)
 
 # GNN embeddings (M10)
 main.add_command(gnn.gnn)
+
+# Recombination-map inference (Phase 5 / M11)
+main.add_command(recombination.recombination)
 
 # Orchestration and export
 main.add_command(run_all.run_all)
