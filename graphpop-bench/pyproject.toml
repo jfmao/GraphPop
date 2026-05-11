@@ -33,6 +33,9 @@ compare = [
     "tskit>=0.6",
     "egrm>=0.4",
 ]
+figures = [
+    "matplotlib>=3.7",
+]
 dev = [
     "pytest>=7.0",
 ]
