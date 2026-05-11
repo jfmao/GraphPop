@@ -26,6 +26,7 @@ from .s_ldsc import (
     parse_log,
     parse_results,
 )
+from .singer import SingerResult, SingerRunner
 from .tskit_branch_grm import (
     TskitBranchGrmResult,
     TskitBranchGrmRunner,
@@ -37,5 +38,6 @@ __all__ = [
     "PlinkGrmResult", "PlinkGrmRunner", "parse_grm_bin",
     "CategoryRow", "SLdscResult", "SLdscRunner",
     "parse_log", "parse_results",
+    "SingerResult", "SingerRunner",
     "TskitBranchGrmResult", "TskitBranchGrmRunner",
 ]
