@@ -15,6 +15,58 @@ sibling figure-gen module reads the CSV and writes a vector PDF
 to `paper/paper2_kinship_arg/figures/` (a local-only path —
 `paper/` is git-ignored per the existing private paper workflow).
 
+## Phase 1 Step I — closed (5 of 5 figures shipped)
+
+| Figure | Driver module(s)                              | Tests | Status                |
+|--------|-----------------------------------------------|-------|-----------------------|
+| 1d/1e  | `fig1de_panels`, `fig1de_figures`             | 15    | shipped (Phase 1)     |
+| 2      | `fig2_panels`, `fig2_figures`                 | 22    | shipped (Phase 1)     |
+| 3a/3b  | `fig3ab_panels`, `fig3_figures`               | (with 3c) | shipped (Phase 1) |
+| 3c     | `fig3c_panels`, `fig3_figures`                | 11    | shipped (Phase 1)     |
+| 4a/4b  | `fig4_panels`, `fig4_figures`                 | 12    | shipped (P1 + P2.1)   |
+| 5a/5d  | `fig5_panels`, `fig5_figures`                 | 9     | shipped (Phase 1)     |
+
+Total tests: **161 green + 2 skipped** (skips gated by absent
+ldsc.py / king binaries).
+
+## Phase 2
+
+| Sub-iteration | Status | Blocking dependency |
+|---|---|---|
+| P2.1 — Fig 4 N-extension to 1000 haploid | shipped | (none — msprime only) |
+| P2.2 — Fig 5c LOC comparison | unblocked | (Python pipeline on simulated cohort) |
+| P2.3 — Fig 5b cryptic-pair recall | gated | Neo4j ingest + 1000G chr22 |
+| P2.4 — Fig 3e pathway-conditional on 1000G | gated | ingest + ARG inference tool |
+| P2.5 — Fig 2d/2e SINGER posterior on 1000G | gated | SINGER install + 1000G EUR/YRI |
+| P2.6 — Fig 3f HGDP cross-pop | gated | HGDP data + ingest |
+
+### P2.1 — Fig 4 N-extension (2026-05-11)
+
+Extended the Fig 4 scaling sweep to **n_diploid = 500
+(1000 haploid)** — Phase 1 stopped at 250 (500 haploid).
+~22 min wall-clock for the new cells (Phase 1 cells re-ran
+deterministically from the same RNG seeds).
+
+#### 5-point sweep, last-run wall-clock (s)
+
+| n_hap | tskit  | egrm    | PLINK |
+|-------|--------|---------|-------|
+| 50    | 2.67   |  5.48   | 0.06  |
+| 100   | 3.86   | 12.23   | 0.15  |
+| 200   | 6.92   | 27.36   | 0.18  |
+| 500   | 24.82  | 78.93   | 0.22  |
+| 1000  | 88.99  | 182.47  | 0.49  |
+
+Log-log slopes (50 → 1000): tskit 1.17, egrm 1.17, PLINK 0.61.
+PLINK still wins on raw wall-clock at this scale, but its
+RSS slope is steepening — PLINK RSS 22 MB → 83 MB across N
+50 → 1000 (slope 0.44), tskit 110 → 188 (slope 0.18), egrm
+180 → 247 (slope 0.10). Extrapolating, PLINK's memory
+overtakes tskit at **~16k haploid** — the predicted
+biobank-scale crossover. Confirming this empirically is a
+follow-up sub-iteration (n_diploid ≥ 5000 would need a few
+CPU-hours of additional sim + egrm-on-large-N).
+
 ## Shipped
 
 ### Fig 1d / Fig 1e — branch-GRM rel-err validation
@@ -65,16 +117,6 @@ reference; non-zero exit on any panel exceeding the gate.
 Both panels clear the gate by ~4 orders of magnitude — the
 GraphPop branch_grm procedure and `egrm.varGRM_C` implement
 the same math to floating-point precision.
-
-## Pending
-
-- Fig 2 (posterior branch GRM)
-- Fig 3 (annotation-conditional GRMs)
-- Fig 4 (biobank-scale validation)
-- Fig 5 (graph-native query plane)
-
-Per the roadmap, drivers ship one figure at a time with an
-explicit pause-and-review boundary between each.
 
 ## Optional install extras
 
