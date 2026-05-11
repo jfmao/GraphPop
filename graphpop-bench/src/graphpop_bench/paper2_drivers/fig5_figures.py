@@ -22,6 +22,7 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.patches as mpatches
 import matplotlib.pyplot as plt
+import numpy as np
 
 
 _RCPARAMS = {
@@ -235,6 +236,80 @@ def make_fig5d(
 
 
 # ---------------------------------------------------------------------------
+# Fig 5c — Cypher vs Pipeline LOC comparison
+# ---------------------------------------------------------------------------
+
+def make_fig5c(
+    panel_csv: Path,
+    out_pdf: Path,
+) -> dict:
+    """Grouped bar chart: pipeline-vs-Cypher on (files, code-lines, runtime)."""
+    import csv as _csv
+
+    pipeline = {"files": 0, "code_lines": 0, "runtime_s": 0.0}
+    graphpop = {"files": 0, "code_lines": 0, "runtime_s": 0.0}
+    with open(panel_csv) as fh:
+        for row in _csv.DictReader(fh):
+            target = pipeline if row["source"] == "pipeline" else graphpop
+            target["files"] += 1
+            target["code_lines"] += int(row["code_lines"])
+            target["runtime_s"] += float(row["runtime_s"])
+
+    metrics = ["files", "code_lines", "runtime_s"]
+    labels = ["files", "code lines", "runtime (s)"]
+
+    with plt.rc_context(_RCPARAMS):
+        fig, ax = plt.subplots(figsize=SINGLE_COL)
+        x = np.arange(len(metrics))
+        bar_w = 0.36
+        pipeline_vals = [pipeline[m] for m in metrics]
+        graphpop_vals = [graphpop[m] for m in metrics]
+
+        ax.bar(x - bar_w / 2, pipeline_vals, width=bar_w,
+               color=WONG["vermillion"], edgecolor="black",
+               linewidth=0.4,
+               label="Python pipeline (7 tools)")
+        ax.bar(x + bar_w / 2, graphpop_vals, width=bar_w,
+               color=WONG["blue"], edgecolor="black",
+               linewidth=0.4,
+               label="GraphPop Cypher (1 query)")
+
+        # Per-bar value annotation.
+        for i, (pv, gv) in enumerate(zip(pipeline_vals,
+                                          graphpop_vals)):
+            ax.text(i - bar_w / 2, pv * 1.04,
+                    f"{int(pv)}" if pv >= 10 else f"{pv:.1f}",
+                    ha="center", va="bottom", fontsize=5.5)
+            ax.text(i + bar_w / 2, gv * 1.04,
+                    f"{int(gv)}" if gv >= 10 else f"{gv:.1f}",
+                    ha="center", va="bottom", fontsize=5.5)
+
+        ax.set_xticks(x)
+        ax.set_xticklabels(labels, fontsize=6)
+        ax.set_yscale("log")
+        ax.set_ylabel("count / seconds (log)")
+        ax.set_title("Pipeline-LOC + runtime vs Cypher one-liner")
+        ax.legend(frameon=False, loc="upper left", fontsize=5.5)
+        for sp in ("top", "right"):
+            ax.spines[sp].set_visible(False)
+        ax.text(
+            -0.18, 1.05, "c",
+            transform=ax.transAxes,
+            fontsize=9, fontweight="bold",
+            va="top", ha="left",
+        )
+        out_pdf.parent.mkdir(parents=True, exist_ok=True)
+        fig.savefig(out_pdf, format="pdf")
+        plt.close(fig)
+
+    return {
+        "pipeline": pipeline,
+        "graphpop": graphpop,
+        "out_pdf": str(out_pdf),
+    }
+
+
+# ---------------------------------------------------------------------------
 # CLI
 # ---------------------------------------------------------------------------
 
@@ -250,10 +325,14 @@ def _build_arg_parser() -> argparse.ArgumentParser:
                    default=DEFAULT_PANELS / "fig5a_cypher_template.txt")
     p.add_argument("--fig5a-annotations", type=Path,
                    default=DEFAULT_PANELS / "fig5a_cypher_annotations.json")
+    p.add_argument("--fig5c-csv", type=Path,
+                   default=DEFAULT_PANELS / "fig5c_panel_data.csv")
     p.add_argument("--fig5d-json", type=Path,
                    default=DEFAULT_PANELS / "fig5d_ecosystem.json")
     p.add_argument("--fig5a-pdf", type=Path,
                    default=DEFAULT_FIG_DIR / "fig5a.pdf")
+    p.add_argument("--fig5c-pdf", type=Path,
+                   default=DEFAULT_FIG_DIR / "fig5c.pdf")
     p.add_argument("--fig5d-pdf", type=Path,
                    default=DEFAULT_FIG_DIR / "fig5d.pdf")
     return p
@@ -262,6 +341,10 @@ def _build_arg_parser() -> argparse.ArgumentParser:
 def main(argv: list[str] | None = None) -> int:
     args = _build_arg_parser().parse_args(argv)
     print(f"[fig5a] {make_fig5a(args.fig5a_template, args.fig5a_annotations, args.fig5a_pdf)}")
+    if args.fig5c_csv.exists():
+        print(f"[fig5c] {make_fig5c(args.fig5c_csv, args.fig5c_pdf)}")
+    else:
+        print(f"[fig5c] (skipped: {args.fig5c_csv} not found — run fig5c_panels first)")
     print(f"[fig5d] {make_fig5d(args.fig5d_json, args.fig5d_pdf)}")
     return 0
 
