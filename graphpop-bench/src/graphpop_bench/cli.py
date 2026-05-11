@@ -1,12 +1,14 @@
 """graphpop-bench CLI entry point.
 
-Initial command surface (Step G):
+Command surface:
 
   graphpop-bench profile <output_dir> -- <cmd> <args...>
+  graphpop-bench run plink_grm --input <vcf-or-bfile-prefix> \\
+                                 --output <dir>
+  (subsequent H2+ wrappers add more `run <competitor>` subcommands)
 
-Subsequent steps (Step H1+, Step I) add:
+Subsequent steps (Step I) add:
 
-  graphpop-bench run <competitor> ...
   graphpop-bench run-figure <fig_id> --phase 1
 """
 from __future__ import annotations
@@ -16,12 +18,23 @@ from pathlib import Path
 
 import click
 
+from .competitors import PlinkGrmRunner
 from .profiling import profile_command, write_receipt
 
 
 @click.group()
 def main():
     """Cross-paper benchmarking + comparison harness for GraphPop."""
+
+
+@main.group()
+def run():
+    """Run a registered competitor wrapper.
+
+    Subcommands:
+
+      plink_grm  PLINK 2.0 `--make-grm-bin` on a VCF or BED prefix.
+    """
 
 
 @main.command()
@@ -64,6 +77,51 @@ def profile(output_dir, tool, tool_version, seed, graphpop_commit, cmd):
     if result.stdout:
         click.echo(result.stdout, nl=False)
     raise SystemExit(result.exit_code)
+
+
+@run.command("plink_grm")
+@click.option("--input", "input_path", required=True,
+              type=click.Path(exists=True, dir_okay=False),
+              help="Input .vcf(.gz) or BED-prefix (no extension)")
+@click.option("--output", "output_dir", required=True,
+              type=click.Path(file_okay=False),
+              help="Output directory (created if missing)")
+@click.option("--input-kind", default="auto", show_default=True,
+              type=click.Choice(["auto", "vcf", "bfile"]))
+@click.option("--seed", type=int, default=None,
+              help="Seed recorded in the receipt")
+@click.option("--graphpop-commit", default=None,
+              help="GraphPop commit SHA recorded in the receipt")
+@click.argument("extra_args", nargs=-1, type=click.UNPROCESSED)
+def run_plink_grm(input_path, output_dir, input_kind, seed,
+                   graphpop_commit, extra_args):
+    """PLINK 2.0 `--make-grm-bin` wrapper.
+
+    Example:
+
+      graphpop-bench run plink_grm \\
+          --input cohort.vcf.gz --output ./out \\
+          -- --maf 0.05
+    """
+    if not PlinkGrmRunner.is_available():
+        raise click.ClickException(
+            "PLINK binary not on PATH (looked for plink2, plink); "
+            "install plink2 first")
+    runner = PlinkGrmRunner()
+    result = runner.run(
+        Path(input_path), Path(output_dir),
+        input_kind=input_kind,
+        extra_args=list(extra_args),
+        seed=seed,
+        graphpop_commit=graphpop_commit,
+    )
+    click.echo(
+        f"plink_grm n_samples={len(result.sample_ids)} "
+        f"wall={result.profiling.wall_clock_s:.3f}s "
+        f"rss_peak={result.profiling.rss_peak_mb:.1f}MB "
+        f"tsv={result.normalised_tsv}",
+        err=True,
+    )
 
 
 if __name__ == "__main__":
