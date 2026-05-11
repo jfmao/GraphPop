@@ -18,7 +18,8 @@ from pathlib import Path
 
 import click
 
-from .competitors import KingRunner, PlinkGrmRunner, TskitBranchGrmRunner
+from .competitors import (
+    EgrmRunner, KingRunner, PlinkGrmRunner, TskitBranchGrmRunner)
 from .profiling import profile_command, write_receipt
 
 
@@ -36,6 +37,7 @@ def run():
       plink_grm          PLINK 2.0 `--make-grm-bin` on a VCF/BED.
       king               KING-robust `--kinship` (or `--related`).
       tskit_branch_grm   tskit `genetic_relatedness_matrix` on .trees.
+      egrm               Fan/Mancuso/Chiang 2022 eGRM on .trees.
     """
 
 
@@ -215,6 +217,59 @@ def run_tskit_branch_grm(input_path, output_dir, mode, seed,
     )
     click.echo(
         f"tskit_branch_grm n_samples={len(result.sample_ids)} "
+        f"wall={result.profiling.wall_clock_s:.3f}s "
+        f"rss_peak={result.profiling.rss_peak_mb:.1f}MB "
+        f"tsv={result.normalised_tsv}",
+        err=True,
+    )
+
+
+@run.command("egrm")
+@click.option("--input", "input_path", required=True,
+              type=click.Path(exists=True, dir_okay=False),
+              help="Input .trees file")
+@click.option("--output", "output_dir", required=True,
+              type=click.Path(file_okay=False),
+              help="Output directory (created if missing)")
+@click.option("--no-var", "no_var", is_flag=True, default=False,
+              help="Skip varGRM computation (only eGRM)")
+@click.option("--rlim", type=float, default=0.0, show_default=True,
+              help="Most-recent generation cutoff")
+@click.option("--alim", type=float, default=None,
+              help="Most-ancient generation cutoff (default: inf)")
+@click.option("--left", type=float, default=0.0, show_default=True,
+              help="Leftmost base-pair cutoff")
+@click.option("--right", type=float, default=None,
+              help="Rightmost base-pair cutoff (default: inf)")
+@click.option("--seed", type=int, default=None,
+              help="Seed recorded in the receipt")
+@click.option("--graphpop-commit", default=None,
+              help="GraphPop commit SHA recorded in the receipt")
+def run_egrm(input_path, output_dir, no_var, rlim, alim, left, right,
+              seed, graphpop_commit):
+    """egrm reference wrapper (Fan, Mancuso & Chiang 2022).
+
+    Computes the eGRM (and optionally varGRM) on a tskit `.trees`
+    file via a Python subprocess (isolated RSS measurement).
+
+    Example:
+
+      graphpop-bench run egrm \\
+          --input cohort.trees --output ./out
+    """
+    if not EgrmRunner.is_available():
+        raise click.ClickException(
+            "egrm package not importable in this Python environment")
+    runner = EgrmRunner()
+    result = runner.run(
+        Path(input_path), Path(output_dir),
+        compute_var=not no_var,
+        rlim=rlim, alim=alim, left=left, right=right,
+        seed=seed, graphpop_commit=graphpop_commit,
+    )
+    click.echo(
+        f"egrm n_samples={len(result.sample_ids)} "
+        f"total_mu={result.total_mu:.6g} "
         f"wall={result.profiling.wall_clock_s:.3f}s "
         f"rss_peak={result.profiling.rss_peak_mb:.1f}MB "
         f"tsv={result.normalised_tsv}",
