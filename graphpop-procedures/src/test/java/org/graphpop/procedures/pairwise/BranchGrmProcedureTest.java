@@ -12,9 +12,15 @@ import org.neo4j.driver.Session;
 import org.neo4j.harness.Neo4j;
 import org.neo4j.harness.Neo4jBuilders;
 
+import java.io.BufferedWriter;
+import java.io.IOException;
 import java.io.InputStream;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -300,6 +306,45 @@ class BranchGrmProcedureTest {
                 maxI, maxJ, expectedMatrix[maxI][maxJ], 0.0, maxRelErr));
         assertTrue(maxAbsDiff < 1e-9,
             String.format("max abs diff %.3e too large (expected < 1e-9)", maxAbsDiff));
+
+        // Opt-in: dump procedure output for Paper 2 Fig 1d driver.
+        maybeDumpTsv(actual, "branch_grm_unconditional.tsv");
+    }
+
+    /**
+     * Optional H1-schema TSV dump of a procedure matrix. Triggered
+     * only when the system property {@code graphpop.bench.dump.dir}
+     * is set (typically by the Paper 2 Fig 1d/1e driver
+     * {@code paper/paper2_kinship_arg/benchmarks/run_fig1de.py}).
+     *
+     * <p>Schema: {@code sample_a, sample_b, kinship}, upper triangle
+     * including diagonal. Sample IDs are the 0-based haplotype node
+     * IDs serialised as strings, matching the H4 wrapper output and
+     * the {@code egrm_expected_*.json} fixture sample_ids.</p>
+     */
+    private static void maybeDumpTsv(double[][] matrix, String filename) {
+        String dir = System.getProperty("graphpop.bench.dump.dir");
+        if (dir == null || dir.isBlank()) return;
+        Path out = Paths.get(dir, filename);
+        try {
+            if (out.getParent() != null) {
+                Files.createDirectories(out.getParent());
+            }
+            try (BufferedWriter w = Files.newBufferedWriter(out)) {
+                w.write("sample_a\tsample_b\tkinship\n");
+                int n = matrix.length;
+                for (int i = 0; i < n; i++) {
+                    for (int j = i; j < n; j++) {
+                        w.write(String.format(
+                            Locale.ROOT, "%d\t%d\t%.10g%n",
+                            i, j, matrix[i][j]));
+                    }
+                }
+            }
+        } catch (IOException e) {
+            throw new RuntimeException(
+                "failed to dump branch GRM TSV to " + out, e);
+        }
     }
 
     @Test
@@ -411,6 +456,9 @@ class BranchGrmProcedureTest {
         double[][] actual = runProcedureMatrix(Map.of(
             "restrict_to_pathway", "P_test"));
         assertMatricesAgree(expected, actual, 1e-6, 1e-9, "restrict_to_pathway");
+
+        // Opt-in: dump procedure output for Paper 2 Fig 1e driver.
+        maybeDumpTsv(actual, "branch_grm_pathway_half.tsv");
     }
 
     @Test
