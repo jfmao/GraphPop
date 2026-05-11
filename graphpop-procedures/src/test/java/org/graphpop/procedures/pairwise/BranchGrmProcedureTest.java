@@ -448,6 +448,9 @@ class BranchGrmProcedureTest {
         double[][] actual = runProcedureMatrix(Map.of(
             "time_window", List.of(tLo, tHi)));
         assertMatricesAgree(expected, actual, 1e-6, 1e-9, "time_window");
+
+        // Opt-in: dump procedure output for Paper 2 Fig 3c driver.
+        maybeDumpTsv(actual, "branch_grm_time_window.tsv");
     }
 
     @Test
@@ -468,6 +471,9 @@ class BranchGrmProcedureTest {
         double[][] actual = runProcedureMatrix(Map.of(
             "mutation_filter", "missense_variant"));
         assertMatricesAgree(expected, actual, 1e-6, 1e-9, "mutation_filter");
+
+        // Opt-in: dump procedure output for Paper 2 Fig 3c driver.
+        maybeDumpTsv(actual, "branch_grm_consequence_missense.tsv");
     }
 
     @Test
@@ -483,6 +489,9 @@ class BranchGrmProcedureTest {
         opts.put("time_window", List.of(tLo, tHi));
         double[][] actual = runProcedureMatrix(opts);
         assertMatricesAgree(expected, actual, 1e-6, 1e-9, "composed");
+
+        // Opt-in: dump procedure output for Paper 2 Fig 3c driver.
+        maybeDumpTsv(actual, "branch_grm_composed_pathway_time.tsv");
     }
 
     @Test
