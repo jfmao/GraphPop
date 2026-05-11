@@ -18,7 +18,7 @@ from pathlib import Path
 
 import click
 
-from .competitors import KingRunner, PlinkGrmRunner
+from .competitors import KingRunner, PlinkGrmRunner, TskitBranchGrmRunner
 from .profiling import profile_command, write_receipt
 
 
@@ -33,8 +33,9 @@ def run():
 
     Subcommands:
 
-      plink_grm  PLINK 2.0 `--make-grm-bin` on a VCF or BED prefix.
-      king       KING-robust `--kinship` (or `--related`).
+      plink_grm          PLINK 2.0 `--make-grm-bin` on a VCF/BED.
+      king               KING-robust `--kinship` (or `--related`).
+      tskit_branch_grm   tskit `genetic_relatedness_matrix` on .trees.
     """
 
 
@@ -172,6 +173,48 @@ def run_king(input_path, output_dir, input_kind, mode, related_degree,
     click.echo(
         f"king n_samples={len(result.sample_ids)} "
         f"n_pairs={len(result.pair_kinship)} "
+        f"wall={result.profiling.wall_clock_s:.3f}s "
+        f"rss_peak={result.profiling.rss_peak_mb:.1f}MB "
+        f"tsv={result.normalised_tsv}",
+        err=True,
+    )
+
+
+@run.command("tskit_branch_grm")
+@click.option("--input", "input_path", required=True,
+              type=click.Path(exists=True, dir_okay=False),
+              help="Input .trees file")
+@click.option("--output", "output_dir", required=True,
+              type=click.Path(file_okay=False),
+              help="Output directory (created if missing)")
+@click.option("--mode", default="branch", show_default=True,
+              type=click.Choice(["branch", "site"]))
+@click.option("--seed", type=int, default=None,
+              help="Seed recorded in the receipt")
+@click.option("--graphpop-commit", default=None,
+              help="GraphPop commit SHA recorded in the receipt")
+def run_tskit_branch_grm(input_path, output_dir, mode, seed,
+                          graphpop_commit):
+    """tskit `genetic_relatedness_matrix` wrapper (Tang & Chiang 2025).
+
+    Computes the branch GRM on a tskit `.trees` file via a
+    Python subprocess (isolated RSS measurement).
+
+    Example:
+
+      graphpop-bench run tskit_branch_grm \\
+          --input cohort.trees --output ./out
+    """
+    if not TskitBranchGrmRunner.is_available():
+        raise click.ClickException(
+            "tskit not importable in this Python environment")
+    runner = TskitBranchGrmRunner()
+    result = runner.run(
+        Path(input_path), Path(output_dir),
+        mode=mode, seed=seed, graphpop_commit=graphpop_commit,
+    )
+    click.echo(
+        f"tskit_branch_grm n_samples={len(result.sample_ids)} "
         f"wall={result.profiling.wall_clock_s:.3f}s "
         f"rss_peak={result.profiling.rss_peak_mb:.1f}MB "
         f"tsv={result.normalised_tsv}",
