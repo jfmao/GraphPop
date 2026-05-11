@@ -236,6 +236,83 @@ def make_fig5d(
 
 
 # ---------------------------------------------------------------------------
+# Fig 5b — cryptic-pair recall vs injected IBD fraction
+# ---------------------------------------------------------------------------
+
+def make_fig5b(
+    panel_csv: Path, out_pdf: Path,
+    *, success_threshold: float = 0.8,
+) -> dict:
+    """Recall vs. injected IBD fraction (per-replicate scatter +
+    mean curve). Horizontal at success_threshold; legend lists the
+    phi threshold used."""
+    import csv as _csv
+    import numpy as _np
+
+    by_fraction: dict = {}
+    for row in _csv.DictReader(open(panel_csv)):
+        f = float(row["fraction"])
+        by_fraction.setdefault(f, []).append(float(row["recall"]))
+
+    if not by_fraction:
+        raise ValueError(f"no rows in {panel_csv}")
+
+    fractions = sorted(by_fraction.keys())
+    means = [_np.mean(by_fraction[f]) for f in fractions]
+    stds = [_np.std(by_fraction[f], ddof=1) if len(by_fraction[f]) > 1
+            else 0.0 for f in fractions]
+
+    with plt.rc_context(_RCPARAMS):
+        fig, ax = plt.subplots(figsize=SINGLE_COL)
+        # Per-replicate scatter (jitter on x for visibility).
+        rng = _np.random.default_rng(0)
+        for f, recalls in by_fraction.items():
+            xs = _np.full(len(recalls), f) * (
+                1 + rng.normal(scale=0.02, size=len(recalls)))
+            ax.scatter(
+                xs, recalls, s=8, alpha=0.55,
+                color=WONG["sky"], edgecolor="black",
+                linewidth=0.25, zorder=2,
+            )
+        # Mean line.
+        ax.errorbar(
+            fractions, means, yerr=stds,
+            marker="o", linestyle="-", color=WONG["blue"],
+            markeredgecolor="black", markeredgewidth=0.3,
+            ecolor=WONG["blue"], elinewidth=0.6, capsize=2,
+            label="mean ± std", zorder=3,
+        )
+        ax.axhline(
+            success_threshold, color=WONG["green"],
+            linewidth=0.5, linestyle="--",
+            label=f"benchmark target ({success_threshold:.2f})",
+            zorder=1,
+        )
+        ax.set_xscale("log")
+        ax.set_xlabel("injected IBD fraction f")
+        ax.set_ylabel("recall at φ > 0.0625")
+        ax.set_ylim(-0.05, 1.05)
+        ax.set_title("Cryptic-pair recall (simulation proxy)")
+        ax.legend(frameon=False, loc="lower right", fontsize=5.5)
+        for sp in ("top", "right"):
+            ax.spines[sp].set_visible(False)
+        ax.text(
+            -0.18, 1.05, "b",
+            transform=ax.transAxes,
+            fontsize=9, fontweight="bold",
+            va="top", ha="left",
+        )
+        out_pdf.parent.mkdir(parents=True, exist_ok=True)
+        fig.savefig(out_pdf, format="pdf")
+        plt.close(fig)
+    return {
+        "fractions": list(fractions),
+        "mean_recall": list(means),
+        "out_pdf": str(out_pdf),
+    }
+
+
+# ---------------------------------------------------------------------------
 # Fig 5c — Cypher vs Pipeline LOC comparison
 # ---------------------------------------------------------------------------
 
@@ -325,12 +402,16 @@ def _build_arg_parser() -> argparse.ArgumentParser:
                    default=DEFAULT_PANELS / "fig5a_cypher_template.txt")
     p.add_argument("--fig5a-annotations", type=Path,
                    default=DEFAULT_PANELS / "fig5a_cypher_annotations.json")
+    p.add_argument("--fig5b-csv", type=Path,
+                   default=DEFAULT_PANELS / "fig5b_panel_data.csv")
     p.add_argument("--fig5c-csv", type=Path,
                    default=DEFAULT_PANELS / "fig5c_panel_data.csv")
     p.add_argument("--fig5d-json", type=Path,
                    default=DEFAULT_PANELS / "fig5d_ecosystem.json")
     p.add_argument("--fig5a-pdf", type=Path,
                    default=DEFAULT_FIG_DIR / "fig5a.pdf")
+    p.add_argument("--fig5b-pdf", type=Path,
+                   default=DEFAULT_FIG_DIR / "fig5b.pdf")
     p.add_argument("--fig5c-pdf", type=Path,
                    default=DEFAULT_FIG_DIR / "fig5c.pdf")
     p.add_argument("--fig5d-pdf", type=Path,
@@ -341,6 +422,10 @@ def _build_arg_parser() -> argparse.ArgumentParser:
 def main(argv: list[str] | None = None) -> int:
     args = _build_arg_parser().parse_args(argv)
     print(f"[fig5a] {make_fig5a(args.fig5a_template, args.fig5a_annotations, args.fig5a_pdf)}")
+    if args.fig5b_csv.exists():
+        print(f"[fig5b] {make_fig5b(args.fig5b_csv, args.fig5b_pdf)}")
+    else:
+        print(f"[fig5b] (skipped: {args.fig5b_csv} not found — run fig5b_panels first)")
     if args.fig5c_csv.exists():
         print(f"[fig5c] {make_fig5c(args.fig5c_csv, args.fig5c_pdf)}")
     else:
