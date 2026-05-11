@@ -19,7 +19,8 @@ from pathlib import Path
 import click
 
 from .competitors import (
-    EgrmRunner, KingRunner, PlinkGrmRunner, TskitBranchGrmRunner)
+    EgrmRunner, KingRunner, PlinkGrmRunner, SLdscRunner,
+    TskitBranchGrmRunner)
 from .profiling import profile_command, write_receipt
 
 
@@ -38,6 +39,7 @@ def run():
       king               KING-robust `--kinship` (or `--related`).
       tskit_branch_grm   tskit `genetic_relatedness_matrix` on .trees.
       egrm               Fan/Mancuso/Chiang 2022 eGRM on .trees.
+      s_ldsc             Finucane 2015 partitioned-h² on sumstats.
     """
 
 
@@ -273,6 +275,66 @@ def run_egrm(input_path, output_dir, no_var, rlim, alim, left, right,
         f"wall={result.profiling.wall_clock_s:.3f}s "
         f"rss_peak={result.profiling.rss_peak_mb:.1f}MB "
         f"tsv={result.normalised_tsv}",
+        err=True,
+    )
+
+
+@run.command("s_ldsc")
+@click.option("--sumstats", required=True,
+              type=click.Path(exists=True, dir_okay=False),
+              help="LDSC .sumstats.gz file")
+@click.option("--output", "output_dir", required=True,
+              type=click.Path(file_okay=False),
+              help="Output directory (created if missing)")
+@click.option("--ref-ld-chr", required=True,
+              help="Per-chromosome ref-LD-score prefix")
+@click.option("--w-ld-chr", required=True,
+              help="Per-chromosome regression-weight prefix")
+@click.option("--frqfile-chr", default=None,
+              help="Per-chromosome allele-frequency prefix")
+@click.option("--no-overlap-annot", "no_overlap_annot",
+              is_flag=True, default=False,
+              help="Disable --overlap-annot (default: enabled)")
+@click.option("--seed", type=int, default=None,
+              help="Seed recorded in the receipt")
+@click.option("--graphpop-commit", default=None,
+              help="GraphPop commit SHA recorded in the receipt")
+@click.argument("extra_args", nargs=-1, type=click.UNPROCESSED)
+def run_s_ldsc(sumstats, output_dir, ref_ld_chr, w_ld_chr, frqfile_chr,
+                no_overlap_annot, seed, graphpop_commit, extra_args):
+    """s-LDSC partitioned-heritability wrapper (Finucane 2015).
+
+    Wraps `ldsc.py --h2 ... --overlap-annot` and emits normalised
+    per-category + total-heritability TSVs.
+
+    Example:
+
+      graphpop-bench run s_ldsc \\
+          --sumstats traits.sumstats.gz \\
+          --ref-ld-chr ref/baseline. \\
+          --w-ld-chr weights/weights. \\
+          --output ./out
+    """
+    if not SLdscRunner.is_available():
+        raise click.ClickException(
+            "ldsc.py not on PATH; install LDSC first")
+    runner = SLdscRunner()
+    result = runner.run(
+        Path(sumstats), Path(output_dir),
+        ref_ld_chr=ref_ld_chr,
+        w_ld_chr=w_ld_chr,
+        frqfile_chr=frqfile_chr,
+        overlap_annot=not no_overlap_annot,
+        extra_args=list(extra_args),
+        seed=seed,
+        graphpop_commit=graphpop_commit,
+    )
+    click.echo(
+        f"s_ldsc n_categories={len(result.categories)} "
+        f"total_h2={result.total_h2} "
+        f"wall={result.profiling.wall_clock_s:.3f}s "
+        f"rss_peak={result.profiling.rss_peak_mb:.1f}MB "
+        f"partition_tsv={result.partition_tsv}",
         err=True,
     )
 

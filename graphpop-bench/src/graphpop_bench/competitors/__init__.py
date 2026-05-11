@@ -8,7 +8,7 @@ Phase 1 wrappers (Paper 2 sim-only panels):
 - king              (KING-robust `--kinship`)                [H2, shipped]
 - tskit_branch_grm  (tskit `genetic_relatedness_matrix`)     [H3, shipped]
 - egrm              (Fan, Mancuso & Chiang 2022 reference)   [H4, shipped]
-- s_ldsc            (Finucane 2015 partitioned-h²)           [H5, pending]
+- s_ldsc            (Finucane 2015 partitioned-h²)           [H5, shipped]
 
 Phase 2 wrappers (Paper 2 real-data panels, deferred):
 - arg_rhe    (Zhu et al. 2025)
@@ -19,6 +19,13 @@ Phase 2 wrappers (Paper 2 real-data panels, deferred):
 from .egrm import EgrmResult, EgrmRunner
 from .king import KingResult, KingRunner, parse_kin_files
 from .plink_grm import PlinkGrmResult, PlinkGrmRunner, parse_grm_bin
+from .s_ldsc import (
+    CategoryRow,
+    SLdscResult,
+    SLdscRunner,
+    parse_log,
+    parse_results,
+)
 from .tskit_branch_grm import (
     TskitBranchGrmResult,
     TskitBranchGrmRunner,
@@ -28,5 +35,7 @@ __all__ = [
     "EgrmResult", "EgrmRunner",
     "KingResult", "KingRunner", "parse_kin_files",
     "PlinkGrmResult", "PlinkGrmRunner", "parse_grm_bin",
+    "CategoryRow", "SLdscResult", "SLdscRunner",
+    "parse_log", "parse_results",
     "TskitBranchGrmResult", "TskitBranchGrmRunner",
 ]
