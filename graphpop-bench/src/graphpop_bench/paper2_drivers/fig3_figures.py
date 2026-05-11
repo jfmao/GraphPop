@@ -279,6 +279,91 @@ def make_fig3c(
 # Fig 3e — pathway-conditional GRM density: branch vs SNP
 # ---------------------------------------------------------------------------
 
+def make_fig3f(
+    csv_path: Path, out_pdf: Path,
+    *, tolerance: float = 0.05,
+) -> dict:
+    """Cross-population pathway-h² strip plot."""
+    import csv as _csv
+    from collections import defaultdict
+    by_pop: dict = defaultdict(list)
+    by_pop_truth: dict = defaultdict(list)
+    with open(csv_path) as fh:
+        for row in _csv.DictReader(fh):
+            by_pop[row["population"]].append(float(row["h2_estimate"]))
+            by_pop_truth[row["population"]].append(float(row["true_h2"]))
+    if not by_pop:
+        raise ValueError(f"no rows in {csv_path}")
+
+    pops = sorted(by_pop.keys())
+    means = [np.mean(by_pop[p]) for p in pops]
+    cross_mean = float(np.mean(means))
+    truth_mean = float(np.mean([
+        v for vals in by_pop_truth.values() for v in vals]))
+
+    colors_seq = [WONG["blue"], WONG["green"],
+                   WONG["vermillion"], WONG["orange"],
+                   WONG["purple"], WONG["sky"]]
+
+    with plt.rc_context(_RCPARAMS):
+        fig, ax = plt.subplots(figsize=SINGLE_COL)
+        rng = np.random.default_rng(0)
+        for i, pop in enumerate(pops):
+            vals = np.asarray(by_pop[pop])
+            jitter = rng.normal(scale=0.06, size=vals.size)
+            ax.scatter(
+                np.full_like(vals, i, dtype=float) + jitter, vals,
+                s=10, alpha=0.6,
+                facecolor=colors_seq[i % len(colors_seq)],
+                edgecolor="black", linewidth=0.25,
+                zorder=3,
+            )
+            ax.scatter(
+                [i], [vals.mean()],
+                s=40, marker="D", facecolor="white",
+                edgecolor=colors_seq[i % len(colors_seq)],
+                linewidth=1.0, zorder=4,
+            )
+
+        # ± tolerance band around the cross-pop mean.
+        ax.axhspan(
+            cross_mean - tolerance, cross_mean + tolerance,
+            color=WONG["grey"], alpha=0.10, zorder=1,
+            label=f"cross-pop ± {tolerance:.2f}",
+        )
+        ax.axhline(cross_mean, color=WONG["grey"], linewidth=0.5,
+                    linestyle="--",
+                    label=f"cross-pop mean ({cross_mean:.2f})")
+        ax.axhline(truth_mean, color="black", linewidth=0.4,
+                    linestyle=":", alpha=0.5,
+                    label=f"true h² ({truth_mean:.2f})")
+
+        ax.set_xticks(np.arange(len(pops)))
+        ax.set_xticklabels(pops, fontsize=6)
+        ax.set_xlabel("population")
+        ax.set_ylabel(r"$h^2_{HE}$ (pathway-restricted)")
+        ax.set_title("Cross-pop pathway-h² stability")
+        ax.legend(frameon=False, loc="upper right", fontsize=5.5)
+        for sp in ("top", "right"):
+            ax.spines[sp].set_visible(False)
+        ax.text(
+            -0.18, 1.05, "f",
+            transform=ax.transAxes,
+            fontsize=9, fontweight="bold",
+            va="top", ha="left",
+        )
+        out_pdf.parent.mkdir(parents=True, exist_ok=True)
+        fig.savefig(out_pdf, format="pdf")
+        plt.close(fig)
+    return {
+        "populations": pops,
+        "per_pop_mean": dict(zip(pops, means)),
+        "cross_pop_mean": cross_mean,
+        "truth_mean": truth_mean,
+        "out_pdf": str(out_pdf),
+    }
+
+
 def make_fig3e(csv_path: Path, out_pdf: Path) -> dict:
     """Grouped-bar density panel + correlation line."""
     import csv as _csv
@@ -385,6 +470,8 @@ def _build_arg_parser() -> argparse.ArgumentParser:
                  / "fig3c_composed_pathway_time_panel_data.csv"))
     p.add_argument("--fig3e-csv", type=Path,
                    default=DEFAULT_PANELS / "fig3e_panel_data.csv")
+    p.add_argument("--fig3f-csv", type=Path,
+                   default=DEFAULT_PANELS / "fig3f_panel_data.csv")
     p.add_argument("--fig3a-pdf", type=Path,
                    default=DEFAULT_FIG_DIR / "fig3a.pdf")
     p.add_argument("--fig3b-pdf", type=Path,
@@ -393,6 +480,8 @@ def _build_arg_parser() -> argparse.ArgumentParser:
                    default=DEFAULT_FIG_DIR / "fig3c.pdf")
     p.add_argument("--fig3e-pdf", type=Path,
                    default=DEFAULT_FIG_DIR / "fig3e.pdf")
+    p.add_argument("--fig3f-pdf", type=Path,
+                   default=DEFAULT_FIG_DIR / "fig3f.pdf")
     return p
 
 
@@ -405,6 +494,10 @@ def main(argv: list[str] | None = None) -> int:
         print(f"[fig3e] {make_fig3e(args.fig3e_csv, args.fig3e_pdf)}")
     else:
         print(f"[fig3e] (skipped: {args.fig3e_csv} not found — run fig3e_panels first)")
+    if args.fig3f_csv.exists():
+        print(f"[fig3f] {make_fig3f(args.fig3f_csv, args.fig3f_pdf)}")
+    else:
+        print(f"[fig3f] (skipped: {args.fig3f_csv} not found — run fig3f_panels first)")
     return 0
 
 
