@@ -276,6 +276,94 @@ def make_fig3c(
 
 
 # ---------------------------------------------------------------------------
+# Fig 3e — pathway-conditional GRM density: branch vs SNP
+# ---------------------------------------------------------------------------
+
+def make_fig3e(csv_path: Path, out_pdf: Path) -> dict:
+    """Grouped-bar density panel + correlation line."""
+    import csv as _csv
+    from collections import defaultdict
+    rows = list(_csv.DictReader(open(csv_path)))
+    if not rows:
+        raise ValueError(f"no rows in {csv_path}")
+    by_size: dict = defaultdict(list)
+    for r in rows:
+        by_size[int(r["pathway_size"])].append(r)
+
+    sizes = sorted(by_size.keys())
+    branch_means = [np.mean([float(r["branch_nnz_frac"])
+                              for r in by_size[s]]) for s in sizes]
+    plink_means = [np.mean([float(r["plink_nnz_frac"])
+                             for r in by_size[s]]) for s in sizes]
+    branch_stds = [np.std([float(r["branch_nnz_frac"])
+                            for r in by_size[s]], ddof=1)
+                   if len(by_size[s]) > 1 else 0.0
+                   for s in sizes]
+    plink_stds = [np.std([float(r["plink_nnz_frac"])
+                           for r in by_size[s]], ddof=1)
+                  if len(by_size[s]) > 1 else 0.0
+                  for s in sizes]
+    pearson_means = [np.nanmean([float(r["corr_pearson"])
+                                  for r in by_size[s]]) for s in sizes]
+
+    with plt.rc_context(_RCPARAMS):
+        fig, ax = plt.subplots(figsize=SINGLE_COL)
+        x = np.arange(len(sizes))
+        bar_w = 0.35
+        ax.bar(x - bar_w/2, branch_means, width=bar_w,
+               yerr=branch_stds, capsize=2,
+               color=WONG["blue"], edgecolor="black",
+               linewidth=0.4,
+               error_kw=dict(linewidth=0.5),
+               label="GraphPop branch GRM")
+        ax.bar(x + bar_w/2, plink_means, width=bar_w,
+               yerr=plink_stds, capsize=2,
+               color=WONG["vermillion"], edgecolor="black",
+               linewidth=0.4,
+               error_kw=dict(linewidth=0.5),
+               label="PLINK pathway-SNP GRM")
+        ax.set_xticks(x)
+        ax.set_xticklabels([str(s) for s in sizes])
+        ax.set_xlabel("pathway size (# mutations)")
+        ax.set_ylabel("off-diag entries with |G| > 1e-6")
+        ax.set_ylim(0, 1.05)
+        ax.set_title("Pathway-conditional GRM density")
+        ax.legend(frameon=False, loc="lower right", fontsize=5.5)
+        for sp in ("top", "right"):
+            ax.spines[sp].set_visible(False)
+        ax.text(
+            -0.18, 1.05, "e",
+            transform=ax.transAxes,
+            fontsize=9, fontweight="bold",
+            va="top", ha="left",
+        )
+
+        # Pearson correlation on a twin axis (right).
+        ax2 = ax.twinx()
+        ax2.plot(x, pearson_means, "-o",
+                 color=WONG["green"], markeredgecolor="black",
+                 markeredgewidth=0.3, linewidth=0.8,
+                 label="branch ↔ PLINK Pearson r")
+        ax2.set_ylabel("Pearson r (branch vs PLINK)",
+                        color=WONG["green"], fontsize=6)
+        ax2.tick_params(axis="y", labelcolor=WONG["green"])
+        ax2.set_ylim(-0.05, 1.05)
+        ax2.spines["top"].set_visible(False)
+        ax2.legend(frameon=False, loc="upper right", fontsize=5.5)
+
+        out_pdf.parent.mkdir(parents=True, exist_ok=True)
+        fig.savefig(out_pdf, format="pdf")
+        plt.close(fig)
+    return {
+        "sizes": sizes,
+        "branch_nnz_mean": branch_means,
+        "plink_nnz_mean": plink_means,
+        "pearson_mean": pearson_means,
+        "out_pdf": str(out_pdf),
+    }
+
+
+# ---------------------------------------------------------------------------
 # CLI
 # ---------------------------------------------------------------------------
 
@@ -295,12 +383,16 @@ def _build_arg_parser() -> argparse.ArgumentParser:
         "--fig3c-csv", type=Path,
         default=(DEFAULT_PANELS
                  / "fig3c_composed_pathway_time_panel_data.csv"))
+    p.add_argument("--fig3e-csv", type=Path,
+                   default=DEFAULT_PANELS / "fig3e_panel_data.csv")
     p.add_argument("--fig3a-pdf", type=Path,
                    default=DEFAULT_FIG_DIR / "fig3a.pdf")
     p.add_argument("--fig3b-pdf", type=Path,
                    default=DEFAULT_FIG_DIR / "fig3b.pdf")
     p.add_argument("--fig3c-pdf", type=Path,
                    default=DEFAULT_FIG_DIR / "fig3c.pdf")
+    p.add_argument("--fig3e-pdf", type=Path,
+                   default=DEFAULT_FIG_DIR / "fig3e.pdf")
     return p
 
 
@@ -309,6 +401,10 @@ def main(argv: list[str] | None = None) -> int:
     print(f"[fig3a] {make_fig3a(args.fig3a_csv, args.fig3a_pdf)}")
     print(f"[fig3b] {make_fig3b(args.fig3b_csv, args.fig3b_pdf)}")
     print(f"[fig3c] {make_fig3c(args.fig3c_csv, args.fig3c_pdf)}")
+    if args.fig3e_csv.exists():
+        print(f"[fig3e] {make_fig3e(args.fig3e_csv, args.fig3e_pdf)}")
+    else:
+        print(f"[fig3e] (skipped: {args.fig3e_csv} not found — run fig3e_panels first)")
     return 0
 
 
